@@ -149,3 +149,4 @@ function updateUserAvatar() {
     if (s.exists() && s.val()) av.src = s.val(); else av.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=0088cc&color=fff&size=44`;
   });
 }
+

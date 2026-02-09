@@ -1,10 +1,10 @@
-/* ==========================================================
-   4. СТАТУСЫ ПОЛЬЗОВАТЕЛЕЙ (ИСПОЛЬЗУЕМ ГЛОБАЛЬНУЮ userStatuses)
+﻿/* ==========================================================
+   4. РЎРўРђРўРЈРЎР« РџРћР›Р¬Р—РћР’РђРўР•Р›Р•Р™ (РРЎРџРћР›Р¬Р—РЈР•Рњ Р“Р›РћР‘РђР›Р¬РќРЈР® userStatuses)
    ========================================================== */
 function getFriendStatusText(st) {
-    if (!st) return "Был(а) недавно";
-    if (st.online === true) return st.idle ? "Неактивен" : "В сети";
-    return "Был(а) недавно";
+    if (!st) return "Р‘С‹Р»(Р°) РЅРµРґР°РІРЅРѕ";
+    if (st.online === true) return st.idle ? "РќРµР°РєС‚РёРІРµРЅ" : "Р’ СЃРµС‚Рё";
+    return "Р‘С‹Р»(Р°) РЅРµРґР°РІРЅРѕ";
 }
 
 function getFriendStatusClass(st) {
@@ -20,7 +20,7 @@ function getOnlineDotClass(st) {
 }
 
 function updateFriendStatusInList(friendName, statusData) {
-    // Используем глобальную переменную userStatuses из utils.js
+    // РСЃРїРѕР»СЊР·СѓРµРј РіР»РѕР±Р°Р»СЊРЅСѓСЋ РїРµСЂРµРјРµРЅРЅСѓСЋ userStatuses РёР· utils.js
     userStatuses[friendName] = statusData;
     const onlineDot = document.getElementById(`online_${friendName}`);
     const lastSeenElement = document.getElementById(`lastSeen_${friendName}`);
@@ -50,16 +50,16 @@ function updateMyStatus(isOnlineStatus, isIdle = false) {
     db.ref(`userStatus/${username}`).set(statusData);
     db.ref(`accounts/${username}`).update({ lastSeen: statusData.lastSeen, online: isOnlineStatus });
     
-    // Используем глобальную переменную userStatuses
+    // РСЃРїРѕР»СЊР·СѓРµРј РіР»РѕР±Р°Р»СЊРЅСѓСЋ РїРµСЂРµРјРµРЅРЅСѓСЋ userStatuses
     userStatuses[username] = statusData;
     
     const myStatusElement = document.getElementById('userStatus');
     if (myStatusElement) {
         if (isOnlineStatus) {
-            myStatusElement.textContent = isIdle ? "Неактивен" : "В сети";
+            myStatusElement.textContent = isIdle ? "РќРµР°РєС‚РёРІРµРЅ" : "Р’ СЃРµС‚Рё";
             myStatusElement.className = isIdle ? "user-status idle" : "user-status";
         } else {
-            myStatusElement.textContent = "Был(а) недавно";
+            myStatusElement.textContent = "Р‘С‹Р»(Р°) РЅРµРґР°РІРЅРѕ";
             myStatusElement.className = "user-status recently";
         }
     }
@@ -91,9 +91,9 @@ function setupUserStatusMonitoring() {
 
 function setupNetworkMonitoring() {
     window.addEventListener('online', () => {
-        isOnline = true; updateMyStatus(true, false); showNotification("Сеть", "Соединение восстановлено");
+        isOnline = true; updateMyStatus(true, false); showNotification("РЎРµС‚СЊ", "РЎРѕРµРґРёРЅРµРЅРёРµ РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРѕ");
     });
     window.addEventListener('offline', () => {
-        isOnline = false; updateMyStatus(false, false); showError("Нет соединения с интернетом");
+        isOnline = false; updateMyStatus(false, false); showError("РќРµС‚ СЃРѕРµРґРёРЅРµРЅРёСЏ СЃ РёРЅС‚РµСЂРЅРµС‚РѕРј");
     });
 }

@@ -1,11 +1,11 @@
-/* ==========================================================
-   ЗВУКОВЫЕ ЭФФЕКТЫ (УЛУЧШЕННАЯ ВЕРСИЯ)
+﻿/* ==========================================================
+   Р—Р’РЈРљРћР’Р«Р• Р­Р¤Р¤Р•РљРўР« (РЈР›РЈР§РЁР•РќРќРђРЇ Р’Р•Р РЎРРЇ)
    ========================================================== */
 
-// Создание AudioContext
+// РЎРѕР·РґР°РЅРёРµ AudioContext
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-// Генерация звука отправки сообщения
+// Р“РµРЅРµСЂР°С†РёСЏ Р·РІСѓРєР° РѕС‚РїСЂР°РІРєРё СЃРѕРѕР±С‰РµРЅРёСЏ
 function generateSendSound() {
     const duration = 0.15;
     const now = audioContext.currentTime;
@@ -27,7 +27,7 @@ function generateSendSound() {
     oscillator.stop(now + duration);
 }
 
-// Генерация звука получения сообщения
+// Р“РµРЅРµСЂР°С†РёСЏ Р·РІСѓРєР° РїРѕР»СѓС‡РµРЅРёСЏ СЃРѕРѕР±С‰РµРЅРёСЏ
 function generateReceiveSound() {
     const duration = 0.1;
     const now = audioContext.currentTime;
@@ -49,7 +49,7 @@ function generateReceiveSound() {
     oscillator.stop(now + duration);
 }
 
-// Генерация звука уведомления
+// Р“РµРЅРµСЂР°С†РёСЏ Р·РІСѓРєР° СѓРІРµРґРѕРјР»РµРЅРёСЏ
 function generateNotificationSound() {
     const playTone = (frequency, startTime, duration) => {
         const oscillator = audioContext.createOscillator();
@@ -73,7 +73,7 @@ function generateNotificationSound() {
     playTone(1000, now + 0.15, 0.1);
 }
 
-// Публичные функции
+// РџСѓР±Р»РёС‡РЅС‹Рµ С„СѓРЅРєС†РёРё
 function playSendSound() {
     try {
         if (audioContext.state === 'suspended') {
@@ -81,7 +81,7 @@ function playSendSound() {
         }
         generateSendSound();
     } catch (error) {
-        console.error('Ошибка звука:', error);
+        console.error('РћС€РёР±РєР° Р·РІСѓРєР°:', error);
     }
 }
 
@@ -92,7 +92,7 @@ function playReceiveSound() {
         }
         generateReceiveSound();
     } catch (error) {
-        console.error('Ошибка звука:', error);
+        console.error('РћС€РёР±РєР° Р·РІСѓРєР°:', error);
     }
 }
 
@@ -103,15 +103,16 @@ function playNotificationSound() {
         }
         generateNotificationSound();
     } catch (error) {
-        console.error('Ошибка звука:', error);
+        console.error('РћС€РёР±РєР° Р·РІСѓРєР°:', error);
     }
 }
 
-// Экспорт
+// Р­РєСЃРїРѕСЂС‚
 if (typeof window !== 'undefined') {
     window.playSendSound = playSendSound;
     window.playReceiveSound = playReceiveSound;
     window.playNotificationSound = playNotificationSound;
 }
 
-console.log('✅ Звуки загружены');
+console.log('вњ… Р—РІСѓРєРё Р·Р°РіСЂСѓР¶РµРЅС‹');
+

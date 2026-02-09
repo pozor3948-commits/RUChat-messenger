@@ -1,17 +1,17 @@
-/* ==========================================================
-   3. УТИЛИТЫ ДЛЯ ЛОКАЛЬНОЙ РАЗРАБОТКИ
+﻿/* ==========================================================
+   3. РЈРўРР›РРўР« Р”Р›РЇ Р›РћРљРђР›Р¬РќРћР™ Р РђР—Р РђР‘РћРўРљР
    ========================================================== */
 
-// ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+// Р“Р›РћР‘РђР›Р¬РќР«Р• РџР•Р Р•РњР•РќРќР«Р•
 let notificationQueue = [];
 let isNotificationShowing = false;
 let isMobile = window.innerWidth <= 768;
 let userStatuses = {};
 
-// Функция проверки соединения
+// Р¤СѓРЅРєС†РёСЏ РїСЂРѕРІРµСЂРєРё СЃРѕРµРґРёРЅРµРЅРёСЏ
 function checkConnection() {
     if (!navigator.onLine) { 
-        showError('Нет соединения с интернетом'); 
+        showError('РќРµС‚ СЃРѕРµРґРёРЅРµРЅРёСЏ СЃ РёРЅС‚РµСЂРЅРµС‚РѕРј'); 
         return false; 
     }
     return true;
@@ -38,26 +38,26 @@ function hideLoading() {
     document.getElementById('loadingOverlay').style.display = 'none';
 }
 
-// Функция уведомлений через глобальную
+// Р¤СѓРЅРєС†РёСЏ СѓРІРµРґРѕРјР»РµРЅРёР№ С‡РµСЂРµР· РіР»РѕР±Р°Р»СЊРЅСѓСЋ
 function showNotification(title, text, type = 'info') {
     if (typeof window.showNotification === 'function') {
         window.showNotification(title, text, type);
     } else {
-        // Fallback для старых вызовов
+        // Fallback РґР»СЏ СЃС‚Р°СЂС‹С… РІС‹Р·РѕРІРѕРІ
         notificationQueue.push({ title, text });
         if (!isNotificationShowing) showNextNotification();
     }
 }
 
-// Функция ошибок через глобальную
+// Р¤СѓРЅРєС†РёСЏ РѕС€РёР±РѕРє С‡РµСЂРµР· РіР»РѕР±Р°Р»СЊРЅСѓСЋ
 function showError(msg, retry) {
     if (typeof window.showError === 'function') {
         window.showError(msg, retry);
     } else {
-        // Fallback для старых вызовов
+        // Fallback РґР»СЏ СЃС‚Р°СЂС‹С… РІС‹Р·РѕРІРѕРІ
         const err = document.createElement('div');
         err.className = 'error-message';
-        err.innerHTML = `<span>${msg}</span>${retry ? '<button class="error-retry" onclick="retryAction()">Повторить</button>' : ''}`;
+        err.innerHTML = `<span>${msg}</span>${retry ? '<button class="error-retry" onclick="retryAction()">РџРѕРІС‚РѕСЂРёС‚СЊ</button>' : ''}`;
         document.body.appendChild(err);
         if (retry) window.retryAction = retry;
         setTimeout(() => { err.remove(); window.retryAction = null; }, 5000);
@@ -76,3 +76,4 @@ function showNextNotification() {
         setTimeout(() => { n.style.display = 'none'; setTimeout(showNextNotification, 300); }, 3000);
     }
 }
+

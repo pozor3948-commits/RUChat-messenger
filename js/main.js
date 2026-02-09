@@ -1,5 +1,5 @@
-/* ==========================================================
-   2. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (ОСТАВЛЯЕМ ТОЛЬКО УНИКАЛЬНЫЕ)
+﻿/* ==========================================================
+   2. Р“Р›РћР‘РђР›Р¬РќР«Р• РџР•Р Р•РњР•РќРќР«Р• (РћРЎРўРђР’Р›РЇР•Рњ РўРћР›Р¬РљРћ РЈРќРРљРђР›Р¬РќР«Р•)
    ========================================================== */
 let username = "";
 let currentChatId = null;
@@ -15,20 +15,20 @@ let isTyping = false;
 let voiceRecordInterval = null;
 let voiceRecordTime = 0;
 
-// для медиа и голосовых
+// РґР»СЏ РјРµРґРёР° Рё РіРѕР»РѕСЃРѕРІС‹С…
 let mediaRecorder = null;
 let audioChunks = [];
 let recordingStream = null;
 
 /* ==========================================================
-   ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
+   РРќРР¦РРђР›РР—РђР¦РРЇ РџР РР›РћР–Р•РќРРЇ
    ========================================================== */
 document.addEventListener('DOMContentLoaded', () => {
-    // Обновляем глобальную переменную isMobile
+    // РћР±РЅРѕРІР»СЏРµРј РіР»РѕР±Р°Р»СЊРЅСѓСЋ РїРµСЂРµРјРµРЅРЅСѓСЋ isMobile
     isMobile = window.innerWidth <= 768;
     
     setupNetworkMonitoring();
-    if (!navigator.onLine) showError('Нет соединения с интернетом');
+    if (!navigator.onLine) showError('РќРµС‚ СЃРѕРµРґРёРЅРµРЅРёСЏ СЃ РёРЅС‚РµСЂРЅРµС‚РѕРј');
     document.getElementById('callButton').classList.remove('active');
     document.getElementById("text").addEventListener("input", updateSendButton);
     updateSendButton();
