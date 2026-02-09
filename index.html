@@ -1,0 +1,425 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="RuChat">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="msapplication-TileColor" content="#0f172a">
+    <meta name="application-name" content="RuChat Messenger">
+    <meta name="description" content="RuChat - современный мессенджер с видеосообщениями">
+    <meta name="keywords" content="мессенджер, чат, RuChat, сообщения, общение, видеосообщения">
+    
+    <title>RuChat | Современный мессенджер</title>
+    
+    <!-- Иконки без файлов (встроенные SVG) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22 fill=%22%230088cc%22>💬</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22 fill=%22%230088cc%22>💬</text></svg>">
+    
+    <!-- Шрифт -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <!-- Стили -->
+    <link rel="stylesheet" href="css/style.css">
+    
+    <style>
+        /* Дополнительные стили для мобильных устройств */
+        @media (max-width: 768px) {
+            html, body {
+                -webkit-tap-highlight-color: transparent;
+                -webkit-touch-callout: none;
+                -webkit-user-select: none;
+                user-select: none;
+                overflow: hidden;
+                height: 100%;
+                width: 100%;
+                position: fixed;
+            }
+            
+            input, textarea {
+                -webkit-user-select: text;
+                user-select: text;
+            }
+            
+            /* Фикс для меню на мобильных */
+            .attachment-menu,
+            .record-type-menu,
+            .emoji-picker {
+                position: fixed !important;
+                bottom: 80px !important;
+                z-index: 9999 !important;
+                max-height: 60vh;
+                overflow-y: auto;
+            }
+            
+            .attachment-menu {
+                left: 10px !important;
+                right: auto !important;
+            }
+            
+            .record-type-menu {
+                right: 10px !important;
+                left: auto !important;
+            }
+            
+            .emoji-picker {
+                left: 10px !important;
+                right: 10px !important;
+                width: calc(100% - 20px) !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ==========  ЛОГИН  ========== -->
+<div class="login-container" id="login">
+    <div class="login-box">
+        <h1 class="login-title">RuChat</h1>
+        <input type="text" id="usernameInput" class="login-input" placeholder="Имя пользователя" autocomplete="username">
+        <input type="password" id="passwordInput" class="login-input" placeholder="Пароль" autocomplete="current-password">
+        <div class="btn-group">
+            <button class="login-btn" onclick="register()">Регистрация</button>
+            <button class="login-btn secondary" onclick="login()">Войти</button>
+        </div>
+        <button class="login-btn secondary" onclick="recoverPassword()">Восстановить пароль</button>
+    </div>
+</div>
+
+<!-- ==========  ОСНОВНОЙ ИНТЕРФЕЙС  ========== -->
+<div class="main-container" id="main">
+
+    <!-- мобильный хедер -->
+    <div class="mobile-header" id="mobileHeader">
+        <button class="mobile-menu-btn" onclick="showSettingsMenu()">⚙️</button>
+        <div class="chat-info">
+            <div class="chat-title" id="mobileChatTitle">RuChat</div>
+            <div class="chat-members" id="mobileChatStatus">Выберите чат</div>
+        </div>
+        <button class="mobile-back-btn" id="mobileBackBtn" onclick="closeChat()">←</button>
+    </div>
+
+    <!-- сайдбар -->
+    <div class="sidebar" id="sidebar">
+        <div class="user-header">
+            <img src="" alt="Avatar" class="user-avatar" id="userAvatar" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=User&background=0088cc&color=fff&size=44'">
+            <div class="user-info">
+                <div class="user-name" id="userName"></div>
+                <div class="user-status" id="userStatus">В сети</div>
+            </div>
+            <button class="icon-btn" onclick="showSettingsMenu()" title="Настройки">⚙️</button>
+        </div>
+
+        <div class="menu-section">
+            <div class="menu-title">Поиск</div>
+            <input type="text" class="search-input" placeholder="Поиск чатов..." id="searchInput" oninput="searchChats(this.value)">
+        </div>
+
+        <div class="menu-section">
+            <div class="menu-title">Контакты</div>
+            <div class="contacts-list" id="friendList"></div>
+        </div>
+
+        <div class="menu-section">
+            <div class="menu-title">Группы</div>
+            <div class="groups-list" id="groupList"></div>
+        </div>
+
+        <div class="menu-section">
+            <button class="login-btn" onclick="showCreateGroupModal()">Создать группу</button>
+            <button class="login-btn secondary" onclick="showAddFriend()">Добавить друга</button>
+        </div>
+    </div>
+
+    <!-- чат -->
+    <div class="chat-container" id="chatContainer">
+        <div class="chat-header" id="chatHeader">
+            <div class="chat-info">
+                <img src="" alt="" class="user-avatar" id="chatAvatar" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=Chat&background=0088cc&color=fff&size=44'">
+                <div>
+                    <div class="chat-title" id="chatWith">Выберите чат</div>
+                    <div class="chat-members" id="chatMembers"></div>
+                </div>
+            </div>
+            <div class="chat-actions">
+                <button class="icon-btn" onclick="toggleTheme()" title="Сменить тему">🌙</button>
+                <button class="icon-btn" onclick="showChatInfo()" title="Информация о чате">№️</button>
+                <button class="icon-btn" onclick="toggleEmojiPicker()" title="Эмодзи">😊</button>
+            </div>
+        </div>
+
+        <div class="stories-container" id="storiesContainer">
+            <div class="stories-list" id="storiesList"></div>
+        </div>
+
+        <div class="messages-container" id="messages"></div>
+
+        <div class="message-input-container">
+            <div class="input-wrapper">
+                <button class="attachment-btn" onclick="toggleAttachmentMenu()" title="Прикрепить файл">📎</button>
+                <input type="text" class="message-input" id="text" placeholder="Введите сообщение..." 
+                       onkeypress="handleKeyPress(event)" oninput="updateSendButton(); handleTyping()"
+                       autocomplete="off" autocorrect="on" autocapitalize="sentences">
+                <button class="icon-btn" onclick="showRecordTypeMenu()" title="Запись сообщения">🎤</button>
+                <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Отправить">✈️</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ===== ПАНЕЛЬ ЭМОДЗИ ===== -->
+<div class="emoji-picker" id="emojiPicker">
+    <div class="emoji-search"><input type="text" placeholder="Поиск эмодзи..." id="emojiSearch"></div>
+    <div class="emoji-categories" id="emojiCategories"></div>
+    <div class="emoji-grid" id="emojiGrid"></div>
+</div>
+
+<!-- ===== МЕНЮ ПРИКРЕПЛЕНИЯ ===== -->
+<div class="attachment-menu" id="attachmentMenu">
+    <div class="attachment-item" onclick="attachPhoto()"><div class="icon">📷</div><div class="text">Фото</div></div>
+    <div class="attachment-item" onclick="attachVideo()"><div class="icon">🎥</div><div class="text">Видео</div></div>
+    <div class="attachment-item" onclick="attachDocument()"><div class="icon">📄</div><div class="text">Документ</div></div>
+    <div class="attachment-item" onclick="attachAudio()"><div class="icon">🎵</div><div class="text">Аудио</div></div>
+</div>
+
+<!-- ===== МЕНЮ ВЫБОРА ТИПА ЗАПИСИ ===== -->
+<div class="attachment-menu record-type-menu" id="recordTypeMenu">
+    <div class="attachment-item" onclick="startAudioRecording()">
+        <div class="icon">🎤</div>
+        <div class="text">Аудиосообщение</div>
+    </div>
+    <div class="attachment-item" onclick="startVideoRecording()">
+        <div class="icon">🎥</div>
+        <div class="text">Видеосообщение</div>
+    </div>
+</div>
+
+<!-- ===== ОВЕРЛЕЙ ЗАПИСИ ВИДЕОСООБЩЕНИЯ ===== -->
+<div class="record-overlay video-record-overlay" id="videoRecordOverlay">
+    <div class="record-modal video-record-modal">
+        <div class="video-preview-container">
+            <video class="video-preview" id="videoPreview" autoplay muted></video>
+            <div class="recording-indicator" id="recordingIndicator">
+                <div class="recording-dot"></div>
+                <span>Идет запись...</span>
+            </div>
+            <div class="record-timer" id="videoTimer">00:00</div>
+            <div class="camera-controls">
+                <button class="icon-btn" onclick="toggleCamera()" title="Перевернуть камеру">
+                    <span class="camera-icon">🔄</span>
+                </button>
+                <button class="icon-btn" onclick="cancelVideoRecording()" title="Отмена">
+                    <span class="cancel-icon">✕</span>
+                </button>
+            </div>
+        </div>
+        <div class="record-controls">
+            <button class="record-btn video-record-btn" id="videoRecordBtn" 
+                    onmousedown="startVideoRecordingAction()" 
+                    ontouchstart="startVideoRecordingAction()"
+                    title="Удерживайте для записи">
+                <div class="video-record-btn-inner"></div>
+            </button>
+            <div class="record-hint">Удерживайте для записи видео</div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== КНОПКА ЗВОНКА ===== -->
+<button class="call-button" id="callButton" onclick="startVoiceCall()" title="Голосовой звонок">📞</button>
+
+<!-- ===== ОВЕРЛЕЙ ЗВОНКА ===== -->
+<div class="call-overlay" id="callOverlay">
+    <div class="call-modal">
+        <div class="call-avatar-wrap">
+            <div class="call-ring"></div>
+            <img class="call-avatar" id="callAvatar" alt="Call Avatar">
+        </div>
+        <div class="call-name" id="callName"></div>
+        <div class="call-status" id="callStatus"></div>
+        <div class="call-timer" id="callTimer">00:00</div>
+        <div class="call-controls">
+            <button class="call-control-btn" id="muteBtn" onclick="toggleMute()" title="Микрофон">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
+            </button>
+            <button class="call-control-btn end" onclick="endCall()" title="Завершить">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 14c3-2 6-3 9-3s6 1 9 3"></path>
+                    <path d="M5 16v3"></path>
+                    <path d="M19 16v3"></path>
+                </svg>
+            </button>
+            <button class="call-control-btn" id="speakerBtn" onclick="toggleSpeaker()" title="Динамик">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 5L6 9H2v6h4l5 4z"></path>
+                    <path d="M19 5a7 7 0 0 1 0 14"></path>
+                    <path d="M16 8a4 4 0 0 1 0 8"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== ОВЕРЛЕЙ ЗАПИСИ ГОЛОСОВОГО ===== -->
+<div class="record-overlay" id="voiceRecordOverlay">
+    <div class="record-modal">
+        <h2 class="record-title">Запись голосового сообщения</h2>
+        <div class="waveform" id="voiceWaveform">
+            <div class="waveform-line" style="left:10%"></div>
+            <div class="waveform-line" style="left:20%"></div>
+            <div class="waveform-line" style="left:30%"></div>
+            <div class="waveform-line" style="left:40%"></div>
+            <div class="waveform-line" style="left:50%"></div>
+            <div class="waveform-line" style="left:60%"></div>
+            <div class="waveform-line" style="left:70%"></div>
+            <div class="waveform-line" style="left:80%"></div>
+            <div class="waveform-line" style="left:90%"></div>
+        </div>
+        <div class="record-timer" id="voiceTimer">00:00</div>
+        <div class="record-controls">
+            <button class="record-btn cancel" onclick="cancelVoiceRecord()" title="Отмена">✕</button>
+            <button class="record-btn start" onclick="startVoiceRecord()" id="voiceStartBtn" title="Начать запись">●</button>
+            <button class="record-btn stop" onclick="stopVoiceRecord()" id="voiceStopBtn" style="display:none" title="Остановить запись">■</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== ОВЕРЛЕЙ СОЗДАНИЯ ГРУППЫ ===== -->
+<div class="group-modal-overlay" id="groupModalOverlay">
+    <div class="group-modal">
+        <h2 class="group-modal-title">Создать группу</h2>
+        <input type="text" class="group-input" id="groupNameInput" placeholder="Название группы">
+        <input type="text" class="group-input" id="groupAvatarInput" placeholder="Ссылка на аватар (необязательно)">
+        <div class="group-members-list" id="groupMembersList"></div>
+        <div class="group-modal-buttons">
+            <button class="login-btn" onclick="createGroup()">Создать</button>
+            <button class="login-btn secondary" onclick="closeGroupModal()">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== УВЕДОМЛЕНИЕ ===== -->
+<div class="notification" id="notification">
+    <div class="notification-icon">🔔</div>
+    <div class="notification-content">
+        <div class="notification-title" id="notificationTitle"></div>
+        <div class="notification-text" id="notificationText"></div>
+    </div>
+</div>
+
+<!-- ===== ЗАГРУЗКА ===== -->
+<div class="loading-overlay" id="loadingOverlay" style="display:none;">
+    <div class="loading-spinner"></div>
+</div>
+
+<!-- Скрипты -->
+<script src="js/firebase-config.js"></script>
+<script src="js/utils.js"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/main.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/sounds.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/status.js"></script>
+<script src="js/chat.js"></script>
+<script src="js/media.js"></script>
+<script src="js/emoji.js"></script>
+<script src="js/groups.js"></script>
+<script src="js/mobile.js"></script>
+<script src="js/video-messages.js"></script>
+<script src="js/audio-call.js"></script>
+<script src="js/settings.js"></script>
+
+<script>
+    // Функция для проверки локального запуска
+    window.isLocalFile = function() {
+        return window.location.protocol === 'file:';
+    };
+    
+    // Улучшенные уведомления для локального запуска
+    window.showNotification = function(title, text, type = 'info') {
+        const n = document.getElementById('notification');
+        if (!n) return;
+        
+        document.getElementById('notificationTitle').textContent = title;
+        document.getElementById('notificationText').textContent = text;
+        
+        // Устанавливаем тип уведомления
+        n.className = 'notification';
+        if (type === 'error') {
+            n.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.95), rgba(220,38,38,0.95))';
+            n.style.boxShadow = '0 15px 35px rgba(239,68,68,0.4), 0 5px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
+        } else if (type === 'success') {
+            n.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.95), rgba(74,222,128,0.95))';
+            n.style.boxShadow = '0 15px 35px rgba(34,197,94,0.4), 0 5px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
+        } else if (type === 'warning') {
+            n.style.background = 'linear-gradient(135deg, rgba(245,158,11,0.95), rgba(217,119,6,0.95))';
+            n.style.boxShadow = '0 15px 35px rgba(245,158,11,0.4), 0 5px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
+        }
+        
+        n.style.display = 'flex';
+        
+        // Автоматическое скрытие
+        setTimeout(() => {
+            n.style.display = 'none';
+            // Сбрасываем стили
+            n.style.background = '';
+            n.style.boxShadow = '';
+        }, 3000);
+    };
+    
+    // Улучшенная функция ошибок
+    window.showError = function(msg, retry) {
+        showNotification(msg, 'Ошибка', 'error');
+        if (retry) window.retryAction = retry;
+    };
+    
+    console.log('RuChat запущен в режиме разработки (file://)');
+    
+    // Автоматическое скрытие меню при клике вне их
+    document.addEventListener('click', function(e) {
+        const attachmentMenu = document.getElementById('attachmentMenu');
+        const recordTypeMenu = document.getElementById('recordTypeMenu');
+        const emojiPicker = document.getElementById('emojiPicker');
+        
+        if (attachmentMenu && attachmentMenu.classList.contains('active') && 
+            !e.target.closest('.attachment-menu') && 
+            !e.target.closest('.attachment-btn')) {
+            attachmentMenu.classList.remove('active');
+        }
+        
+        if (recordTypeMenu && recordTypeMenu.classList.contains('active') && 
+            !e.target.closest('.record-type-menu') && 
+            !e.target.closest('.icon-btn[onclick*="showRecordTypeMenu"]')) {
+            recordTypeMenu.classList.remove('active');
+        }
+        
+        if (emojiPicker && emojiPicker.classList.contains('active') && 
+            !e.target.closest('.emoji-picker') && 
+            !e.target.closest('.icon-btn[onclick*="toggleEmojiPicker"]')) {
+            emojiPicker.classList.remove('active');
+        }
+    });
+
+    // Автоматическое обновление isMobile при изменении размера окна
+    window.addEventListener('resize', function() {
+        window.isMobile = window.innerWidth <= 768;
+    });
+</script>
+
+</body>
+</html>
