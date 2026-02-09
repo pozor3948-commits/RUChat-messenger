@@ -168,12 +168,15 @@ function listenForCallAnswer() {
     // РЎР»СѓС€Р°РµРј ICE candidates
     db.ref(`calls/${currentChatId}/candidates`).on('child_added', async (snapshot) => {
         const candidateData = snapshot.val();
+        if (!candidateData || !candidateData.candidate) return;
+        const c = candidateData.candidate;
+        if (c.sdpMid == null && c.sdpMLineIndex == null) return;
         
         if (candidateData.from !== username && peerConnection) {
             try {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidateData.candidate));
+                await peerConnection.addIceCandidate(new RTCIceCandidate(c));
             } catch (error) {
-                console.error('РћС€РёР±РєР° РґРѕР±Р°РІР»РµРЅРёСЏ ICE candidate:', error);
+                console.error('Ошибка добавления ICE candidate:', error);
             }
         }
     });
@@ -270,8 +273,6 @@ async function endCall() {
                 status: 'ended',
                 endTime: Date.now()
             });
-            
-            // РЈРґР°Р»СЏРµРј СЃР»СѓС€Р°С‚РµР»РµР№
             db.ref(`calls/${currentChatId}`).off();
         }
         

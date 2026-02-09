@@ -1,10 +1,8 @@
 ﻿/* ==========================================================
-   РњР•РќР® РќРђРЎРўР РћР•Рљ Р”Р›РЇ Р РђР—Р РђР‘РћРўРљР
+   МЕНЮ НАСТРОЕК
    ========================================================== */
 
-// РџРѕРєР°Р· РјРµРЅСЋ РЅР°СЃС‚СЂРѕРµРє РїСЂРё РєР»РёРєРµ РЅР° РєРЅРѕРїРєСѓ вљ™пёЏ
 function showSettingsMenu() {
-    // РЎРѕР·РґР°РµРј РїСЂРѕСЃС‚РѕРµ РјРµРЅСЋ РЅР°СЃС‚СЂРѕРµРє
     const html = `
         <div style="
             position: fixed;
@@ -41,7 +39,7 @@ function showSettingsMenu() {
                     -webkit-text-fill-color: transparent;
                     background-clip: text;
                     font-weight: 800;
-                ">вљ™пёЏ РќР°СЃС‚СЂРѕР№РєРё RuChat</h2>
+                ">Настройки RuChat</h2>
                 
                 <div style="
                     background: rgba(255,255,255,0.05);
@@ -50,16 +48,16 @@ function showSettingsMenu() {
                     margin-bottom: 20px;
                     border: 1px solid rgba(255,255,255,0.1);
                 ">
-                    <div style="color: #a5b4fc; font-size: 14px; margin-bottom: 10px; font-weight: 600;">рџ’» Р РµР¶РёРј СЂР°Р·СЂР°Р±РѕС‚РєРё</div>
+                    <div style="color: #a5b4fc; font-size: 14px; margin-bottom: 10px; font-weight: 600;">Режим разработки</div>
                     <div style="color: #cbd5e1; font-size: 14px; line-height: 1.5;">
-                        РџСЂРёР»РѕР¶РµРЅРёРµ Р·Р°РїСѓС‰РµРЅРѕ Р»РѕРєР°Р»СЊРЅРѕ РґР»СЏ СЂР°Р·СЂР°Р±РѕС‚РєРё<br>
-                        Р’СЃРµ РЅР°СЃС‚СЂРѕР№РєРё СЃРѕС…СЂР°РЅСЏСЋС‚СЃСЏ РІ localStorage
+                        Приложение запущено локально для разработки<br>
+                        Все настройки сохраняются в localStorage
                     </div>
                 </div>
                 
                 <div style="margin-bottom: 25px;">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-                        <span style="color: #e2e8f0; font-size: 16px;">рџ”Љ Р—РІСѓРєРё СѓРІРµРґРѕРјР»РµРЅРёР№</span>
+                        <span style="color: #e2e8f0; font-size: 16px;">Звуки уведомлений</span>
                         <button onclick="toggleSounds()" style="
                             padding: 8px 16px;
                             background: linear-gradient(45deg, #0088cc, #00b4ff);
@@ -68,11 +66,11 @@ function showSettingsMenu() {
                             border-radius: 12px;
                             font-size: 14px;
                             cursor: pointer;
-                        ">${localStorage.getItem('soundsEnabled') === 'false' ? 'Р’РєР»СЋС‡РёС‚СЊ' : 'Р’С‹РєР»СЋС‡РёС‚СЊ'}</button>
+                        ">${localStorage.getItem('soundsEnabled') === 'false' ? 'Включить' : 'Выключить'}</button>
                     </div>
                     
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-                        <span style="color: #e2e8f0; font-size: 16px;">рџЊ™ РўС‘РјРЅР°СЏ С‚РµРјР°</span>
+                        <span style="color: #e2e8f0; font-size: 16px;">Темная тема</span>
                         <button onclick="toggleThemeFromSettings()" style="
                             padding: 8px 16px;
                             background: linear-gradient(45deg, #0088cc, #00b4ff);
@@ -81,7 +79,7 @@ function showSettingsMenu() {
                             border-radius: 12px;
                             font-size: 14px;
                             cursor: pointer;
-                        ">РџРµСЂРµРєР»СЋС‡РёС‚СЊ</button>
+                        ">Переключить</button>
                     </div>
                 </div>
                 
@@ -92,19 +90,19 @@ function showSettingsMenu() {
                     margin-bottom: 25px;
                     border: 1px solid rgba(255,255,255,0.1);
                 ">
-                    <div style="color: #a5b4fc; font-size: 14px; margin-bottom: 10px; font-weight: 600;">РРЅС„РѕСЂРјР°С†РёСЏ</div>
+                    <div style="color: #a5b4fc; font-size: 14px; margin-bottom: 10px; font-weight: 600;">Информация</div>
                     <div style="color: #cbd5e1; font-size: 14px; line-height: 1.8;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                            <span>РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ:</span>
-                            <span style="color: #0088cc;">${window.username || 'РќРµ Р°РІС‚РѕСЂРёР·РѕРІР°РЅ'}</span>
+                            <span>Пользователь:</span>
+                            <span style="color: #0088cc;">${window.username || 'Не авторизован'}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                            <span>Р’РµСЂСЃРёСЏ:</span>
-                            <span>2.0.0 (СЂР°Р·СЂР°Р±РѕС‚РєР°)</span>
+                            <span>Версия:</span>
+                            <span>2.0.0 (разработка)</span>
                         </div>
                         <div style="display: flex; justify-content: space-between;">
-                            <span>РЎРѕРµРґРёРЅРµРЅРёРµ:</span>
-                            <span style="color: ${navigator.onLine ? '#4ade80' : '#ef4444'}">${navigator.onLine ? 'вњ… РђРєС‚РёРІРЅРѕ' : 'вќЊ РќРµС‚ СЃРѕРµРґРёРЅРµРЅРёСЏ'}</span>
+                            <span>Соединение:</span>
+                            <span style="color: ${navigator.onLine ? '#4ade80' : '#ef4444'}">${navigator.onLine ? 'Активно' : 'Нет соединения'}</span>
                         </div>
                     </div>
                 </div>
@@ -121,7 +119,7 @@ function showSettingsMenu() {
                         font-weight: 600;
                         cursor: pointer;
                         transition: all 0.3s ease;
-                    ">вњ• Р—Р°РєСЂС‹С‚СЊ</button>
+                    ">Закрыть</button>
                     
                     ${window.username ? `
                     <button onclick="logoutFromSettings()" style="
@@ -136,7 +134,7 @@ function showSettingsMenu() {
                         cursor: pointer;
                         transition: all 0.3s ease;
                         margin-top: 10px;
-                    ">рџљЄ Р’С‹Р№С‚Рё РёР· Р°РєРєР°СѓРЅС‚Р°</button>
+                    ">Выйти из аккаунта</button>
                     ` : ''}
                 </div>
             </div>
@@ -148,7 +146,6 @@ function showSettingsMenu() {
     div.id = 'settingsOverlay';
     document.body.appendChild(div);
     
-    // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё
     window.closeSettings = function() {
         const overlay = document.getElementById('settingsOverlay');
         if (overlay) overlay.remove();
@@ -163,10 +160,11 @@ function showSettingsMenu() {
             window.soundConfig.enabled = newValue === 'true';
         }
         
-        showNotification('Р—РІСѓРєРё', newValue === 'true' ? 'Р—РІСѓРєРё РІРєР»СЋС‡РµРЅС‹ рџ”Љ' : 'Р—РІСѓРєРё РІС‹РєР»СЋС‡РµРЅС‹ рџ”‡', 'info');
+        showNotification('Звуки', newValue === 'true' ? 'Звуки включены' : 'Звуки выключены', 'info');
         closeSettings();
     };
-\n    window.toggleThemeFromSettings = function() {
+
+    window.toggleThemeFromSettings = function() {
         if (typeof toggleTheme === "function") {
             toggleTheme();
         }
@@ -174,7 +172,7 @@ function showSettingsMenu() {
     };
     
     window.logoutFromSettings = function() {
-        if (confirm('Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ РІС‹Р№С‚Рё РёР· Р°РєРєР°СѓРЅС‚Р°?')) {
+        if (confirm('Вы уверены, что хотите выйти из аккаунта?')) {
             if (typeof logout === 'function') {
                 logout();
             }
@@ -182,19 +180,15 @@ function showSettingsMenu() {
         }
     };
     
-    // Р—Р°РєСЂС‹С‚РёРµ РїРѕ РєР»РёРєСѓ РЅР° РѕРІРµСЂР»РµР№
     div.addEventListener('click', function(e) {
         if (e.target === this) {
             closeSettings();
         }
     });
     
-    // Р—Р°РєСЂС‹С‚РёРµ РїРѕ ESC
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             closeSettings();
         }
     });
 }
-
-

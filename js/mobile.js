@@ -4,6 +4,10 @@
 function checkMobile() {
     // РСЃРїРѕР»СЊР·СѓРµРј РіР»РѕР±Р°Р»СЊРЅСѓСЋ РїРµСЂРµРјРµРЅРЅСѓСЋ isMobile РёР· utils.js
     isMobile = window.innerWidth <= 768;
+    if (username) {
+        const callBtn = document.getElementById('callButton');
+        if (callBtn) callBtn.classList.add('active');
+    }
     if (isMobile && currentChatId) document.getElementById('mobileBackBtn').classList.add('active');
     else document.getElementById('mobileBackBtn').classList.remove('active');
 }
@@ -30,6 +34,9 @@ function openChatCommon() {
 
     // РЎРєСЂС‹РІР°РµРј stories (РєР°Рє РІ TG)
     document.getElementById('storiesContainer').style.display = 'none';
+
+    const callBtn = document.getElementById('callButton');
+    if (callBtn) callBtn.classList.add('active');
 }
 
 function closeChatMobile() {
