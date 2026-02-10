@@ -1530,6 +1530,7 @@ textarea:focus-visible {
         overflow-y: auto;
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
+        touch-action: pan-y;
     }
     .contacts-list,
     .groups-list {

@@ -52,7 +52,11 @@ async function login() {
     document.getElementById("mobileChatTitle").textContent = username;
     document.getElementById("userStatus").textContent = "Р’ СЃРµС‚Рё";
     document.getElementById("userStatus").className = "user-status";
-    document.getElementById('callButton').classList.add('active');
+    const callBtn = document.getElementById('callButton');
+    if (callBtn) {
+      callBtn.classList.add('active');
+      callBtn.style.display = 'flex';
+    }
     loadFriends();
     loadGroups();
     loadStories();

@@ -6,7 +6,10 @@ function checkMobile() {
     isMobile = window.innerWidth <= 768;
     if (username) {
         const callBtn = document.getElementById('callButton');
-        if (callBtn) callBtn.classList.add('active');
+        if (callBtn) {
+            callBtn.classList.add('active');
+            callBtn.style.display = 'flex';
+        }
     }
     if (isMobile && currentChatId) document.getElementById('mobileBackBtn').classList.add('active');
     else document.getElementById('mobileBackBtn').classList.remove('active');
