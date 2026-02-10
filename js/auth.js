@@ -41,6 +41,7 @@ async function login() {
     if (!snap.exists()) throw new Error("РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ!");
     if (snap.val().password !== hashPassword(p)) throw new Error("РќРµРІРµСЂРЅС‹Р№ РїР°СЂРѕР»СЊ!");
     username = u;
+    localStorage.setItem('ruchat_last_user', u);
     updateMyStatus(true, false);
     setupActivityTracking();
     setupUserStatusMonitoring();
@@ -79,6 +80,15 @@ async function login() {
     hideLoading();
   }
 }
+
+// Заполнение имени при старте
+document.addEventListener('DOMContentLoaded', function() {
+  const savedUser = localStorage.getItem('ruchat_last_user');
+  if (savedUser) {
+    const u = document.getElementById('usernameInput');
+    if (u) u.value = savedUser;
+  }
+});
 function recoverPassword() {
   const u = prompt("Р’РІРµРґРёС‚Рµ РёРјСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ:");
   if (!u) return;

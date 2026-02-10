@@ -11,6 +11,15 @@ let voiceRecordingTime = 0;
 
 // Р¤СѓРЅРєС†РёСЏ Р·Р°РїСѓСЃРєР° Р·Р°РїРёСЃРё РіРѕР»РѕСЃРѕРІРѕРіРѕ СЃРѕРѕР±С‰РµРЅРёСЏ
 async function startVoiceRecord() {
+    if (!window.isSecureContext) {
+        showError('Для записи нужен HTTPS (безопасный контекст). Откройте сайт по HTTPS.');
+        return;
+    }
+    if (!window.MediaRecorder) {
+        showError('MediaRecorder не поддерживается. Используйте прикрепление аудио.');
+        attachAudio();
+        return;
+    }
     // РџСЂРѕРІРµСЂРєР° РїРѕРґРґРµСЂР¶РєРё Р±СЂР°СѓР·РµСЂРѕРј
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         showError('Р’Р°С€ Р±СЂР°СѓР·РµСЂ РЅРµ РїРѕРґРґРµСЂР¶РёРІР°РµС‚ Р·Р°РїРёСЃСЊ СЃ РјРёРєСЂРѕС„РѕРЅР°. РџРѕР¶Р°Р»СѓР№СЃС‚Р°, РёСЃРїРѕР»СЊР·СѓР№С‚Рµ СЃРѕРІСЂРµРјРµРЅРЅС‹Р№ Р±СЂР°СѓР·РµСЂ (Chrome, Firefox, Edge).');

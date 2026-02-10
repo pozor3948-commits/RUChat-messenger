@@ -47,6 +47,19 @@ function showNotification(title, text, type = 'info') {
         notificationQueue.push({ title, text });
         if (!isNotificationShowing) showNextNotification();
     }
+
+    // Пытаемся показать системное уведомление (браузер)
+    try {
+        if (document.visibilityState !== 'visible' && 'Notification' in window) {
+            if (Notification.permission === 'granted') {
+                new Notification(title, { body: text });
+            } else if (Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        }
+    } catch (e) {
+        // ignore
+    }
 }
 
 // Р¤СѓРЅРєС†РёСЏ РѕС€РёР±РѕРє С‡РµСЂРµР· РіР»РѕР±Р°Р»СЊРЅСѓСЋ

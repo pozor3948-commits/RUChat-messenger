@@ -50,6 +50,15 @@ async function checkCameraPermissions() {
 }
 
 async function startVideoRecording() {
+    if (!window.isSecureContext) {
+        showError('Для записи нужен HTTPS (безопасный контекст). Откройте сайт по HTTPS.');
+        return;
+    }
+    if (!window.MediaRecorder) {
+        showError('MediaRecorder не поддерживается. Используйте прикрепление видеофайла.');
+        attachVideo();
+        return;
+    }
     try {
         document.getElementById('recordTypeMenu').classList.remove('active');
         

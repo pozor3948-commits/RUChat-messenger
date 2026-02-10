@@ -256,7 +256,15 @@ function addMessageToChat(m) {
   if (m.text && !m.photo && !m.video && !m.audio && !m.document) {
     content = `<div class="message-text">${escapeHtml(m.text)}</div>`;
   } else if (m.photo) {
-    content = `<div class="message-text">${escapeHtml(m.text)}</div><img src="${m.photo}" class="message-media" onclick="openMedia('${m.photo}')" alt="Р¤РѕС‚Рѕ">`;
+    content = `
+      <div class="message-text">${escapeHtml(m.text)}</div>
+      <a href="${m.photo}" target="_blank" download>
+        <img src="${m.photo}" class="message-media" onclick="openMedia('${m.photo}')" alt="Фото">
+      </a>
+      <div class="message-media-actions">
+        <a href="${m.photo}" target="_blank" download>Скачать</a>
+      </div>
+    `;
   } else if (m.video) {
     // Р’РР”Р•РћРЎРћРћР‘Р©Р•РќРРЇ - РќРћР’РђРЇ Р›РћР“РРљРђ
     if (m.type === 'video_message') {
@@ -265,13 +273,28 @@ function addMessageToChat(m) {
         <div class="message-video" onclick="playVideoMessage('${m.video}')">
           <video src="${m.video}" preload="metadata"></video>
         </div>
-        ${m.duration ? `<div class="video-duration">${m.duration} СЃРµРє</div>` : ''}
+        ${m.duration ? `<div class="video-duration">${m.duration} сек</div>` : ''}
+        <div class="message-media-actions">
+          <a href="${m.video}" target="_blank" download>Скачать</a>
+        </div>
       `;
     } else {
-      content = `<div class="message-text">${escapeHtml(m.text)}</div><video src="${m.video}" class="message-media" controls onclick="openMedia('${m.video}')"></video>`;
+      content = `
+        <div class="message-text">${escapeHtml(m.text)}</div>
+        <video src="${m.video}" class="message-media" controls onclick="openMedia('${m.video}')"></video>
+        <div class="message-media-actions">
+          <a href="${m.video}" target="_blank" download>Скачать</a>
+        </div>
+      `;
     }
   } else if (m.audio) {
-    content = `<div class="message-text">${escapeHtml(m.text)}</div><audio src="${m.audio}" class="message-audio" controls></audio>`;
+    content = `
+      <div class="message-text">${escapeHtml(m.text)}</div>
+      <audio src="${m.audio}" class="message-audio" controls></audio>
+      <div class="message-media-actions">
+        <a href="${m.audio}" target="_blank" download>Скачать</a>
+      </div>
+    `;
   } else if (m.document) {
     const fs = formatFileSize(m.filesize);
     content = `<div class="message-text">${escapeHtml(m.text)}</div><a href="${m.document}" download="${m.filename}" class="message-doc"><div class="doc-icon">рџ“„</div><div class="doc-info"><div class="doc-name">${escapeHtml(m.filename)}</div><div class="doc-size">${fs}</div></div></a>`;
