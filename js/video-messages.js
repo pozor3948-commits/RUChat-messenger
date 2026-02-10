@@ -300,7 +300,7 @@ function playVideoMessage(videoUrl) {
 function initVideoMessagesAfterLogin() {
     setTimeout(() => {
         if (initVideoMessages()) {
-            console.log('Р’РёРґРµРѕСЃРѕРѕР±С‰РµРЅРёСЏ РёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅС‹');
+            console.log('Video messages initialized');
         }
     }, 500);
 }
