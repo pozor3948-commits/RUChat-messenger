@@ -263,54 +263,63 @@ function addMessageToChat(m) {
   msg.className = `message ${m.from === username ? "me" : "other"}`;
   let status = 'sent';
   if (m.error) status = 'error'; else if (m.read) status = 'read'; else if (m.delivered) status = 'delivered'; else if (m.sent) status = 'sent';
+  const photoUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.photo)) ? m.photo : null;
+  const videoUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.video)) ? m.video : null;
+  const audioUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.audio)) ? m.audio : null;
+  const docUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.document)) ? m.document : null;
+  if (!m.text && (m.photo || m.video || m.audio || m.document) && !photoUrl && !videoUrl && !audioUrl && !docUrl) {
+    m.text = String(m.photo || m.video || m.audio || m.document);
+  }
+  if (!m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl) return;
   let content = "";
-  if (m.text && !m.photo && !m.video && !m.audio && !m.document) {
+  if (m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl) {
     content = `<div class="message-text">${escapeHtml(m.text)}</div>`;
-  } else if (m.photo) {
+  } else if (photoUrl) {
     content = `
       <div class="message-text">${escapeHtml(m.text)}</div>
-      <a href="${m.photo}" target="_blank" download>
-        <img src="${m.photo}" class="message-media" onclick="openMedia('${m.photo}')" alt="Фото">
+      <a href="${photoUrl}" target="_blank" download>
+        <img src="${photoUrl}" class="message-media" onclick="openMedia('${photoUrl}')" alt="Фото">
       </a>
       <div class="message-media-actions">
-        <a href="${m.photo}" target="_blank" download>Скачать</a>
+        <a href="${photoUrl}" target="_blank" download>Скачать</a>
       </div>
     `;
-  } else if (m.video) {
+  } else if (videoUrl) {
     // ВИДЕОСООБЩЕНИЯ - НОВАЯ ЛОГИКА
     if (m.type === 'video_message') {
       content = `
         <div class="message-text">${escapeHtml(m.text)}</div>
-        <div class="message-video" onclick="playVideoMessage('${m.video}')">
-          <video src="${m.video}" preload="metadata"></video>
+        <div class="message-video" onclick="playVideoMessage('${videoUrl}')">
+          <video src="${videoUrl}" preload="metadata"></video>
         </div>
         ${m.duration ? `<div class="video-duration">${m.duration} сек</div>` : ''}
         <div class="message-media-actions">
-          <a href="${m.video}" target="_blank" download>Скачать</a>
+          <a href="${videoUrl}" target="_blank" download>Скачать</a>
         </div>
       `;
     } else {
       content = `
         <div class="message-text">${escapeHtml(m.text)}</div>
-        <video src="${m.video}" class="message-media" controls onclick="openMedia('${m.video}')"></video>
+        <video src="${videoUrl}" class="message-media" controls onclick="openMedia('${videoUrl}')"></video>
         <div class="message-media-actions">
-          <a href="${m.video}" target="_blank" download>Скачать</a>
+          <a href="${videoUrl}" target="_blank" download>Скачать</a>
         </div>
       `;
     }
-  } else if (m.audio) {
+  } else if (audioUrl) {
     content = `
       <div class="message-text">${escapeHtml(m.text)}</div>
-      <audio src="${m.audio}" class="message-audio" controls></audio>
+      <audio src="${audioUrl}" class="message-audio" controls></audio>
       <div class="message-media-actions">
-        <a href="${m.audio}" target="_blank" download>Скачать</a>
+        <a href="${audioUrl}" target="_blank" download>Скачать</a>
       </div>
     `;
-  } else if (m.document) {
+  } else if (docUrl) {
     const fs = formatFileSize(m.filesize);
-    content = `<div class="message-text">${escapeHtml(m.text)}</div><a href="${m.document}" download="${m.filename}" class="message-doc"><div class="doc-icon">📄</div><div class="doc-info"><div class="doc-name">${escapeHtml(m.filename)}</div><div class="doc-size">${fs}</div></div></a>`;
+    content = `<div class="message-text">${escapeHtml(m.text)}</div><a href="${docUrl}" download="${m.filename}" class="message-doc"><div class="doc-icon">📄</div><div class="doc-info"><div class="doc-name">${escapeHtml(m.filename)}</div><div class="doc-size">${fs}</div></div></a>`;
   }
   const t = new Date(m.time || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const senderName = escapeHtml(normalizeText(m.from || ''));
   msg.innerHTML = `
     ${m.from !== username && !isGroupChat ? `<div class="message-sender">${senderName}</div>` : ""}
     ${isGroupChat && m.from !== username ? `<div class="message-sender">${senderName}</div>` : ""}
@@ -401,6 +410,10 @@ function showAddFriend() {
     showNotification("Успешно", `Друг ${fn} добавлен`);
   }).catch(() => { hideLoading(); showError("Ошибка поиска пользователя"); });
 }
+
+
+
+
 
 
 

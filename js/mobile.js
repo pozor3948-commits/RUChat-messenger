@@ -11,10 +11,16 @@ function checkMobile() {
 
 function updateCallButtonVisibility() {
     const callBtn = document.getElementById('callButton');
-    if (!callBtn) return;
+    const mobileCallBtn = document.getElementById('mobileCallBtn');
     const shouldShow = !!username && !!currentChatPartner && !isGroupChat;
-    callBtn.classList.toggle('active', shouldShow);
-    callBtn.style.display = shouldShow ? "flex" : "none";
+    if (callBtn) {
+        callBtn.classList.toggle('active', shouldShow);
+        callBtn.style.display = shouldShow ? "flex" : "none";
+    }
+    if (mobileCallBtn) {
+        mobileCallBtn.classList.toggle('active', shouldShow);
+        mobileCallBtn.style.display = shouldShow ? "flex" : "none";
+    }
 }
 
 // ────────────────────────────────────────────────
@@ -156,6 +162,7 @@ window.toggleEmojiPicker = function() {
     originalToggleEmojiPicker();
     setTimeout(adjustMenuPositionForMobile, 50);
 };
+
 
 
 
