@@ -8,6 +8,52 @@ let isNotificationShowing = false;
 let isMobile = window.innerWidth <= 768;
 let userStatuses = {};
 
+function fixMojibakeCp1251(str) {
+    if (!str) return str;
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+        const c = str.charCodeAt(i);
+        if (c >= 0x0410 && c <= 0x044F) {
+            bytes.push(c - 0x0410 + 0xC0);
+            continue;
+        }
+        if (c === 0x0401) { bytes.push(0xA8); continue; }
+        if (c === 0x0451) { bytes.push(0xB8); continue; }
+        if (c >= 0x0402 && c <= 0x040F) {
+            bytes.push(c - 0x0402 + 0x80);
+            continue;
+        }
+        if (c >= 0x0452 && c <= 0x045F) {
+            bytes.push(c - 0x0452 + 0x90);
+            continue;
+        }
+        if (c <= 0x00FF) {
+            bytes.push(c);
+            continue;
+        }
+        bytes.push(0x3F);
+    }
+    try {
+        return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+    } catch {
+        return str;
+    }
+}
+
+function normalizeText(text) {
+    if (typeof text !== 'string') return text;
+    // Heuristic: many 'Р'/'С' patterns indicate CP1251 mojibake
+    const suspect = /[РС]/.test(text) && (text.match(/[РС]/g) || []).length >= 3;
+    if (!suspect) return text;
+    const fixed = fixMojibakeCp1251(text);
+    // Accept fix if it contains more typical Cyrillic vowels
+    const vowels = /[аеёиоуыэюя]/gi;
+    if ((fixed.match(vowels) || []).length >= (text.match(vowels) || []).length) {
+        return fixed;
+    }
+    return text;
+}
+
 // Р¤СѓРЅРєС†РёСЏ РїСЂРѕРІРµСЂРєРё СЃРѕРµРґРёРЅРµРЅРёСЏ
 function checkConnection() {
     if (!navigator.onLine) { 
@@ -19,7 +65,7 @@ function checkConnection() {
 
 function escapeHtml(text) {
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = normalizeText(text);
     return div.innerHTML;
 }
 

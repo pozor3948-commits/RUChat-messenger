@@ -114,5 +114,5 @@ if (typeof window !== 'undefined') {
     window.playNotificationSound = playNotificationSound;
 }
 
-console.log('вњ… Р—РІСѓРєРё Р·Р°РіСЂСѓР¶РµРЅС‹');
+console.log('Sounds loaded');
 

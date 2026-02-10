@@ -440,6 +440,6 @@ if (typeof window !== 'undefined') {
     window.toggleSpeaker = toggleSpeaker;
 }
 
-console.log('вњ… РњРѕРґСѓР»СЊ Р°СѓРґРёРѕР·РІРѕРЅРєРѕРІ Р·Р°РіСЂСѓР¶РµРЅ');
+console.log('Audio call module loaded');
 
 

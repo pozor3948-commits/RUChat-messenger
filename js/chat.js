@@ -44,7 +44,7 @@ function loadFriends() {
   });
 }
 
-function createFriendItem(fn) {
+function createFriendItem(fn) {\n  const displayName = normalizeText(fn);
   const fl = document.getElementById("friendList");
   const item = document.createElement("div");
   item.className = "contact-item";
@@ -56,11 +56,11 @@ function createFriendItem(fn) {
   };
   item.innerHTML = `
     <div style="position:relative;">
-      <img class="contact-avatar" id="avatar_${fn}" alt="${fn}" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(fn)}&background=0088cc&color=fff&size=48'">
+      <img class="contact-avatar" id="avatar_${fn}" alt="${displayName}" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=48'">
       <span class="online-dot recently" id="online_${fn}"></span>
     </div>
     <div class="contact-info">
-      <div class="contact-name">${fn}</div>
+      <div class="contact-name">${displayName}</div>
       <div class="last-message" id="lastMsg_${fn}">РќР°РїРёС€РёС‚Рµ СЃРѕРѕР±С‰РµРЅРёРµ...</div>
       <div class="last-seen recently" id="lastSeen_${fn}">Р‘С‹Р»(Р°) РЅРµРґР°РІРЅРѕ</div>
     </div>
@@ -68,7 +68,7 @@ function createFriendItem(fn) {
   fl.appendChild(item);
   db.ref("accounts/" + fn + "/avatar").on("value", s => {
     const av = document.getElementById(`avatar_${fn}`);
-    if (s.exists() && s.val()) av.src = s.val(); else av.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(fn)}&background=0088cc&color=fff&size=48`;
+    if (s.exists() && s.val()) av.src = s.val(); else av.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=48`;
   });
   loadLastMessage(fn);
 }
@@ -79,7 +79,7 @@ function loadLastMessage(fn) {
     if (snap.exists()) snap.forEach(ch => {
       const m = ch.val();
       const lm = document.getElementById(`lastMsg_${fn}`);
-      if (lm && m.text) lm.textContent = m.text.length > 30 ? m.text.substring(0, 30) + "..." : m.text;
+      if (lm && m.text) const t = normalizeText(m.text); lm.textContent = t.length > 30 ? t.substring(0, 30) + "..." : t;
     });
   });
 }
@@ -106,7 +106,7 @@ function loadGroups() {
   });
 }
 
-function createGroupItem(g, gid) {
+function createGroupItem(g, gid) {\n  const groupName = normalizeText(g.name);
   const gl = document.getElementById("groupList");
   const item = document.createElement("div");
   item.className = "group-item";
@@ -118,10 +118,10 @@ function createGroupItem(g, gid) {
   };
   item.innerHTML = `
     <div style="position:relative;">
-      <img class="group-avatar" id="group_avatar_${gid}" alt="${g.name}" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(g.name)}&background=0088cc&color=fff&size=48'">
+      <img class="group-avatar" id="group_avatar_${gid}" alt="${groupName}" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(groupName)}&background=0088cc&color=fff&size=48'">
     </div>
     <div class="contact-info">
-      <div class="contact-name">${g.name}</div>
+      <div class="contact-name">${groupName}</div>
       <div class="last-message" id="group_lastMsg_${gid}">${Object.keys(g.members || {}).length} СѓС‡Р°СЃС‚РЅРёРєРѕРІ</div>
       <div class="last-seen online">Р“СЂСѓРїРїР°</div>
     </div>`;
@@ -159,9 +159,10 @@ function createStoryItem(fn) {
   const item = document.createElement("div");
   item.className = "story-item";
   item.style.animation = "slideUp .5s ease-out";
+  const displayName = normalizeText(fn);
   item.innerHTML = `
-    <img class="story-avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(fn)}&background=0088cc&color=fff&size=60" alt="${fn}">
-    <div class="story-name">${fn}</div>`;
+    <img class="story-avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=60" alt="${displayName}">
+    <div class="story-name">${displayName}</div>`;
   sl.appendChild(item);
 }
 
@@ -183,12 +184,13 @@ function openPrivateChat(fn) {
   isGroupChat = false;
   currentChatId = [username, fn].sort().join("_");
   currentChatPartner = fn;
-  document.getElementById("chatWith").textContent = fn;
-  document.getElementById("mobileChatTitle").textContent = fn;
+  const displayName = normalizeText(fn);
+  document.getElementById("chatWith").textContent = displayName;
+  document.getElementById("mobileChatTitle").textContent = displayName;
   if (isMobile) document.getElementById('mobileBackBtn').classList.add('active');
   const chatAvatar = document.getElementById("chatAvatar");
   const fAvatar = document.getElementById(`avatar_${fn}`);
-  if (fAvatar) chatAvatar.src = fAvatar.src; else chatAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(fn)}&background=0088cc&color=fff&size=44`;
+  if (fAvatar) chatAvatar.src = fAvatar.src; else chatAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=44`;
   const st = userStatuses[fn];
   updateChatStatus(fn, st);
   loadChat("privateChats/" + currentChatId);
@@ -200,12 +202,13 @@ function openGroupChat(g, gid) {
   isGroupChat = true;
   currentChatId = gid;
   currentChatPartner = null;
-  document.getElementById("chatWith").textContent = g.name;
-  document.getElementById("mobileChatTitle").textContent = g.name;
+  const groupName = normalizeText(g.name);
+  document.getElementById("chatWith").textContent = groupName;
+  document.getElementById("mobileChatTitle").textContent = groupName;
   if (isMobile) document.getElementById('mobileBackBtn').classList.add('active');
   const chatAvatar = document.getElementById("chatAvatar");
   const gAvatar = document.getElementById(`group_avatar_${gid}`);
-  if (gAvatar) chatAvatar.src = gAvatar.src; else chatAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(g.name)}&background=0088cc&color=fff&size=44`;
+  if (gAvatar) chatAvatar.src = gAvatar.src; else chatAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(groupName)}&background=0088cc&color=fff&size=44`;
   const mc = Object.keys(g.members || {}).length;
   document.getElementById("chatMembers").textContent = `${mc} СѓС‡Р°СЃС‚РЅРёРєРѕРІ`;
   document.getElementById("mobileChatStatus").textContent = `${mc} СѓС‡Р°СЃС‚РЅРёРєРѕРІ`;
@@ -390,6 +393,7 @@ function showAddFriend() {
     showNotification("РЈСЃРїРµС€РЅРѕ", `Р”СЂСѓРі ${fn} РґРѕР±Р°РІР»РµРЅ`);
   }).catch(() => { hideLoading(); showError("РћС€РёР±РєР° РїРѕРёСЃРєР° РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ"); });
 }
+
 
 
 
