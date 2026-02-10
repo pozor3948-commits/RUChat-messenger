@@ -44,7 +44,8 @@ function loadFriends() {
   });
 }
 
-function createFriendItem(fn) {\n  const displayName = normalizeText(fn);
+function createFriendItem(fn) {
+  const displayName = normalizeText(fn);
   const fl = document.getElementById("friendList");
   const item = document.createElement("div");
   item.className = "contact-item";
@@ -79,7 +80,10 @@ function loadLastMessage(fn) {
     if (snap.exists()) snap.forEach(ch => {
       const m = ch.val();
       const lm = document.getElementById(`lastMsg_${fn}`);
-      if (lm && m.text) const t = normalizeText(m.text); lm.textContent = t.length > 30 ? t.substring(0, 30) + "..." : t;
+      if (lm && m.text) {
+      const t = normalizeText(m.text);
+      lm.textContent = t.length > 30 ? t.substring(0, 30) + "..." : t;
+    }
     });
   });
 }
@@ -106,7 +110,8 @@ function loadGroups() {
   });
 }
 
-function createGroupItem(g, gid) {\n  const groupName = normalizeText(g.name);
+function createGroupItem(g, gid) {
+  const groupName = normalizeText(g.name);
   const gl = document.getElementById("groupList");
   const item = document.createElement("div");
   item.className = "group-item";
@@ -393,6 +398,7 @@ function showAddFriend() {
     showNotification("РЈСЃРїРµС€РЅРѕ", `Р”СЂСѓРі ${fn} РґРѕР±Р°РІР»РµРЅ`);
   }).catch(() => { hideLoading(); showError("РћС€РёР±РєР° РїРѕРёСЃРєР° РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ"); });
 }
+
 
 
 
