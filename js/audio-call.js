@@ -1,8 +1,8 @@
 ﻿/* ==========================================================
-   РђРЈР”РРћР—Р’РћРќРљР (РќРћР’РђРЇ Р¤РЈРќРљР¦РРЇ)
+   АУДИОЗВОНКИ (НОВАЯ ФУНКЦИЯ)
    ========================================================== */
 
-// Р“Р»РѕР±Р°Р»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ РґР»СЏ Р·РІРѕРЅРєРѕРІ
+// Глобальные переменные для звонков
 let peerConnection = null;
 let localStream = null;
 let callTimer = null;
@@ -11,7 +11,7 @@ let isMuted = false;
 let isSpeakerOn = true;
 let currentCall = null;
 
-// РљРѕРЅС„РёРіСѓСЂР°С†РёСЏ STUN/TURN СЃРµСЂРІРµСЂРѕРІ
+// Конфигурация STUN/TURN серверов
 const rtcConfiguration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -20,22 +20,22 @@ const rtcConfiguration = {
     ]
 };
 
-// РРЅРёС†РёРёСЂРѕРІР°С‚СЊ Р°СѓРґРёРѕР·РІРѕРЅРѕРє
+// Инициировать аудиозвонок
 async function startAudioCall() {
     if (isGroupChat) {
-        showNotification('РћС€РёР±РєР°', 'Р“СЂСѓРїРїРѕРІС‹Рµ Р·РІРѕРЅРєРё РїРѕРєР° РЅРµ РїРѕРґРґРµСЂР¶РёРІР°СЋС‚СЃСЏ', 'warning');
+        showNotification('Ошибка', 'Групповые звонки пока не поддерживаются', 'warning');
         return;
     }
     if (!currentChatId || !currentChatPartner) {
-        showNotification('РћС€РёР±РєР°', 'Р’С‹Р±РµСЂРёС‚Рµ РєРѕРЅС‚Р°РєС‚ РґР»СЏ Р·РІРѕРЅРєР°', 'error');
+        showNotification('Ошибка', 'Выберите контакт для звонка', 'error');
         return;
     }
 
     try {
-        // РџРѕРєР°Р·С‹РІР°РµРј UI Р·РІРѕРЅРєР°
+        // Показываем UI звонка
         showCallUI(currentChatPartner, 'outgoing');
         
-        // РџРѕР»СѓС‡Р°РµРј РґРѕСЃС‚СѓРї Рє РјРёРєСЂРѕС„РѕРЅСѓ
+        // Получаем доступ к микрофону
         localStream = await navigator.mediaDevices.getUserMedia({ 
             audio: {
                 echoCancellation: true,
@@ -45,15 +45,15 @@ async function startAudioCall() {
             video: false
         });
 
-        // РЎРѕР·РґР°РµРј PeerConnection
+        // Создаем PeerConnection
         peerConnection = new RTCPeerConnection(rtcConfiguration);
 
-        // Р”РѕР±Р°РІР»СЏРµРј Р»РѕРєР°Р»СЊРЅС‹Р№ РїРѕС‚РѕРє
+        // Добавляем локальный поток
         localStream.getTracks().forEach(track => {
             peerConnection.addTrack(track, localStream);
         });
 
-        // РћР±СЂР°Р±РѕС‚РєР° СѓРґР°Р»РµРЅРЅРѕРіРѕ РїРѕС‚РѕРєР°
+        // Обработка удаленного потока
         peerConnection.ontrack = (event) => {
             const remoteAudio = document.createElement('audio');
             remoteAudio.srcObject = event.streams[0];
@@ -61,10 +61,10 @@ async function startAudioCall() {
             document.body.appendChild(remoteAudio);
         };
 
-        // РћР±СЂР°Р±РѕС‚РєР° ICE candidates
+        // Обработка ICE candidates
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                // РћС‚РїСЂР°РІР»СЏРµРј candidate СЃРѕР±РµСЃРµРґРЅРёРєСѓ С‡РµСЂРµР· Firebase
+                // Отправляем candidate собеседнику через Firebase
                 db.ref(`calls/${currentChatId}/candidates`).push({
                     candidate: event.candidate,
                     from: username
@@ -72,11 +72,11 @@ async function startAudioCall() {
             }
         };
 
-        // РЎРѕР·РґР°РµРј offer
+        // Создаем offer
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
 
-        // РЎРѕС…СЂР°РЅСЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ Р·РІРѕРЅРєРµ РІ Firebase
+        // Сохраняем информацию о звонке в Firebase
         const callData = {
             from: username,
             to: currentChatPartner,
@@ -90,26 +90,26 @@ async function startAudioCall() {
 
         await db.ref(`calls/${currentChatId}`).set(callData);
         
-        // РЎР»СѓС€Р°РµРј РѕС‚РІРµС‚
+        // Слушаем ответ
         listenForCallAnswer();
         
-        // Р’РѕСЃРїСЂРѕРёР·РІРѕРґРёРј Р·РІСѓРє РІС‹Р·РѕРІР°
+        // Воспроизводим звук вызова
         playCallSound();
         
     } catch (error) {
-        console.error('РћС€РёР±РєР° РїСЂРё РёРЅРёС†РёР°С†РёРё Р·РІРѕРЅРєР°:', error);
+        console.error('Ошибка при инициации звонка:', error);
         
         if (error.name === 'NotAllowedError') {
-            showNotification('РћС€РёР±РєР°', 'Р Р°Р·СЂРµС€РёС‚Рµ РґРѕСЃС‚СѓРї Рє РјРёРєСЂРѕС„РѕРЅСѓ', 'error');
+            showNotification('Ошибка', 'Разрешите доступ к микрофону', 'error');
         } else {
-            showNotification('РћС€РёР±РєР°', 'РќРµ СѓРґР°Р»РѕСЃСЊ РЅР°С‡Р°С‚СЊ Р·РІРѕРЅРѕРє', 'error');
+            showNotification('Ошибка', 'Не удалось начать звонок', 'error');
         }
         
         endCall();
     }
 }
 
-// РџРѕРєР°Р·Р°С‚СЊ UI Р·РІРѕРЅРєР°
+// Показать UI звонка
 function showCallUI(name, type) {
     const callOverlay = document.getElementById('callOverlay');
     const callAvatar = document.getElementById('callAvatar');
@@ -120,15 +120,15 @@ function showCallUI(name, type) {
     callName.textContent = name;
     
     if (type === 'outgoing') {
-        callStatus.textContent = 'Р—РІРѕРЅРёРј...';
+        callStatus.textContent = 'Звоним...';
     } else {
-        callStatus.textContent = 'Р’С…РѕРґСЏС‰РёР№ Р·РІРѕРЅРѕРє...';
+        callStatus.textContent = 'Входящий звонок...';
     }
     
     callOverlay.classList.add('active');
 }
 
-// РЎРєСЂС‹С‚СЊ UI Р·РІРѕРЅРєР°
+// Скрыть UI звонка
 function hideCallUI() {
     const callOverlay = document.getElementById('callOverlay');
     callOverlay.classList.remove('active');
@@ -138,7 +138,7 @@ function hideCallUI() {
     callTimer.textContent = '00:00';
 }
 
-// РЎР»СѓС€Р°С‚СЊ РѕС‚РІРµС‚ РЅР° Р·РІРѕРЅРѕРє
+// Слушать ответ на звонок
 function listenForCallAnswer() {
     db.ref(`calls/${currentChatId}`).on('value', async (snapshot) => {
         const callData = snapshot.val();
@@ -146,26 +146,26 @@ function listenForCallAnswer() {
         if (!callData) return;
         
         if (callData.answer && callData.status === 'connected') {
-            // РЎРѕР±РµСЃРµРґРЅРёРє РѕС‚РІРµС‚РёР»
+            // Собеседник ответил
             const answer = new RTCSessionDescription(callData.answer);
             await peerConnection.setRemoteDescription(answer);
             
-            // Р—Р°РїСѓСЃРєР°РµРј С‚Р°Р№РјРµСЂ
+            // Запускаем таймер
             startCallTimer();
             
-            document.getElementById('callStatus').textContent = 'РЎРѕРµРґРёРЅРµРЅРѕ';
+            document.getElementById('callStatus').textContent = 'Соединено';
             
-            // РћСЃС‚Р°РЅР°РІР»РёРІР°РµРј Р·РІСѓРє РІС‹Р·РѕРІР°
+            // Останавливаем звук вызова
             stopCallSound();
         } else if (callData.status === 'rejected') {
-            showNotification('Р—РІРѕРЅРѕРє', 'РЎРѕР±РµСЃРµРґРЅРёРє РѕС‚РєР»РѕРЅРёР» Р·РІРѕРЅРѕРє', 'warning');
+            showNotification('Звонок', 'Собеседник отклонил звонок', 'warning');
             endCall();
         } else if (callData.status === 'ended') {
             endCall();
         }
     });
     
-    // РЎР»СѓС€Р°РµРј ICE candidates
+    // Слушаем ICE candidates
     db.ref(`calls/${currentChatId}/candidates`).on('child_added', async (snapshot) => {
         const candidateData = snapshot.val();
         if (!candidateData || !candidateData.candidate) return;
@@ -176,21 +176,21 @@ function listenForCallAnswer() {
             try {
                 await peerConnection.addIceCandidate(new RTCIceCandidate(c));
             } catch (error) {
-                console.error('Ошибка добавления ICE candidate:', error);
+                console.error('ICE candidate error:', error);
             }
         }
     });
 }
 
-// РџСЂРёРЅСЏС‚СЊ РІС…РѕРґСЏС‰РёР№ Р·РІРѕРЅРѕРє
+// Принять входящий звонок
 async function acceptIncomingCall(callData) {
     try {
         showCallUI(callData.from, 'incoming');
         
-        // РџРѕР»СѓС‡Р°РµРј РґРѕСЃС‚СѓРї Рє РјРёРєСЂРѕС„РѕРЅСѓ
+        // Получаем доступ к микрофону
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         
-        // РЎРѕР·РґР°РµРј PeerConnection
+        // Создаем PeerConnection
         peerConnection = new RTCPeerConnection(rtcConfiguration);
         
         localStream.getTracks().forEach(track => {
@@ -213,14 +213,14 @@ async function acceptIncomingCall(callData) {
             }
         };
         
-        // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј СѓРґР°Р»РµРЅРЅРѕРµ РѕРїРёСЃР°РЅРёРµ РёР· offer
+        // Устанавливаем удаленное описание из offer
         await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
         
-        // РЎРѕР·РґР°РµРј answer
+        // Создаем answer
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
         
-        // РћС‚РїСЂР°РІР»СЏРµРј answer С‡РµСЂРµР· Firebase
+        // Отправляем answer через Firebase
         await db.ref(`calls/${currentChatId}`).update({
             answer: {
                 type: answer.type,
@@ -230,44 +230,44 @@ async function acceptIncomingCall(callData) {
         });
         
         startCallTimer();
-        document.getElementById('callStatus').textContent = 'РЎРѕРµРґРёРЅРµРЅРѕ';
+        document.getElementById('callStatus').textContent = 'Соединено';
         
     } catch (error) {
-        console.error('РћС€РёР±РєР° РїСЂРё РѕС‚РІРµС‚Рµ РЅР° Р·РІРѕРЅРѕРє:', error);
-        showNotification('РћС€РёР±РєР°', 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РІРµС‚РёС‚СЊ РЅР° Р·РІРѕРЅРѕРє', 'error');
+        console.error('Ошибка при ответе на звонок:', error);
+        showNotification('Ошибка', 'Не удалось ответить на звонок', 'error');
         endCall();
     }
 }
 
-// Р—Р°РІРµСЂС€РёС‚СЊ Р·РІРѕРЅРѕРє
+// Завершить звонок
 async function endCall() {
     try {
-        // РћСЃС‚Р°РЅР°РІР»РёРІР°РµРј С‚Р°Р№РјРµСЂ
+        // Останавливаем таймер
         if (callTimer) {
             clearInterval(callTimer);
             callTimer = null;
             callDuration = 0;
         }
         
-        // РћСЃС‚Р°РЅР°РІР»РёРІР°РµРј Р»РѕРєР°Р»СЊРЅС‹Р№ РїРѕС‚РѕРє
+        // Останавливаем локальный поток
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
             localStream = null;
         }
         
-        // Р—Р°РєСЂС‹РІР°РµРј peer connection
+        // Закрываем peer connection
         if (peerConnection) {
             peerConnection.close();
             peerConnection = null;
         }
         
-        // РЈРґР°Р»СЏРµРј РІСЃРµ audio СЌР»РµРјРµРЅС‚С‹
+        // Удаляем все audio элементы
         document.querySelectorAll('audio').forEach(audio => {
             audio.srcObject = null;
             audio.remove();
         });
         
-        // РћР±РЅРѕРІР»СЏРµРј СЃС‚Р°С‚СѓСЃ РІ Firebase
+        // Обновляем статус в Firebase
         if (currentChatId) {
             await db.ref(`calls/${currentChatId}`).update({
                 status: 'ended',
@@ -276,25 +276,25 @@ async function endCall() {
             db.ref(`calls/${currentChatId}`).off();
         }
         
-        // РЎРєСЂС‹РІР°РµРј UI
+        // Скрываем UI
         hideCallUI();
         
-        // РћСЃС‚Р°РЅР°РІР»РёРІР°РµРј Р·РІСѓРє
+        // Останавливаем звук
         stopCallSound();
         
-        // РЎР±СЂР°СЃС‹РІР°РµРј СЃРѕСЃС‚РѕСЏРЅРёРµ
+        // Сбрасываем состояние
         isMuted = false;
         isSpeakerOn = true;
         
-        showNotification('Р—РІРѕРЅРѕРє', 'Р—РІРѕРЅРѕРє Р·Р°РІРµСЂС€РµРЅ', 'info');
+        showNotification('Звонок', 'Звонок завершен', 'info');
         
     } catch (error) {
-        console.error('РћС€РёР±РєР° РїСЂРё Р·Р°РІРµСЂС€РµРЅРёРё Р·РІРѕРЅРєР°:', error);
+        console.error('Ошибка при завершении звонка:', error);
         hideCallUI();
     }
 }
 
-// Р—Р°РїСѓСЃС‚РёС‚СЊ С‚Р°Р№РјРµСЂ Р·РІРѕРЅРєР°
+// Запустить таймер звонка
 function startCallTimer() {
     const timerElement = document.getElementById('callTimer');
     timerElement.style.display = 'block';
@@ -308,7 +308,7 @@ function startCallTimer() {
     }, 1000);
 }
 
-// РџРµСЂРµРєР»СЋС‡РёС‚СЊ РјРёРєСЂРѕС„РѕРЅ
+// Переключить микрофон
 function toggleMute() {
     if (!localStream) return;
     
@@ -332,7 +332,7 @@ function toggleMute() {
                 <line x1="8" y1="23" x2="16" y2="23"></line>
             </svg>
         `;
-        showNotification('РњРёРєСЂРѕС„РѕРЅ', 'РњРёРєСЂРѕС„РѕРЅ РІС‹РєР»СЋС‡РµРЅ', 'info');
+        showNotification('Микрофон', 'Микрофон выключен', 'info');
     } else {
         muteBtn.classList.remove('active');
         muteBtn.innerHTML = `
@@ -343,11 +343,11 @@ function toggleMute() {
                 <line x1="8" y1="23" x2="16" y2="23"></line>
             </svg>
         `;
-        showNotification('РњРёРєСЂРѕС„РѕРЅ', 'РњРёРєСЂРѕС„РѕРЅ РІРєР»СЋС‡РµРЅ', 'info');
+        showNotification('Микрофон', 'Микрофон включен', 'info');
     }
 }
 
-// РџРµСЂРµРєР»СЋС‡РёС‚СЊ РґРёРЅР°РјРёРє
+// Переключить динамик
 function toggleSpeaker() {
     isSpeakerOn = !isSpeakerOn;
     
@@ -355,26 +355,26 @@ function toggleSpeaker() {
     
     if (isSpeakerOn) {
         speakerBtn.classList.remove('active');
-        showNotification('Р”РёРЅР°РјРёРє', 'Р”РёРЅР°РјРёРє РІРєР»СЋС‡РµРЅ', 'info');
+        showNotification('Динамик', 'Динамик включен', 'info');
     } else {
         speakerBtn.classList.add('active');
-        showNotification('Р”РёРЅР°РјРёРє', 'Р”РёРЅР°РјРёРє РІС‹РєР»СЋС‡РµРЅ', 'info');
+        showNotification('Динамик', 'Динамик выключен', 'info');
     }
     
-    // РР·РјРµРЅСЏРµРј РіСЂРѕРјРєРѕСЃС‚СЊ СѓРґР°Р»РµРЅРЅРѕРіРѕ Р°СѓРґРёРѕ
+    // Изменяем громкость удаленного аудио
     document.querySelectorAll('audio').forEach(audio => {
         audio.volume = isSpeakerOn ? 1.0 : 0.3;
     });
 }
 
-// Р—РІСѓРє РІС‹Р·РѕРІР°
+// Звук вызова
 let callSoundInterval = null;
 
 function playCallSound() {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     
     callSoundInterval = setInterval(() => {
-        // РЎРѕР·РґР°РµРј РґРІР° С‚РѕРЅР° РґР»СЏ РјРµР»РѕРґРёРё Р·РІРѕРЅРєР°
+        // Создаем два тона для мелодии звонка
         const oscillator1 = audioContext.createOscillator();
         const oscillator2 = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
@@ -405,7 +405,7 @@ function stopCallSound() {
     }
 }
 
-// РЎР»СѓС€Р°С‚РµР»СЊ РІС…РѕРґСЏС‰РёС… Р·РІРѕРЅРєРѕРІ
+// Слушатель входящих звонков
 function listenForIncomingCalls() {
     if (!username) return;
     
@@ -413,17 +413,17 @@ function listenForIncomingCalls() {
         const callData = snapshot.val();
         const callId = snapshot.key;
         
-        // РџСЂРѕРІРµСЂСЏРµРј, РµСЃР»Рё Р·РІРѕРЅРѕРє РЅР°Рј
+        // Проверяем, если звонок нам
         if (callData && callData.to === username && callData.status === 'calling') {
-            // РџРѕРєР°Р·С‹РІР°РµРј СѓРІРµРґРѕРјР»РµРЅРёРµ Рѕ РІС…РѕРґСЏС‰РµРј Р·РІРѕРЅРєРµ
-            const accept = confirm(`Р’С…РѕРґСЏС‰РёР№ Р·РІРѕРЅРѕРє РѕС‚ ${callData.from}. РџСЂРёРЅСЏС‚СЊ?`);
+            // Показываем уведомление о входящем звонке
+            const accept = confirm(`Входящий звонок от ${callData.from}. Принять?`);
             
             if (accept) {
                 currentChatId = callId;
                 currentChatPartner = callData.from;
                 acceptIncomingCall(callData);
             } else {
-                // РћС‚РєР»РѕРЅСЏРµРј Р·РІРѕРЅРѕРє
+                // Отклоняем звонок
                 db.ref(`calls/${callId}`).update({
                     status: 'rejected'
                 });
@@ -432,7 +432,7 @@ function listenForIncomingCalls() {
     });
 }
 
-// РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїСЂРё Р·Р°РіСЂСѓР·РєРµ
+// Инициализация при загрузке
 if (typeof window !== 'undefined') {
     window.startAudioCall = startAudioCall;
     window.endCall = endCall;
@@ -441,5 +441,7 @@ if (typeof window !== 'undefined') {
 }
 
 console.log('Audio call module loaded');
+
+
 
 

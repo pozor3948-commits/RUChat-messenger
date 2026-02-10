@@ -1,8 +1,8 @@
 ﻿/* ==========================================================
-   3. РЈРўРР›РРўР« Р”Р›РЇ Р›РћРљРђР›Р¬РќРћР™ Р РђР—Р РђР‘РћРўРљР
+   3. УТИЛИТЫ ДЛЯ ЛОКАЛЬНОЙ РАЗРАБОТКИ
    ========================================================== */
 
-// Р“Р›РћР‘РђР›Р¬РќР«Р• РџР•Р Р•РњР•РќРќР«Р•
+// ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
 let notificationQueue = [];
 let isNotificationShowing = false;
 let isMobile = window.innerWidth <= 768;
@@ -54,10 +54,10 @@ function normalizeText(text) {
     return text;
 }
 
-// Р¤СѓРЅРєС†РёСЏ РїСЂРѕРІРµСЂРєРё СЃРѕРµРґРёРЅРµРЅРёСЏ
+// Функция проверки соединения
 function checkConnection() {
     if (!navigator.onLine) { 
-        showError('РќРµС‚ СЃРѕРµРґРёРЅРµРЅРёСЏ СЃ РёРЅС‚РµСЂРЅРµС‚РѕРј'); 
+        showError('Нет соединения с интернетом'); 
         return false; 
     }
     return true;
@@ -84,17 +84,17 @@ function hideLoading() {
     document.getElementById('loadingOverlay').style.display = 'none';
 }
 
-// Р¤СѓРЅРєС†РёСЏ СѓРІРµРґРѕРјР»РµРЅРёР№ С‡РµСЂРµР· РіР»РѕР±Р°Р»СЊРЅСѓСЋ
+// Функция уведомлений через глобальную
 function showNotification(title, text, type = 'info') {
     if (typeof window.showNotification === 'function') {
         window.showNotification(title, text, type);
     } else {
-        // Fallback РґР»СЏ СЃС‚Р°СЂС‹С… РІС‹Р·РѕРІРѕРІ
+        // Fallback для старых вызовов
         notificationQueue.push({ title, text });
         if (!isNotificationShowing) showNextNotification();
     }
 
-    // Пытаемся показать системное уведомление (браузер)
+    // Показываем системные уведомления (fallback)
     try {
         if (document.visibilityState !== 'visible' && 'Notification' in window) {
             if (Notification.permission === 'granted') {
@@ -108,15 +108,15 @@ function showNotification(title, text, type = 'info') {
     }
 }
 
-// Р¤СѓРЅРєС†РёСЏ РѕС€РёР±РѕРє С‡РµСЂРµР· РіР»РѕР±Р°Р»СЊРЅСѓСЋ
+// Функция ошибок через глобальную
 function showError(msg, retry) {
     if (typeof window.showError === 'function') {
         window.showError(msg, retry);
     } else {
-        // Fallback РґР»СЏ СЃС‚Р°СЂС‹С… РІС‹Р·РѕРІРѕРІ
+        // Fallback для старых вызовов
         const err = document.createElement('div');
         err.className = 'error-message';
-        err.innerHTML = `<span>${msg}</span>${retry ? '<button class="error-retry" onclick="retryAction()">РџРѕРІС‚РѕСЂРёС‚СЊ</button>' : ''}`;
+        err.innerHTML = `<span>${msg}</span>${retry ? '<button class="error-retry" onclick="retryAction()">Повторить</button>' : ''}`;
         document.body.appendChild(err);
         if (retry) window.retryAction = retry;
         setTimeout(() => { err.remove(); window.retryAction = null; }, 5000);
@@ -135,4 +135,7 @@ function showNextNotification() {
         setTimeout(() => { n.style.display = 'none'; setTimeout(showNextNotification, 300); }, 3000);
     }
 }
+
+
+
 

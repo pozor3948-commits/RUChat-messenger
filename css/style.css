@@ -1,8 +1,8 @@
-﻿/* ----------  Р’РЎР• РЎРўРР›Р Р‘Р•Р— РР—РњР•РќР•РќРР™  ---------- */
+﻿/* ----------  ВСЕ СТИЛИ БЕЗ ИЗМЕНЕНИЙ  ---------- */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif; background:#0f172a; color:#fff; height:100vh; overflow:hidden; }
 
-/* --- Р°РЅРёРјР°С†РёРё --- */
+/* --- анимации --- */
 @keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.05)} 100%{transform:scale(1)} }
 @keyframes ripple { 0%{transform:scale(0);opacity:1} 100%{transform:scale(4);opacity:0} }
 @keyframes glow { 0%,100%{box-shadow:0 0 5px rgba(0,136,204,.5)} 50%{box-shadow:0 0 20px rgba(0,136,204,.8)} }
@@ -16,7 +16,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 @keyframes fadeIn { from{opacity:0} to{opacity:1} }
 @keyframes slideIn { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
 
-/* --- Р»РѕРіРёРЅ --- */
+/* --- логин --- */
 .login-container { display:flex; align-items:center; justify-content:center; min-height:100vh; background:linear-gradient(-45deg,#667eea,#764ba2,#f093fb,#f5576c); background-size:400% 400%; animation:gradient 15s ease infinite; }
 @keyframes gradient { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
 .login-box { background:rgba(255,255,255,.1); backdrop-filter:blur(20px); padding:40px; border-radius:25px; width:100%; max-width:400px; box-shadow:0 25px 50px rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.1); animation:slideUp .6s ease-out; position:relative; overflow:hidden; }
@@ -36,10 +36,10 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 .btn-group { display:flex; gap:12px; margin-bottom:12px; }
 .btn-group .login-btn { flex:1; }
 
-/* --- РѕСЃРЅРѕРІРЅРѕР№ РёРЅС‚РµСЂС„РµР№СЃ --- */
+/* --- основной интерфейс --- */
 .main-container { display:none; height:100vh; animation:slideUp .5s ease-out; }
 
-/* РјРѕР±РёР»СЊРЅР°СЏ Р°РґР°РїС‚Р°С†РёСЏ */
+/* мобильная адаптация */
 .mobile-header { display:none; padding:15px; background:rgba(30,39,54,.95); border-bottom:1px solid rgba(255,255,255,.1); justify-content:space-between; align-items:center; backdrop-filter:blur(10px); }
 .mobile-menu-btn, .mobile-back-btn { width:40px; height:40px; border-radius:50%; background:linear-gradient(45deg,rgba(45,55,70,.8),rgba(30,39,54,.8)); border:1px solid rgba(255,255,255,.1); color:white; font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 .mobile-back-btn { display:none; }
@@ -87,7 +87,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 .empty-state .title { font-size:16px; margin-bottom:8px; color:#cbd5e1; }
 .empty-state .description { font-size:14px; opacity:.7; }
 
-/* --- С‡Р°С‚ --- */
+/* --- чат --- */
 .chat-container { margin-left:340px; width:calc(100% - 340px); height:100vh; display:flex; flex-direction:column; background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%); position:relative; overflow:hidden; }
 .chat-container::before { content:''; position:absolute; top:0; left:0; right:0; bottom:0; background:radial-gradient(circle at 20% 80%,rgba(0,136,204,.1) 0%,transparent 50%),radial-gradient(circle at 80% 20%,rgba(99,102,241,.1) 0%,transparent 50%),radial-gradient(circle at 40% 40%,rgba(168,85,247,.1) 0%,transparent 50%); animation:rotate 20s linear infinite; }
 .chat-header { padding:20px; background:rgba(30,39,54,.8); border-bottom:1px solid rgba(255,255,255,.1); display:flex; align-items:center; justify-content:space-between; backdrop-filter:blur(10px); position:relative; z-index:1; animation:slideUp .3s ease-out; }
@@ -104,7 +104,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 .icon-btn::after { content:''; position:absolute; top:50%; left:50%; width:5px; height:5px; background:rgba(255,255,255,.5); opacity:0; border-radius:100%; transform:scale(1) translate(-50%); transform-origin:50% 50%; }
 .icon-btn:active::after { animation:ripple .6s ease-out; }
 
-.call-button { position:fixed; top:20px; right:20px; width:50px; height:50px; border-radius:50%; background:linear-gradient(45deg,#0088cc,#00b4ff); border:none; color:white; font-size:20px; cursor:pointer; box-shadow:0 10px 30px rgba(0,136,204,.4); z-index:1000; display:flex; align-items:center; justify-content:center; transition:all .3s cubic-bezier(.4,0,.2,1); animation:pulse 2s infinite; display:none; }
+.call-button { position:fixed; top:20px; right:20px; width:50px; height:50px; border-radius:50%; background:linear-gradient(45deg,#0088cc,#00b4ff); border:none; color:white; font-size:20px; cursor:pointer; box-shadow:0 10px 30px rgba(0,136,204,.4); z-index:2003; display:flex; align-items:center; justify-content:center; transition:all .3s cubic-bezier(.4,0,.2,1); animation:pulse 2s infinite; display:none; }
 .call-button.active { display:flex; }
 .call-button:hover { transform:scale(1.1); box-shadow:0 15px 40px rgba(0,136,204,.6); }
 .call-button.calling { background:linear-gradient(45deg,#ef4444,#dc2626); animation:pulse 1s infinite; }
@@ -196,11 +196,43 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 .loading-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,.9); display:flex; align-items:center; justify-content:center; z-index:10000; backdrop-filter:blur(10px); }
 .loading-spinner { width:50px; height:50px; border:3px solid rgba(255,255,255,.1); border-top-color:#0088cc; border-radius:50%; animation:rotate 1s linear infinite; }
 
-.record-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.9); display:none; align-items:center; justify-content:center; z-index:1000; backdrop-filter:blur(10px); animation:slideUp .3s ease-out; }
+.record-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.9); display:none; align-items:center; justify-content:center; z-index:2002; backdrop-filter:blur(10px); animation:slideUp .3s ease-out; }
 .record-modal { background:linear-gradient(135deg,rgba(30,39,54,.95),rgba(15,23,42,.95)); border-radius:25px; padding:40px; width:90%; max-width:450px; box-shadow:0 25px 50px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.1); animation:slideUp .4s ease-out; backdrop-filter:blur(20px); }
 .record-title { text-align:center; margin-bottom:30px; font-size:24px; font-weight:600; background:linear-gradient(45deg,#fff,#a5b4fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation:pulse 2s infinite; }
 .record-timer { text-align:center; font-size:56px; font-weight:300; margin:30px 0; color:#0088cc; font-family:monospace; text-shadow:0 0 20px rgba(0,136,204,.5); animation:glow 2s infinite; }
 .record-controls { display:flex; justify-content:center; gap:25px; margin-top:40px; }
+.record-controls { position: relative; }
+.record-lock {
+    position: absolute;
+    top: -84px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(15,23,42,0.6);
+    border: 1px dashed rgba(255,255,255,0.25);
+    color: #e2e8f0;
+    font-size: 12px;
+    text-align: center;
+    min-width: 190px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+    transition: all 0.2s ease;
+}
+.record-lock .lock-icon { font-size: 18px; }
+.record-lock.locked {
+    background: rgba(0,136,204,0.25);
+    border-style: solid;
+    color: #ffffff;
+    box-shadow: 0 10px 24px rgba(0,136,204,0.4);
+}
+@media (max-width: 480px) {
+    .record-lock { top: -74px; min-width: 170px; font-size: 11px; }
+}
 .record-btn { width:80px; height:80px; border-radius:50%; border:none; font-size:28px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .3s cubic-bezier(.4,0,.2,1); position:relative; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.3); }
 .record-btn:hover { transform:translateY(-5px) scale(1.1); box-shadow:0 20px 40px rgba(0,0,0,.4); animation:bounce .5s ease; }
 .record-btn:active { transform:translateY(-2px) scale(1); transition:transform .1s ease; }
@@ -220,7 +252,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 .notification-title { font-weight:600; margin-bottom:6px; font-size:16px; }
 .notification-text { font-size:14px; opacity:.9; }
 
-.group-modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.8); display:none; align-items:center; justify-content:center; z-index:1000; backdrop-filter:blur(10px); }
+.group-modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.8); display:none; align-items:center; justify-content:center; z-index:2001; backdrop-filter:blur(10px); }
 .group-modal { background:linear-gradient(135deg,rgba(30,39,54,.95),rgba(15,23,42,.95)); border-radius:25px; padding:30px; width:90%; max-width:500px; box-shadow:0 25px 50px rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.1); animation:slideUp .4s ease-out; }
 .group-modal-title { text-align:center; margin-bottom:25px; font-size:24px; font-weight:600; background:linear-gradient(45deg,#fff,#a5b4fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
 .group-input { width:100%; padding:14px 18px; margin-bottom:15px; background:rgba(255,255,255,.08); border:2px solid transparent; border-radius:12px; color:white; font-size:14px; outline:none; transition:all .3s; }
@@ -231,7 +263,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 .group-member-checkbox { margin-right:10px; }
 .group-modal-buttons { display:flex; gap:12px; }
 
-/* --- Р°РґР°РїС‚РёРІРЅРѕСЃС‚СЊ --- */
+/* --- адаптивность --- */
 @media (max-width:768px) {
     .sidebar { width:100%; transform:translateX(-100%); position:fixed; top:0; height:100vh; z-index:1000; }
     .sidebar.active { transform:translateX(0); }
@@ -271,13 +303,13 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
     .emoji-picker { width:95%; right:2.5%; }
 }
 
-/* --- СЃРєСЂРѕР»Р»Р±Р°СЂ --- */
+/* --- скроллбар --- */
 ::-webkit-scrollbar { width:8px; height:8px; }
 ::-webkit-scrollbar-track { background:rgba(255,255,255,.05); border-radius:4px; }
 ::-webkit-scrollbar-thumb { background:linear-gradient(45deg,#0088cc,#00b4ff); border-radius:4px; transition:all .3s ease; }
 ::-webkit-scrollbar-thumb:hover { background:linear-gradient(45deg,#00b4ff,#0088cc); box-shadow:0 0 10px rgba(0,136,204,.5); }
 
-/* Р”РѕРїРѕР»РЅРµРЅРёСЏ РґР»СЏ РјРѕР±РёР»СЊРЅРѕРіРѕ РїРѕРІРµРґРµРЅРёСЏ РєР°Рє РІ Telegram */
+/* Дополнения для мобильного поведения как в Telegram */
 @media (max-width: 768px) {
     .sidebar {
         width: 100%;
@@ -306,7 +338,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
         transform: translateX(0);
     }
 
-    /* РЈР±РёСЂР°РµРј stories РЅР° РјРѕР±РёР»СЊРЅРѕРј РєРѕРіРґР° С‡Р°С‚ РѕС‚РєСЂС‹С‚ вЂ” РєР°Рє РІ TG */
+    /* Убираем stories на мобильном когда чат открыт — как в TG */
     .stories-container {
         display: none;
     }
@@ -315,7 +347,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
         display: none !important;
     }
 
-    /* Р¤РѕРЅ РјРѕР±РёР»СЊРЅРѕРіРѕ С…РµРґРµСЂР° РєРѕРіРґР° С‡Р°С‚ РѕС‚РєСЂС‹С‚ */
+    /* Фон мобильного хедера когда чат открыт */
     .mobile-header {
         position: fixed;
         top: 0;
@@ -324,7 +356,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
         z-index: 1003;
     }
 
-    /* Р§С‚РѕР±С‹ input РЅРµ РїРµСЂРµРєСЂС‹РІР°Р»СЃСЏ РєР»Р°РІРёР°С‚СѓСЂРѕР№ */
+    /* Чтобы input не перекрывался клавиатурой */
     .message-input-container {
         position: sticky;
         bottom: 0;
@@ -332,7 +364,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
     }
 }
 
-/* РЎС‚РёР»Рё РґР»СЏ СѓРїСЂР°РІР»РµРЅРёСЏ Р·РІСѓРєР°РјРё */
+/* Стили для управления звуками */
 .volume-slider {
     -webkit-appearance: none;
     width: 100%;
@@ -375,7 +407,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
     box-shadow: 0 0 15px rgba(0,136,204,.7);
 }
 
-/* РђРЅРёРјР°С†РёСЏ РёРєРѕРЅРєРё Р·РІСѓРєР° */
+/* Анимация иконки звука */
 @keyframes soundPulse {
     0% { transform: scale(1); }
     50% { transform: scale(1.1); }
@@ -386,7 +418,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
     animation: soundPulse 2s infinite;
 }
 
-/* Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Рµ СЃС‚РёР»Рё РґР»СЏ РјРѕРґР°Р»СЊРЅРѕРіРѕ РѕРєРЅР° Р·РІСѓРєРѕРІ */
+/* Дополнительные стили для модального окна звуков */
 .group-modal .login-btn[style*="width: auto"] {
     min-width: 100px;
     padding: 8px 16px;
@@ -394,7 +426,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 }
 
 /* ==========================================================
-   Р’РР”Р•РћРЎРћРћР‘Р©Р•РќРРЇ
+   ВИДЕОСООБЩЕНИЯ
    ========================================================== */
 
 .record-type-menu {
@@ -539,7 +571,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 }
 
 .message-video::before {
-    content: 'в–¶пёЏ';
+    content: '▶️';
     position: absolute;
     top: 50%;
     left: 50%;
@@ -611,7 +643,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
     margin-top: 5px;
 }
 
-/* РђРґР°РїС‚РёРІРЅРѕСЃС‚СЊ РґР»СЏ РјРѕР±РёР»СЊРЅС‹С… */
+/* Адаптивность для мобильных */
 @media (max-width: 768px) {
     .video-preview-container {
         height: 250px;
@@ -650,10 +682,10 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 }
 
 /* ==========================================================
-   РњРћР‘РР›Р¬РќР«Р• РРЎРџР РђР’Р›Р•РќРРЇ - РљРќРћРџРљР Р РњР•РќР®
+   МОБИЛЬНЫЕ ИСПРАВЛЕНИЯ - КНОПКИ И МЕНЮ
    ========================================================== */
 @media (max-width: 768px) {
-    /* РЈР»СѓС‡С€Р°РµРј РІРёРґРёРјРѕСЃС‚СЊ РєРЅРѕРїРєРё РІС‹Р±РѕСЂР° С‚РёРїР° Р·Р°РїРёСЃРё */
+    /* Улучшаем видимость кнопки выбора типа записи */
     .record-type-menu {
         bottom: 120px !important;
         right: 10px !important;
@@ -663,7 +695,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
         box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important;
     }
     
-    /* РСЃРїСЂР°РІР»СЏРµРј РјРµРЅСЋ РїСЂРёРєСЂРµРїР»РµРЅРёСЏ */
+    /* Исправляем меню прикрепления */
     .attachment-menu {
         bottom: 120px !important;
         left: 10px !important;
@@ -673,7 +705,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
         box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important;
     }
     
-    /* Р­РјРѕРґР·Рё-РїРёРєРµСЂ РЅР° РІРµСЃСЊ СЌРєСЂР°РЅ */
+    /* Эмодзи-пикер на весь экран */
     .emoji-picker {
         bottom: 80px !important;
         right: 10px !important;
@@ -683,7 +715,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
         z-index: 1004 !important;
     }
     
-    /* РЈР»СѓС‡С€Р°РµРј РІРёРґРёРјРѕСЃС‚СЊ РєРЅРѕРїРѕРє РІРІРѕРґР° */
+    /* Улучшаем видимость кнопок ввода */
     .input-wrapper {
         padding: 5px;
         background: rgba(30,39,54,0.95);
@@ -691,20 +723,20 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
         border: 1px solid rgba(255,255,255,0.1);
     }
     
-    /* Р”РµР»Р°РµРј РєРЅРѕРїРєРё Р±РѕР»СЊС€Рµ РґР»СЏ СѓРґРѕР±СЃС‚РІР° РЅР°Р¶Р°С‚РёСЏ */
+    /* Делаем кнопки больше для удобства нажатия */
     .attachment-btn, .send-btn, .icon-btn[onclick*="showRecordTypeMenu"] {
         min-width: 48px !important;
         min-height: 48px !important;
     }
     
-    /* РџРѕР»Рµ РІРІРѕРґР° Р±РѕР»СЊС€Рµ */
+    /* Поле ввода больше */
     .message-input {
         font-size: 16px !important;
         padding: 14px 16px !important;
         min-height: 48px;
     }
     
-    /* РЈР»СѓС‡С€Р°РµРј РІРёРґРёРјРѕСЃС‚СЊ РєРѕРЅС‚РµР№РЅРµСЂР° РІРІРѕРґР° */
+    /* Улучшаем видимость контейнера ввода */
     .message-input-container {
         padding: 10px 15px !important;
         background: rgba(30,39,54,0.98) !important;
@@ -712,12 +744,12 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
         border-top: 1px solid rgba(255,255,255,0.2) !important;
     }
     
-    /* РЈРІРµР»РёС‡РёРІР°РµРј РѕС‚СЃС‚СѓРї РґР»СЏ СЃРѕРѕР±С‰РµРЅРёР№, С‡С‚РѕР±С‹ РЅРµ РїРµСЂРµРєСЂС‹РІР°Р»РёСЃСЊ */
+    /* Увеличиваем отступ для сообщений, чтобы не перекрывались */
     .messages-container {
         padding-bottom: 90px !important;
     }
     
-    /* РЈР»СѓС‡С€Р°РµРј РІРёРґРёРјРѕСЃС‚СЊ РєРЅРѕРїРєРё Р·РІРѕРЅРєР° РЅР° РјРѕР±РёР»СЊРЅС‹С… */
+    /* Улучшаем видимость кнопки звонка на мобильных */
     .call-button {
         width: 60px !important;
         height: 60px !important;
@@ -729,14 +761,14 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
         z-index: 999 !important;
     }
     
-    /* РЈР»СѓС‡С€Р°РµРј РєРЅРѕРїРєСѓ РјРµРЅСЋ РЅР° РјРѕР±РёР»СЊРЅРѕРј С…РµРґРµСЂРµ */
+    /* Улучшаем кнопку меню на мобильном хедере */
     .mobile-menu-btn, .mobile-back-btn {
         width: 44px !important;
         height: 44px !important;
         font-size: 22px !important;
     }
     
-    /* РЈР»СѓС‡С€Р°РµРј РІРёРґРёРјРѕСЃС‚СЊ Р·Р°РіРѕР»РѕРІРєР° С‡Р°С‚Р° */
+    /* Улучшаем видимость заголовка чата */
     .chat-info {
         max-width: 70%;
     }
@@ -748,7 +780,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
         text-overflow: ellipsis;
     }
     
-    /* РЎРєСЂС‹РІР°РµРј РёСЃС‚РѕСЂРёРё РєРѕРіРґР° РѕС‚РєСЂС‹С‚ С‡Р°С‚ */
+    /* Скрываем истории когда открыт чат */
     .stories-container {
         display: none !important;
     }
@@ -758,19 +790,19 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
         display: none !important;
     }
     
-    /* РЈР»СѓС‡С€Р°РµРј РІРёРґРёРјРѕСЃС‚СЊ СЃР°Р№РґР±Р°СЂР° */
+    /* Улучшаем видимость сайдбара */
     .sidebar.active {
         box-shadow: 0 0 50px rgba(0,0,0,0.8);
         z-index: 1002 !important;
     }
     
-    /* РЈР»СѓС‡С€Р°РµРј РєРЅРѕРїРєРё РІ СЃР°Р№РґР±Р°СЂРµ */
+    /* Улучшаем кнопки в сайдбаре */
     .contact-item, .group-item {
         padding: 16px 20px !important;
         margin: 6px 10px !important;
     }
     
-    /* РЈРІРµР»РёС‡РёРІР°РµРј РѕР±Р»Р°СЃС‚СЊ РЅР°Р¶Р°С‚РёСЏ */
+    /* Увеличиваем область нажатия */
     .contact-avatar, .group-avatar {
         width: 52px !important;
         height: 52px !important;
@@ -780,7 +812,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
         font-size: 17px !important;
     }
     
-    /* РЈР»СѓС‡С€Р°РµРј РєРЅРѕРїРєРё Р»РѕРіРёРЅР° РЅР° РјРѕР±РёР»СЊРЅС‹С… */
+    /* Улучшаем кнопки логина на мобильных */
     .login-btn {
         padding: 18px !important;
         font-size: 17px !important;
@@ -794,7 +826,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 }
 
 @media (max-width: 480px) {
-    /* Р•С‰Рµ Р±РѕР»РµРµ РєРѕРјРїР°РєС‚РЅС‹Рµ СЃС‚РёР»Рё РґР»СЏ РјР°Р»РµРЅСЊРєРёС… СЌРєСЂР°РЅРѕРІ */
+    /* Еще более компактные стили для маленьких экранов */
     .record-type-menu,
     .attachment-menu {
         min-width: 180px !important;
@@ -809,7 +841,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
         max-width: 85% !important;
     }
     
-    /* РЈР»СѓС‡С€Р°РµРј РёРЅРґРёРєР°С‚РѕСЂ РЅР°Р±РѕСЂР° С‚РµРєСЃС‚Р° */
+    /* Улучшаем индикатор набора текста */
     .typing-indicator {
         font-size: 14px !important;
         padding: 12px !important;
@@ -817,7 +849,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 }
 
 /* ==========================================================
-   РРЎРџР РђР’Р›Р•РќРР• Z-INDEX Р”Р›РЇ РњР•РќР®
+   ИСПРАВЛЕНИЕ Z-INDEX ДЛЯ МЕНЮ
    ========================================================== */
 .attachment-menu,
 .record-type-menu,
@@ -838,7 +870,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 }
 
 /* ==========================================================
-   Р—РђР©РРўРђ РћРў РџР•Р Р•РљР Р«РўРРЇ РљР›РђР’РРђРўРЈР РћР™
+   ЗАЩИТА ОТ ПЕРЕКРЫТИЯ КЛАВИАТУРОЙ
    ========================================================== */
 @media (max-height: 600px) {
     .message-input-container {
@@ -859,9 +891,9 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 }
 
 /* ==========================================================
-   РРЎРџР РђР’Р›Р•РќРР• РРљРћРќРћРљ - Р—РђР“Р›РЈРЁРљР
+   ИСПРАВЛЕНИЕ ИКОНОК - ЗАГЛУШКИ
    ========================================================== */
-/* РЈР±РёСЂР°РµРј РѕС€РёР±РєРё Р·Р°РіСЂСѓР·РєРё РёРєРѕРЅРѕРє */
+/* Убираем ошибки загрузки иконок */
 img[src*="assets/icons/"]:not([src]),
 img[src=""],
 img:not([src]) {
@@ -870,10 +902,10 @@ img:not([src]) {
 }
 
 /* ==========================================================
-   РЈР›РЈР§РЁР•РќРќР«Р• РЈР’Р•Р”РћРњР›Р•РќРРЇ Р РћРЁРР‘РљР
+   УЛУЧШЕННЫЕ УВЕДОМЛЕНИЯ И ОШИБКИ
    ========================================================== */
 
-/* Р‘Р°Р·РѕРІС‹Рµ СѓРІРµРґРѕРјР»РµРЅРёСЏ */
+/* Базовые уведомления */
 .notification {
     position: fixed;
     top: 25px;
@@ -949,7 +981,7 @@ img:not([src]) {
     line-height: 1.4;
 }
 
-/* РЈРІРµРґРѕРјР»РµРЅРёСЏ РѕР± РѕС€РёР±РєР°С… */
+/* Уведомления об ошибках */
 .error-message {
     position: fixed;
     top: 25px;
@@ -1011,7 +1043,7 @@ img:not([src]) {
     box-shadow: 0 5px 15px rgba(255,255,255,0.2);
 }
 
-/* Р Р°Р·РЅС‹Рµ С‚РёРїС‹ СѓРІРµРґРѕРјР»РµРЅРёР№ */
+/* Разные типы уведомлений */
 .notification.success {
     background: linear-gradient(135deg, rgba(34,197,94,0.95), rgba(74,222,128,0.95));
     border-color: rgba(255,255,255,0.3);
@@ -1027,7 +1059,7 @@ img:not([src]) {
     border-color: rgba(255,255,255,0.3);
 }
 
-/* РљРЅРѕРїРєР° Р·Р°РєСЂС‹С‚РёСЏ СѓРІРµРґРѕРјР»РµРЅРёСЏ */
+/* Кнопка закрытия уведомления */
 .notification-close {
     background: transparent;
     border: none;
@@ -1051,7 +1083,7 @@ img:not([src]) {
     transform: rotate(90deg);
 }
 
-/* Р”Р»СЏ РјРѕР±РёР»СЊРЅС‹С… СѓСЃС‚СЂРѕР№СЃС‚РІ */
+/* Для мобильных устройств */
 @media (max-width: 768px) {
     .notification, .error-message {
         top: 15px;
@@ -1089,17 +1121,17 @@ img:not([src]) {
 }
 
 /* ==========================================================
-   Р¤РРљРЎР« Р”Р›РЇ Р›РћРљРђР›Р¬РќРћР™ Р РђР—Р РђР‘РћРўРљР
+   ФИКСЫ ДЛЯ ЛОКАЛЬНОЙ РАЗРАБОТКИ
    ========================================================== */
 
-/* РЈР±РёСЂР°РµРј РѕС€РёР±РєРё Р·Р°РіСЂСѓР·РєРё РёРєРѕРЅРѕРє */
+/* Убираем ошибки загрузки иконок */
 img[src*="assets/icons/"]:not([src]),
 img[src=""],
 img:not([src]) {
     display: none !important;
 }
 
-/* РЈР»СѓС‡С€Р°РµРј РјРµРЅСЋ РЅР° РјРѕР±РёР»СЊРЅС‹С… */
+/* Улучшаем меню на мобильных */
 @media (max-width: 768px) {
     .attachment-menu.active,
     .record-type-menu.active,
@@ -1134,7 +1166,7 @@ img:not([src]) {
         height: 350px !important;
     }
     
-    /* РЈР»СѓС‡С€Р°РµРј РєРЅРѕРїРєРё РІРІРѕРґР° */
+    /* Улучшаем кнопки ввода */
     .message-input-container {
         padding: 10px 15px !important;
         position: sticky !important;
@@ -1163,7 +1195,7 @@ img:not([src]) {
         padding: 14px 18px !important;
     }
     
-    /* РЈР»СѓС‡С€Р°РµРј СѓРІРµРґРѕРјР»РµРЅРёСЏ */
+    /* Улучшаем уведомления */
     .notification {
         top: 15px !important;
         right: 15px !important;
@@ -1175,7 +1207,7 @@ img:not([src]) {
     }
 }
 
-/* РђРЅРёРјР°С†РёСЏ РґР»СЏ РјРµРЅСЋ */
+/* Анимация для меню */
 @keyframes slideUp {
     from {
         transform: translateY(20px);
@@ -1187,7 +1219,7 @@ img:not([src]) {
     }
 }
 
-/* РЈР»СѓС‡С€Р°РµРј СЃРєСЂРѕР»Р»Р±Р°СЂ РґР»СЏ РјРµРЅСЋ */
+/* Улучшаем скроллбар для меню */
 .attachment-menu::-webkit-scrollbar,
 .record-type-menu::-webkit-scrollbar,
 .emoji-picker::-webkit-scrollbar {
@@ -1209,10 +1241,10 @@ img:not([src]) {
 }
 
 /* ==========================================================
-   РРЎРџР РђР’Р›Р•РќРРЇ Р”Р›РЇ РљРќРћРџРћРљ Р РњР•РќР® Р’ Р§РђРўР•
+   ИСПРАВЛЕНИЯ ДЛЯ КНОПОК И МЕНЮ В ЧАТЕ
    ========================================================== */
 
-/* РСЃРїСЂР°РІР»СЏРµРј РїРѕР»РѕР¶РµРЅРёРµ РєРЅРѕРїРѕРє РІРІРѕРґР° */
+/* Исправляем положение кнопок ввода */
 .input-wrapper {
     display: flex;
     align-items: center;
@@ -1221,7 +1253,7 @@ img:not([src]) {
     z-index: 1;
 }
 
-/* РљРЅРѕРїРєРё РІРІРѕРґР° С„РёРєСЃРёСЂРѕРІР°РЅРЅРѕРіРѕ СЂР°Р·РјРµСЂР° */
+/* Кнопки ввода фиксированного размера */
 .attachment-btn, 
 .send-btn, 
 .icon-btn[onclick*="showRecordTypeMenu"] {
@@ -1233,13 +1265,13 @@ img:not([src]) {
     justify-content: center;
 }
 
-/* РџРѕР»Рµ РІРІРѕРґР° Р·Р°РЅРёРјР°РµС‚ РІСЃС‘ РґРѕСЃС‚СѓРїРЅРѕРµ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРѕ */
+/* Поле ввода занимает всё доступное пространство */
 .message-input {
     flex: 1;
-    min-width: 0; /* Р’Р°Р¶РЅРѕ РґР»СЏ РєРѕСЂСЂРµРєС‚РЅРѕРіРѕ СЃР¶Р°С‚РёСЏ */
+    min-width: 0; /* Важно для корректного сжатия */
 }
 
-/* РСЃРїСЂР°РІР»СЏРµРј РјРµРЅСЋ РїСЂРёРєСЂРµРїР»РµРЅРёСЏ */
+/* Исправляем меню прикрепления */
 .attachment-menu,
 .record-type-menu {
     min-width: 220px;
@@ -1273,7 +1305,7 @@ img:not([src]) {
     text-overflow: ellipsis !important;
 }
 
-/* РСЃРїСЂР°РІР»СЏРµРј РїРѕР»РѕР¶РµРЅРёРµ РјРµРЅСЋ РЅР° РјРѕР±РёР»СЊРЅС‹С… */
+/* Исправляем положение меню на мобильных */
 @media (max-width: 768px) {
     .input-wrapper {
         gap: 8px;
@@ -1316,7 +1348,7 @@ img:not([src]) {
     }
 }
 
-/* РСЃРїСЂР°РІР»СЏРµРј РїРµСЂРµРєСЂС‹С‚РёРµ РјРµРЅСЋ РЅР° РјР°Р»РµРЅСЊРєРёС… СЌРєСЂР°РЅР°С… */
+/* Исправляем перекрытие меню на маленьких экранах */
 @media (max-width: 480px) {
     .input-wrapper {
         gap: 6px;
@@ -1343,7 +1375,7 @@ img:not([src]) {
     }
 }
 
-/* Р“Р°СЂР°РЅС‚РёСЂСѓРµРј, С‡С‚Рѕ РјРµРЅСЋ РІСЃРµРіРґР° РїРѕРІРµСЂС… РІСЃРµРіРѕ */
+/* Гарантируем, что меню всегда поверх всего */
 .attachment-menu.active,
 .record-type-menu.active,
 .emoji-picker.active {
@@ -1352,7 +1384,7 @@ img:not([src]) {
     animation: slideUp 0.3s ease !important;
 }
 
-/* РђРЅРёРјР°С†РёСЏ РїРѕСЏРІР»РµРЅРёСЏ РјРµРЅСЋ */
+/* Анимация появления меню */
 @keyframes slideUp {
     from {
         opacity: 0;
@@ -1795,7 +1827,7 @@ body.light .attachment-btn {
 }
 
 /* ==========================================================
-   РћР’Р•Р Р›Р•Р™ РђРЈР”РРћР—Р’РћРќРљРђ
+   ОВЕРЛЕЙ АУДИОЗВОНКА
    ========================================================== */
 .call-overlay {
     position: fixed;
@@ -1953,4 +1985,7 @@ body.light .attachment-btn {
         height: 52px;
     }
 }
+
+
+
 

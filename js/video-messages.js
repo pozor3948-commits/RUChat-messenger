@@ -1,5 +1,5 @@
 ﻿/* ==========================================================
-   Р’РР”Р•РћРЎРћРћР‘Р©Р•РќРРЇ
+   ВИДЕОСООБЩЕНИЯ
    ========================================================== */
 
 let videoRecorder = null;
@@ -8,6 +8,9 @@ let videoStream = null;
 let recordingTimer = null;
 let recordingStartTime = 0;
 let isRecordingVideo = false;
+let isVideoLocked = false;
+let recordStartY = 0;
+let lockActivatedAt = 0;
 let currentCamera = 'user';
 
 const videoConfig = {
@@ -23,7 +26,7 @@ const videoConfig = {
 
 function initVideoMessages() {
     if (!window.MediaRecorder) {
-        console.warn('MediaRecorder РЅРµ РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ РІ СЌС‚РѕРј Р±СЂР°СѓР·РµСЂРµ');
+        console.warn('MediaRecorder не поддерживается в этом браузере');
         return false;
     }
     
@@ -44,7 +47,7 @@ async function checkCameraPermissions() {
         
         return true;
     } catch (error) {
-        console.warn('РќРµС‚ РґРѕСЃС‚СѓРїР° Рє РєР°РјРµСЂРµ:', error);
+        console.warn('Нет доступа к камере:', error);
         return false;
     }
 }
@@ -108,7 +111,7 @@ async function startVideoRecording() {
             const blob = new Blob(videoChunks, { type: 'video/webm' });
             
             if (blob.size > videoConfig.maxSize) {
-                showError('Р’РёРґРµРѕСЃРѕРѕР±С‰РµРЅРёРµ СЃР»РёС€РєРѕРј Р±РѕР»СЊС€РѕРµ. РњР°РєСЃРёРјСѓРј 50РњР‘');
+                showError('Видеосообщение слишком большое. Максимум 50МБ');
                 return;
             }
             
@@ -122,11 +125,11 @@ async function startVideoRecording() {
         };
         
     } catch (error) {
-        console.error('РћС€РёР±РєР° РїСЂРё Р·Р°РїСѓСЃРєРµ РєР°РјРµСЂС‹:', error);
-        showError('РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ РґРѕСЃС‚СѓРї Рє РєР°РјРµСЂРµ. РџСЂРѕРІРµСЂСЊС‚Рµ СЂР°Р·СЂРµС€РµРЅРёСЏ.');
+        console.error('Ошибка при запуске камеры:', error);
+        showError('Не удалось получить доступ к камере. Проверьте разрешения.');
         
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            const useAudioOnly = confirm('РќРµС‚ РґРѕСЃС‚СѓРїР° Рє РєР°РјРµСЂРµ. Р—Р°РїРёСЃР°С‚СЊ С‚РѕР»СЊРєРѕ Р°СѓРґРёРѕСЃРѕРѕР±С‰РµРЅРёРµ?');
+            const useAudioOnly = confirm('Нет доступа к камере. Записать только аудиосообщение?');
             if (useAudioOnly) {
                 startAudioRecording();
             }
@@ -134,24 +137,52 @@ async function startVideoRecording() {
     }
 }
 
-function startVideoRecordingAction() {
+function updateVideoLockUI(locked) {
+    const lock = document.getElementById('videoLockIndicator');
+    const hint = document.getElementById('videoLockHint');
+    if (!lock) return;
+    lock.style.display = isRecordingVideo ? 'flex' : 'none';
+    lock.classList.toggle('locked', !!locked);
+    if (hint) hint.textContent = locked ? 'Запись закреплена' : 'Потяните вверх, чтобы закрепить';
+}
+
+function handleVideoRecordMove(event) {
+    if (!isRecordingVideo || isVideoLocked) return;
+    const touch = event.touches && event.touches[0];
+    const y = touch ? touch.clientY : event.clientY;
+    if (typeof y !== 'number') return;
+    if (!recordStartY) recordStartY = y;
+    if (recordStartY - y > 60) {
+        isVideoLocked = true;
+        updateVideoLockUI(true);
+    }
+    if (event.cancelable) event.preventDefault();
+}
+function startVideoRecordingAction(event) {
     if (!videoRecorder || isRecordingVideo) return;
-    
+
+    const touch = event && event.touches && event.touches[0];
+    recordStartY = touch ? touch.clientY : (event ? event.clientY : 0);
+    isVideoLocked = false;
+    updateVideoLockUI(false);
+
     videoRecorder.start(1000);
     isRecordingVideo = true;
     recordingStartTime = Date.now();
-    
+
     document.getElementById('recordingIndicator').style.display = 'flex';
     document.getElementById('videoRecordBtn').classList.add('recording');
-    
+
     recordingTimer = setInterval(updateRecordingTimer, 1000);
-    
+
     document.addEventListener('mouseup', stopVideoRecordingAction);
     document.addEventListener('touchend', stopVideoRecordingAction);
-    
+    document.addEventListener('mousemove', handleVideoRecordMove);
+    document.addEventListener('touchmove', handleVideoRecordMove, { passive: false });
+
     setTimeout(() => {
         if (isRecordingVideo) {
-            stopVideoRecordingAction();
+            stopVideoRecordingAction({ forceStop: true });
         }
     }, videoConfig.maxDuration);
 }
@@ -174,39 +205,70 @@ function updateRecordingTimer() {
 }
 
 function stopVideoRecordingAction(event) {
-    if (event) {
+    const forceStop = event && event.forceStop;
+    if (isVideoLocked && !forceStop) return;
+
+    if (event && typeof event.preventDefault === "function") {
         event.preventDefault();
         event.stopPropagation();
     }
-    
+
     if (!isRecordingVideo || !videoRecorder) return;
-    
+
     videoRecorder.stop();
     isRecordingVideo = false;
-    
+    isVideoLocked = false;
+    recordStartY = 0;
+
     if (recordingTimer) {
         clearInterval(recordingTimer);
         recordingTimer = null;
     }
-    
+
     document.getElementById('recordingIndicator').style.display = 'none';
     document.getElementById('videoRecordBtn').classList.remove('recording');
     document.getElementById('videoRecordOverlay').style.display = 'none';
-    
+    updateVideoLockUI(false);
+
     document.removeEventListener('mouseup', stopVideoRecordingAction);
     document.removeEventListener('touchend', stopVideoRecordingAction);
-    
-    showNotification('Р’РёРґРµРѕСЃРѕРѕР±С‰РµРЅРёРµ РѕС‚РїСЂР°РІР»СЏРµС‚СЃСЏ...', '');
+    document.removeEventListener('mousemove', handleVideoRecordMove);
+    document.removeEventListener('touchmove', handleVideoRecordMove);
+
+    showNotification('Видеосообщение отправляется...', '');
 }
 
 async function toggleCamera() {
-    if (!videoStream) return;
-    
-    videoStream.getTracks().forEach(track => track.stop());
-    
+    if (isRecordingVideo) {
+        showError('Остановите запись, чтобы переключить камеру');
+        return;
+    }
+
     currentCamera = currentCamera === 'user' ? 'environment' : 'user';
-    
-    await startVideoRecording();
+
+    if (!videoStream) return;
+
+    try {
+        videoStream.getTracks().forEach(track => track.stop());
+    } catch (e) {}
+
+    const constraints = {
+        video: {
+            facingMode: currentCamera,
+            width: { ideal: videoConfig.quality.width },
+            height: { ideal: videoConfig.quality.height },
+            frameRate: { ideal: videoConfig.quality.frameRate }
+        },
+        audio: true
+    };
+
+    videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+    const videoPreview = document.getElementById('videoPreview');
+    if (videoPreview) {
+        videoPreview.srcObject = videoStream;
+        videoPreview.play();
+    }
 }
 
 function cleanupVideoRecording() {
@@ -218,6 +280,8 @@ function cleanupVideoRecording() {
     videoRecorder = null;
     videoChunks = [];
     isRecordingVideo = false;
+    isVideoLocked = false;
+    recordStartY = 0;
     
     if (recordingTimer) {
         clearInterval(recordingTimer);
@@ -228,6 +292,10 @@ function cleanupVideoRecording() {
     if (videoPreview) {
         videoPreview.srcObject = null;
     }
+    document.removeEventListener('mouseup', stopVideoRecordingAction);
+    document.removeEventListener('touchend', stopVideoRecordingAction);
+    document.removeEventListener('mousemove', handleVideoRecordMove);
+    document.removeEventListener('touchmove', handleVideoRecordMove);
 }
 
 function cancelVideoRecording() {
@@ -237,12 +305,13 @@ function cancelVideoRecording() {
     
     cleanupVideoRecording();
     document.getElementById('videoRecordOverlay').style.display = 'none';
+    updateVideoLockUI(false);
     document.getElementById('recordTypeMenu').classList.remove('active');
 }
 
 async function sendVideoMessage(videoData) {
     if (!checkConnection() || !currentChatId || !chatRef) {
-        showError('РќРµРІРѕР·РјРѕР¶РЅРѕ РѕС‚РїСЂР°РІРёС‚СЊ СЃРѕРѕР±С‰РµРЅРёРµ');
+        showError('Невозможно отправить сообщение');
         return;
     }
     
@@ -251,7 +320,7 @@ async function sendVideoMessage(videoData) {
     try {
         const message = {
             from: username,
-            text: 'рџЋҐ Р’РёРґРµРѕСЃРѕРѕР±С‰РµРЅРёРµ',
+            text: '🎥 Видеосообщение',
             video: videoData,
             time: Date.now(),
             sent: true,
@@ -263,15 +332,15 @@ async function sendVideoMessage(videoData) {
         };
         
         await chatRef.push(message);
-        showNotification('РЈСЃРїРµС€РЅРѕ', 'Р’РёРґРµРѕСЃРѕРѕР±С‰РµРЅРёРµ РѕС‚РїСЂР°РІР»РµРЅРѕ!');
+        showNotification('Успешно', 'Видеосообщение отправлено!');
         
         if (typeof playSendSound === 'function') {
             playSendSound();
         }
         
     } catch (error) {
-        console.error('РћС€РёР±РєР° РѕС‚РїСЂР°РІРєРё РІРёРґРµРѕСЃРѕРѕР±С‰РµРЅРёСЏ:', error);
-        showError('РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ РІРёРґРµРѕСЃРѕРѕР±С‰РµРЅРёРµ', () => sendVideoMessage(videoData));
+        console.error('Ошибка отправки видеосообщения:', error);
+        showError('Не удалось отправить видеосообщение', () => sendVideoMessage(videoData));
     } finally {
         hideLoading();
     }
@@ -283,7 +352,7 @@ function playVideoMessage(videoUrl) {
     modal.className = 'video-playback-overlay';
     modal.innerHTML = `
         <div class="video-playback-modal">
-            <button class="close-btn" onclick="this.parentElement.parentElement.remove()">вњ•</button>
+            <button class="close-btn" onclick="this.parentElement.parentElement.remove()">✕</button>
             <video src="${videoUrl}" controls autoplay></video>
         </div>
     `;
@@ -310,4 +379,21 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(initVideoMessages, 1000);
     }
 });
+
+
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('videoRecordBtn');
+    if (btn) {
+        btn.addEventListener('click', () => {
+            if (isVideoLocked && isRecordingVideo) {
+                stopVideoRecordingAction({ forceStop: true });
+            }
+        });
+    }
+});
+
+
+
 

@@ -1,8 +1,8 @@
 ﻿/* ==========================================================
-   6. Р—РђР“Р РЈР—РљРђ Р”РђРќРќР«РҐ (РРЎРџРћР›Р¬Р—РЈР•Рњ Р“Р›РћР‘РђР›Р¬РќР«Р• РџР•Р Р•РњР•РќРќР«Р•)
+   6. ЗАГРУЗКА ДАННЫХ (ИСПОЛЬЗУЕМ ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ)
    ========================================================== */
 
-// РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ РіР»РѕР±Р°Р»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ РѕРїСЂРµРґРµР»РµРЅС‹
+// Проверяем, что глобальные переменные определены
 if (typeof friendStatusListeners === 'undefined') {
     window.friendStatusListeners = {};
 }
@@ -12,7 +12,7 @@ if (typeof userStatuses === 'undefined') {
 }
 
 /* ==========================================================
-   6. Р—РђР“Р РЈР—РљРђ Р”РђРќРќР«РҐ
+   6. ЗАГРУЗКА ДАННЫХ
    ========================================================== */
 function loadFriends() {
   const friendList = document.getElementById("friendList");
@@ -21,9 +21,9 @@ function loadFriends() {
     if (!snap.exists()) {
       friendList.innerHTML = `
         <div class="empty-state">
-          <div class="icon">рџ‘¤</div>
-          <div class="title">РЈ РІР°СЃ РїРѕРєР° РЅРµС‚ РґСЂСѓР·РµР№</div>
-          <div class="description">Р”РѕР±Р°РІСЊС‚Рµ РґСЂСѓР·РµР№, С‡С‚РѕР±С‹ РЅР°С‡Р°С‚СЊ РѕР±С‰РµРЅРёРµ</div>
+          <div class="icon">👤</div>
+          <div class="title">У вас пока нет друзей</div>
+          <div class="description">Добавьте друзей, чтобы начать общение</div>
         </div>`;
       return;
     }
@@ -62,8 +62,8 @@ function createFriendItem(fn) {
     </div>
     <div class="contact-info">
       <div class="contact-name">${displayName}</div>
-      <div class="last-message" id="lastMsg_${fn}">РќР°РїРёС€РёС‚Рµ СЃРѕРѕР±С‰РµРЅРёРµ...</div>
-      <div class="last-seen recently" id="lastSeen_${fn}">Р‘С‹Р»(Р°) РЅРµРґР°РІРЅРѕ</div>
+      <div class="last-message" id="lastMsg_${fn}">Напишите сообщение...</div>
+      <div class="last-seen recently" id="lastSeen_${fn}">Был(а) недавно</div>
     </div>
     <div class="unread-badge" id="unread_${fn}" style="display:none">0</div>`;
   fl.appendChild(item);
@@ -95,9 +95,9 @@ function loadGroups() {
     if (!snap.exists()) {
       gl.innerHTML = `
         <div class="empty-state">
-          <div class="icon">рџ‘Ґ</div>
-          <div class="title">РЈ РІР°СЃ РїРѕРєР° РЅРµС‚ РіСЂСѓРїРї</div>
-          <div class="description">РЎРѕР·РґР°Р№С‚Рµ РіСЂСѓРїРїСѓ РёР»Рё РІР°СЃ РїСЂРёРіР»Р°СЃСЏС‚</div>
+          <div class="icon">👥</div>
+          <div class="title">У вас пока нет групп</div>
+          <div class="description">Создайте группу или вас пригласят</div>
         </div>`;
       return;
     }
@@ -127,8 +127,8 @@ function createGroupItem(g, gid) {
     </div>
     <div class="contact-info">
       <div class="contact-name">${groupName}</div>
-      <div class="last-message" id="group_lastMsg_${gid}">${Object.keys(g.members || {}).length} СѓС‡Р°СЃС‚РЅРёРєРѕРІ</div>
-      <div class="last-seen online">Р“СЂСѓРїРїР°</div>
+      <div class="last-message" id="group_lastMsg_${gid}">${Object.keys(g.members || {}).length} участников</div>
+      <div class="last-seen online">Группа</div>
     </div>`;
   gl.appendChild(item);
   if (g.avatar) document.getElementById(`group_avatar_${gid}`).src = g.avatar;
@@ -140,9 +140,9 @@ function loadStories() {
     if (!snap.exists()) {
       sl.innerHTML = `
         <div style="text-align:center;padding:20px;color:#8a8f98;width:100%;">
-          <div style="font-size:48px;margin-bottom:20px;">рџ“±</div>
-          <div style="font-size:16px;margin-bottom:10px;">РќРµС‚ Р°РєС‚РёРІРЅС‹С… РёСЃС‚РѕСЂРёР№</div>
-          <div style="font-size:14px;">Р’Р°С€Рё РґСЂСѓР·СЊСЏ РїРѕРєР° РЅРµ РґРѕР±Р°РІР»СЏР»Рё РёСЃС‚РѕСЂРёРё</div>
+          <div style="font-size:48px;margin-bottom:20px;">📱</div>
+          <div style="font-size:16px;margin-bottom:10px;">Нет активных историй</div>
+          <div style="font-size:14px;">Ваши друзья пока не добавляли истории</div>
         </div>`;
       return;
     }
@@ -175,14 +175,14 @@ function checkEmptyStories() {
   const sl = document.getElementById("storiesList");
   if (sl.children.length === 0) sl.innerHTML = `
     <div style="text-align:center;padding:20px;color:#8a8f98;width:100%;">
-      <div style="font-size:48px;margin-bottom:20px;">рџ“±</div>
-      <div style="font-size:16px;margin-bottom:10px;">РќРµС‚ Р°РєС‚РёРІРЅС‹С… РёСЃС‚РѕСЂРёР№</div>
-      <div style="font-size:14px;">Р’Р°С€Рё РґСЂСѓР·СЊСЏ РїРѕРєР° РЅРµ РґРѕР±Р°РІР»СЏР»Рё РёСЃС‚РѕСЂРёРё</div>
+      <div style="font-size:48px;margin-bottom:20px;">📱</div>
+      <div style="font-size:16px;margin-bottom:10px;">Нет активных историй</div>
+      <div style="font-size:14px;">Ваши друзья пока не добавляли истории</div>
     </div>`;
 }
 
 /* ==========================================================
-   7. Р§РђРўР« / РЎРћРћР‘Р©Р•РќРРЇ
+   7. ЧАТЫ / СООБЩЕНИЯ
    ========================================================== */
 function openPrivateChat(fn) {
   setActiveChatItem('contact', fn);
@@ -200,6 +200,7 @@ function openPrivateChat(fn) {
   updateChatStatus(fn, st);
   loadChat("privateChats/" + currentChatId);
   setupTypingIndicator();
+  if (typeof updateCallButtonVisibility === 'function') updateCallButtonVisibility();
 }
 
 function openGroupChat(g, gid) {
@@ -215,9 +216,10 @@ function openGroupChat(g, gid) {
   const gAvatar = document.getElementById(`group_avatar_${gid}`);
   if (gAvatar) chatAvatar.src = gAvatar.src; else chatAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(groupName)}&background=0088cc&color=fff&size=44`;
   const mc = Object.keys(g.members || {}).length;
-  document.getElementById("chatMembers").textContent = `${mc} СѓС‡Р°СЃС‚РЅРёРєРѕРІ`;
-  document.getElementById("mobileChatStatus").textContent = `${mc} СѓС‡Р°СЃС‚РЅРёРєРѕРІ`;
+  document.getElementById("chatMembers").textContent = `${mc} участников`;
+  document.getElementById("mobileChatStatus").textContent = `${mc} участников`;
   loadChat("groupChats/" + currentChatId);
+  if (typeof updateCallButtonVisibility === 'function') updateCallButtonVisibility();
 }
 
 function loadChat(path) {
@@ -229,7 +231,8 @@ function loadChat(path) {
   chatRef.limitToLast(50).on("child_added", snap => {
     const m = snap.val();
     m.id = snap.key;
-    if (!m || m.text === undefined || m.text === null || m.text === "") return;
+    if (!m) return;
+    if (m.text === undefined || m.text === null) m.text = "";
     if (!document.getElementById(`message_${m.id}`)) {
       setTimeout(() => { addMessageToChat(m); md.style.opacity = 1; md.style.transition = 'opacity .3s ease'; }, 50);
     }
@@ -274,7 +277,7 @@ function addMessageToChat(m) {
       </div>
     `;
   } else if (m.video) {
-    // Р’РР”Р•РћРЎРћРћР‘Р©Р•РќРРЇ - РќРћР’РђРЇ Р›РћР“РРљРђ
+    // ВИДЕОСООБЩЕНИЯ - НОВАЯ ЛОГИКА
     if (m.type === 'video_message') {
       content = `
         <div class="message-text">${escapeHtml(m.text)}</div>
@@ -305,16 +308,16 @@ function addMessageToChat(m) {
     `;
   } else if (m.document) {
     const fs = formatFileSize(m.filesize);
-    content = `<div class="message-text">${escapeHtml(m.text)}</div><a href="${m.document}" download="${m.filename}" class="message-doc"><div class="doc-icon">рџ“„</div><div class="doc-info"><div class="doc-name">${escapeHtml(m.filename)}</div><div class="doc-size">${fs}</div></div></a>`;
+    content = `<div class="message-text">${escapeHtml(m.text)}</div><a href="${m.document}" download="${m.filename}" class="message-doc"><div class="doc-icon">📄</div><div class="doc-info"><div class="doc-name">${escapeHtml(m.filename)}</div><div class="doc-size">${fs}</div></div></a>`;
   }
   const t = new Date(m.time || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   msg.innerHTML = `
-    ${m.from !== username && !isGroupChat ? `<div class="message-sender">${m.from}</div>` : ""}
-    ${isGroupChat && m.from !== username ? `<div class="message-sender">${m.from}</div>` : ""}
+    ${m.from !== username && !isGroupChat ? `<div class="message-sender">${senderName}</div>` : ""}
+    ${isGroupChat && m.from !== username ? `<div class="message-sender">${senderName}</div>` : ""}
     ${content}
     <div class="message-time">
       ${t}
-      ${m.from === username ? `<span class="message-status ${status}">${status === 'read' ? 'вњ“вњ“' : status === 'delivered' ? 'вњ“вњ“' : status === 'sent' ? 'вњ“' : 'вЏі'}</span>` : ''}
+      ${m.from === username ? `<span class="message-status ${status}">${status === 'read' ? '✓✓' : status === 'delivered' ? '✓✓' : status === 'sent' ? '✓' : '⏳'}</span>` : ''}
     </div>`;
   wrap.appendChild(msg);
   md.appendChild(wrap);
@@ -326,15 +329,15 @@ async function sendMessage() {
   if (!checkConnection()) return;
   const ti = document.getElementById("text");
   const txt = ti.value.trim();
-  if (!txt || !currentChatId || !chatRef || !username) { showError("Р’РІРµРґРёС‚Рµ СЃРѕРѕР±С‰РµРЅРёРµ РёР»Рё РІС‹Р±РµСЂРёС‚Рµ С‡Р°С‚!"); return; }
+  if (!txt || !currentChatId || !chatRef || !username) { showError("Введите сообщение или выберите чат!"); return; }
   const btn = document.getElementById("sendBtn");
   const orig = btn.innerHTML;
-  btn.innerHTML = "вЏі"; btn.style.animation = "rotate 1s linear infinite";
+  btn.innerHTML = "⏳"; btn.style.animation = "rotate 1s linear infinite";
   try {
     await chatRef.push({ from: username, text: txt, time: Date.now(), sent: true, delivered: true, read: false, status: 'sent' });
     ti.value = ""; updateSendButton();
     
-    // Р’РћРЎРџР РћРР—Р’РћР”РРњ Р—Р’РЈРљ РћРўРџР РђР’РљР
+    // ВОСПРОИЗВОДИМ ЗВУК ОТПРАВКИ
     if (typeof playSendSound === 'function') {
       playSendSound();
     }
@@ -343,8 +346,8 @@ async function sendMessage() {
     if (currentChatPartner && !isGroupChat) sendTypingStatus(false);
   } catch (e) {
     console.error(e);
-    showError("РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ СЃРѕРѕР±С‰РµРЅРёРµ", () => sendMessage());
-    btn.innerHTML = "вњ—"; btn.style.animation = "";
+    showError("Не удалось отправить сообщение", () => sendMessage());
+    btn.innerHTML = "✗"; btn.style.animation = "";
   }
 }
 
@@ -362,7 +365,7 @@ function showTypingIndicator(isTyping, userName) {
       const d = document.createElement("div");
       d.id = "typingIndicator";
       d.className = "typing-indicator";
-      d.innerHTML = `<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-text">${userName} РїРµС‡Р°С‚Р°РµС‚...</div>`;
+      d.innerHTML = `<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-text">${userName} печатает...</div>`;
       md.appendChild(d);
       md.scrollTop = md.scrollHeight;
     }
@@ -384,20 +387,27 @@ function handleTyping() {
 }
 
 /* ==========================================================
-   12. РџР РћР§Р•Р• (Р¤РЈРќРљР¦РР РџР•Р Р•РњР•Р©Р•РќР« Р’ sounds.js)
+   12. ПРОЧЕЕ (ФУНКЦИИ ПЕРЕМЕЩЕНЫ В sounds.js)
    ========================================================== */
 function showAddFriend() {
-  const fn = prompt("Р’РІРµРґРёС‚Рµ РёРјСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ:");
-  if (!fn || fn === username) { showError("РќРµРєРѕСЂСЂРµРєС‚РЅРѕРµ РёРјСЏ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ"); return; }
+  const fn = prompt("Введите имя пользователя:");
+  if (!fn || fn === username) { showError("Некорректное имя пользователя"); return; }
   showLoading();
   db.ref("accounts/" + fn).get().then(async s => {
     hideLoading();
-    if (!s.exists()) { showError("РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ"); return; }
+    if (!s.exists()) { showError("Пользователь не найден"); return; }
     await db.ref("accounts/" + username + "/friends/" + fn).set(true);
     await db.ref("accounts/" + fn + "/friends/" + username).set(true);
-    showNotification("РЈСЃРїРµС€РЅРѕ", `Р”СЂСѓРі ${fn} РґРѕР±Р°РІР»РµРЅ`);
-  }).catch(() => { hideLoading(); showError("РћС€РёР±РєР° РїРѕРёСЃРєР° РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ"); });
+    showNotification("Успешно", `Друг ${fn} добавлен`);
+  }).catch(() => { hideLoading(); showError("Ошибка поиска пользователя"); });
 }
+
+
+
+
+
+
+
 
 
 

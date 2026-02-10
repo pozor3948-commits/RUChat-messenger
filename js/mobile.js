@@ -1,67 +1,67 @@
 ﻿/* ==========================================================
-   13. РђРљРўРР’РќРћРЎРўР¬ / РЎР•РўР¬ / РњРћР‘РР›Р¬РќРћРЎРўР¬
+   13. АКТИВНОСТЬ / СЕТЬ / МОБИЛЬНОСТЬ
    ========================================================== */
 function checkMobile() {
-    // РСЃРїРѕР»СЊР·СѓРµРј РіР»РѕР±Р°Р»СЊРЅСѓСЋ РїРµСЂРµРјРµРЅРЅСѓСЋ isMobile РёР· utils.js
+    // Используем глобальную переменную isMobile из utils.js
     isMobile = window.innerWidth <= 768;
-    if (username) {
-        const callBtn = document.getElementById('callButton');
-        if (callBtn) {
-            callBtn.classList.add('active');
-            callBtn.style.display = 'flex';
-        }
-    }
+    updateCallButtonVisibility();
     if (isMobile && currentChatId) document.getElementById('mobileBackBtn').classList.add('active');
     else document.getElementById('mobileBackBtn').classList.remove('active');
 }
 
-// в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
-//  Р”РѕРїРѕР»РЅРµРЅРёРµ РґР»СЏ РјРѕР±РёР»СЊРЅРѕРіРѕ РїРѕРІРµРґРµРЅРёСЏ (РєР°Рє РІ Telegram)
-// в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+function updateCallButtonVisibility() {
+    const callBtn = document.getElementById('callButton');
+    if (!callBtn) return;
+    const shouldShow = !!username && !!currentChatPartner && !isGroupChat;
+    callBtn.classList.toggle('active', shouldShow);
+    callBtn.style.display = shouldShow ? "flex" : "none";
+}
+
+// ────────────────────────────────────────────────
+//  Дополнение для мобильного поведения (как в Telegram)
+// ────────────────────────────────────────────────
 
 function openChatCommon() {
     if (!isMobile) return;
 
-    // РџСЂСЏС‡РµРј СЃРїРёСЃРѕРє С‡Р°С‚РѕРІ
+    // Прячем список чатов
     document.getElementById('sidebar').classList.add('hidden-on-mobile');
 
-    // РџРѕРєР°Р·С‹РІР°РµРј С‡Р°С‚ РЅР° РІРµСЃСЊ СЌРєСЂР°РЅ
+    // Показываем чат на весь экран
     document.getElementById('chatContainer').classList.add('active');
 
-    // РџРѕРєР°Р·С‹РІР°РµРј РєРЅРѕРїРєСѓ "РЅР°Р·Р°Рґ"
+    // Показываем кнопку "назад"
     document.getElementById('mobileBackBtn').classList.add('active');
 
-    // РћР±РЅРѕРІР»СЏРµРј Р·Р°РіРѕР»РѕРІРѕРє РјРѕР±РёР»СЊРЅРѕРіРѕ С…РµРґРµСЂР°
+    // Обновляем заголовок мобильного хедера
     const chatTitle = document.getElementById('chatWith').textContent;
-    document.getElementById('mobileChatTitle').textContent = chatTitle || 'Р§Р°С‚';
+    document.getElementById('mobileChatTitle').textContent = chatTitle || 'Чат';
 
-    // РЎРєСЂС‹РІР°РµРј stories (РєР°Рє РІ TG)
+    // Скрываем stories (как в TG)
     document.getElementById('storiesContainer').style.display = 'none';
-
-    const callBtn = document.getElementById('callButton');
-    if (callBtn) callBtn.classList.add('active');
+    updateCallButtonVisibility();
 }
 
 function closeChatMobile() {
     if (!isMobile) return;
 
-    // Р’РѕР·РІСЂР°С‰Р°РµРј СЃРїРёСЃРѕРє С‡Р°С‚РѕРІ
+    // Возвращаем список чатов
     document.getElementById('sidebar').classList.remove('hidden-on-mobile');
 
-    // РЈР±РёСЂР°РµРј С‡Р°С‚ СЃ СЌРєСЂР°РЅР°
+    // Убираем чат с экрана
     document.getElementById('chatContainer').classList.remove('active');
 
-    // РџСЂСЏС‡РµРј РєРЅРѕРїРєСѓ РЅР°Р·Р°Рґ
+    // Прячем кнопку назад
     document.getElementById('mobileBackBtn').classList.remove('active');
 
-    // РЎР±СЂР°СЃС‹РІР°РµРј Р·Р°РіРѕР»РѕРІРѕРє
+    // Сбрасываем заголовок
     document.getElementById('mobileChatTitle').textContent = 'RuChat';
-    document.getElementById('mobileChatStatus').textContent = 'Р’С‹Р±РµСЂРёС‚Рµ С‡Р°С‚';
+    document.getElementById('mobileChatStatus').textContent = 'Выберите чат';
 
-    // Р’РѕР·РІСЂР°С‰Р°РµРј stories
+    // Возвращаем stories
     document.getElementById('storiesContainer').style.display = 'block';
 
-    // РћС‡РёС‰Р°РµРј С‚РµРєСѓС‰РёР№ С‡Р°С‚
+    // Очищаем текущий чат
     currentChatId = null;
     currentChatPartner = null;
     if (chatRef) {
@@ -69,9 +69,10 @@ function closeChatMobile() {
         chatRef = null;
     }
     document.getElementById('messages').innerHTML = '';
+    updateCallButtonVisibility();
 }
 
-// РџРµСЂРµРѕРїСЂРµРґРµР»СЏРµРј СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёРµ С„СѓРЅРєС†РёРё РѕС‚РєСЂС‹С‚РёСЏ С‡Р°С‚Р°
+// Переопределяем существующие функции открытия чата
 const originalOpenPrivateChat = openPrivateChat;
 openPrivateChat = function(fn) {
     originalOpenPrivateChat(fn);
@@ -84,14 +85,14 @@ openGroupChat = function(g, gid) {
     openChatCommon();
 };
 
-// РџРµСЂРµРѕРїСЂРµРґРµР»СЏРµРј РєРЅРѕРїРєСѓ "РЅР°Р·Р°Рґ"
+// Переопределяем кнопку "назад"
 const originalCloseChat = closeChat;
 closeChat = function() {
     originalCloseChat();
     closeChatMobile();
 };
 
-// Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕ вЂ” РїСЂРё СЂРµСЃР°Р№Р·Рµ РѕРєРЅР°
+// Дополнительно — при ресайзе окна
 window.addEventListener('resize', () => {
     const wasMobile = isMobile;
     isMobile = window.innerWidth <= 768;
@@ -110,10 +111,10 @@ window.addEventListener('resize', () => {
 });
 
 /* ==========================================================
-   РРЎРџР РђР’Р›Р•РќРР• РџРћР—РР¦РРћРќРР РћР’РђРќРРЇ РњР•РќР® РќРђ РњРћР‘РР›Р¬РќР«РҐ
+   ИСПРАВЛЕНИЕ ПОЗИЦИОНИРОВАНИЯ МЕНЮ НА МОБИЛЬНЫХ
    ========================================================== */
 function adjustMenuPositionForMobile() {
-    // РСЃРїРѕР»СЊР·СѓРµРј РіР»РѕР±Р°Р»СЊРЅСѓСЋ РїРµСЂРµРјРµРЅРЅСѓСЋ isMobile
+    // Используем глобальную переменную isMobile
     if (!isMobile) return;
     
     const menus = [
@@ -124,10 +125,10 @@ function adjustMenuPositionForMobile() {
     
     menus.forEach(menu => {
         if (menu) {
-            // Р“Р°СЂР°РЅС‚РёСЂСѓРµРј, С‡С‚Рѕ РјРµРЅСЋ Р±СѓРґРµС‚ РїРѕРІРµСЂС… С‡Р°С‚Р°
+            // Гарантируем, что меню будет поверх чата
             menu.style.zIndex = '1004';
             
-            // РџСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕРµ РїРѕР·РёС†РёРѕРЅРёСЂРѕРІР°РЅРёРµ
+            // Принудительное позиционирование
             if (menu.classList.contains('active')) {
                 const inputContainer = document.querySelector('.message-input-container');
                 if (inputContainer) {
@@ -139,11 +140,11 @@ function adjustMenuPositionForMobile() {
     });
 }
 
-// Р’С‹Р·С‹РІР°РµРј РїСЂРё РёР·РјРµРЅРµРЅРёСЏС…
+// Вызываем при изменениях
 window.addEventListener('resize', adjustMenuPositionForMobile);
 document.addEventListener('DOMContentLoaded', adjustMenuPositionForMobile);
 
-// РџРµСЂРµС…РІР°С‚С‹РІР°РµРј РѕС‚РєСЂС‹С‚РёРµ РјРµРЅСЋ
+// Перехватываем открытие меню
 const originalToggleAttachmentMenu = window.toggleAttachmentMenu;
 window.toggleAttachmentMenu = function() {
     originalToggleAttachmentMenu();
@@ -155,3 +156,11 @@ window.toggleEmojiPicker = function() {
     originalToggleEmojiPicker();
     setTimeout(adjustMenuPositionForMobile, 50);
 };
+
+
+
+
+
+
+
+
