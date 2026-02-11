@@ -126,7 +126,8 @@ function adjustMenuPositionForMobile() {
     const menus = [
         document.getElementById('attachmentMenu'),
         document.getElementById('recordTypeMenu'),
-        document.getElementById('emojiPicker')
+        document.getElementById('emojiPicker'),
+        document.getElementById('stickerPanel')
     ];
     
     menus.forEach(menu => {
@@ -162,6 +163,14 @@ window.toggleEmojiPicker = function() {
     originalToggleEmojiPicker();
     setTimeout(adjustMenuPositionForMobile, 50);
 };
+
+if (typeof window.toggleStickerPanel === 'function') {
+    const originalToggleStickerPanel = window.toggleStickerPanel;
+    window.toggleStickerPanel = function() {
+        originalToggleStickerPanel();
+        setTimeout(adjustMenuPositionForMobile, 50);
+    };
+}
 
 
 

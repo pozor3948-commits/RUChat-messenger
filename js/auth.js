@@ -81,6 +81,9 @@ async function login() {
     if (typeof loadFriendRequests === 'function') {
       loadFriendRequests();
     }
+    if (typeof loadStickers === 'function') {
+      loadStickers();
+    }
     initEmojiPicker();
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {});
@@ -157,6 +160,9 @@ function recoverPassword() {
       }
       if (typeof loadFriendRequests === 'function') {
         loadFriendRequests();
+      }
+      if (typeof loadStickers === 'function') {
+        loadStickers();
       }
       initEmojiPicker();
       if ('Notification' in window && Notification.permission === 'default') {

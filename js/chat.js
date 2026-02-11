@@ -20,6 +20,8 @@ const reactionOptions = ['👍','❤️','😂','😮','😢','😡'];
 const ephemeralWatch = new Map();
 let ephemeralInterval = null;
 let replyToMessage = null;
+let editingMessageId = null;
+let editingOriginalText = '';
 
 /* ==========================================================
    6. ЗАГРУЗКА ДАННЫХ
@@ -285,6 +287,7 @@ function openPrivateChat(fn) {
   currentChatPartner = fn;
   if (typeof clearMessageSearch === 'function') clearMessageSearch();
   if (typeof clearReply === 'function') clearReply();
+  if (typeof clearEdit === 'function') clearEdit();
   const displayName = displayNameCache[fn] || normalizeText(fn);
   document.getElementById("chatWith").textContent = displayName;
   document.getElementById("mobileChatTitle").textContent = displayName;
@@ -306,6 +309,7 @@ function openGroupChat(g, gid) {
   currentChatPartner = null;
   if (typeof clearMessageSearch === 'function') clearMessageSearch();
   if (typeof clearReply === 'function') clearReply();
+  if (typeof clearEdit === 'function') clearEdit();
   const groupName = normalizeText(g.name);
   document.getElementById("chatWith").textContent = groupName;
   document.getElementById("mobileChatTitle").textContent = groupName;
@@ -396,16 +400,18 @@ function addMessageToChat(m) {
   const videoUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.video)) ? m.video : null;
   const audioUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.audio)) ? m.audio : null;
   const docUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.document)) ? m.document : null;
-  if (!m.text && (m.photo || m.video || m.audio || m.document) && !photoUrl && !videoUrl && !audioUrl && !docUrl) {
-    m.text = String(m.photo || m.video || m.audio || m.document);
+  const stickerUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.sticker)) ? m.sticker : null;
+  if (!m.text && (m.photo || m.video || m.audio || m.document || m.sticker) && !photoUrl && !videoUrl && !audioUrl && !docUrl && !stickerUrl) {
+    m.text = String(m.photo || m.video || m.audio || m.document || m.sticker);
   }
-  if (!m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl) return;
+  if (!m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl && !stickerUrl) return;
   const reactionsHtml = renderReactions(m.id, m.reactions || {});
   const expireHtml = m.expiresAt ? `<div class="message-expire" data-expires="${m.expiresAt}"></div>` : "";
   const actionsHtml = `<div class="message-actions">
     <button class="reaction-btn" data-message-id="${m.id}" title="Реакции">😊</button>
     <button class="reaction-btn" onclick="startReply('${m.id}')" title="Ответить">↩</button>
     <button class="reaction-btn" onclick="forwardMessage('${m.id}')" title="Переслать">↗</button>
+    ${m.from === username && m.text ? `<button class="reaction-btn" onclick="startEdit('${m.id}')" title="Редактировать">✎</button>` : ""}
     ${m.from === username ? `<button class="reaction-btn" onclick="deleteMessage('${m.id}')" title="Удалить">🗑</button>` : ""}
   </div>`;
   let content = "";
@@ -415,6 +421,15 @@ function addMessageToChat(m) {
   const forwardedHtml = m.forwardedFrom ? `<div class="message-forwarded">↪ Переслано от ${escapeHtml(fwdName)}</div>` : "";
   if (m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl) {
     content = `${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>`;
+  } else if (stickerUrl) {
+    const emojiTag = m.stickerEmoji ? `<div class="sticker-emoji">${escapeHtml(m.stickerEmoji)}</div>` : '';
+    content = `
+      ${forwardedHtml}${replyHtml}${m.text ? `<div class="message-text">${escapeHtml(m.text)}</div>` : ''}
+      <div class="message-sticker-wrap">
+        <img src="${stickerUrl}" class="message-sticker" onclick="openMedia('${stickerUrl}')" alt="Стикер">
+        ${emojiTag}
+      </div>
+    `;
   } else if (photoUrl) {
     content = `
       ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
@@ -470,6 +485,7 @@ function addMessageToChat(m) {
     ${actionsHtml}
     <div class="message-time">
       ${t}
+      ${m.editedAt || m.edited ? `<span class="message-edited"> (изм.)</span>` : ''}
       ${m.from === username ? `<span class="message-status ${status}">${status === 'read' ? '✓✓' : status === 'sent' ? '✓' : '⏳'}</span>` : ''}
     </div>`;
   wrap.appendChild(msg);
@@ -499,6 +515,7 @@ function getMessagePreview(m) {
   if (m.video) return m.type === 'video_message' ? '🎥 Видеосообщение' : '🎥 Видео';
   if (m.audio) return '🎵 Аудио';
   if (m.document) return '📄 Документ';
+  if (m.sticker) return '🧩 Стикер';
   return 'Сообщение';
 }
 
@@ -521,6 +538,12 @@ function clearReply() {
   if (bar) bar.classList.remove('active');
 }
 
+function getReplyToMessage() {
+  return replyToMessage;
+}
+
+window.getReplyToMessage = getReplyToMessage;
+
 function startReply(messageId) {
   const el = document.getElementById(`message_${messageId}`);
   if (!el) return;
@@ -528,6 +551,38 @@ function startReply(messageId) {
   const textEl = el.querySelector('.message-text');
   const text = textEl ? (textEl.textContent || '') : getMessagePreview({});
   setReply(messageId, from, text);
+}
+
+function startEdit(messageId) {
+  const el = document.getElementById(`message_${messageId}`);
+  if (!el) return;
+  const from = el.dataset.from || '';
+  if (from !== username) { showError('Можно редактировать только свои сообщения'); return; }
+  const textEl = el.querySelector('.message-text');
+  const text = textEl ? (textEl.textContent || '') : '';
+  if (!text) { showError('Редактировать можно только текстовые сообщения'); return; }
+  editingMessageId = messageId;
+  editingOriginalText = text;
+  const input = document.getElementById('text');
+  if (input) {
+    input.value = text;
+    input.focus();
+    updateSendButton();
+  }
+  if (typeof clearReply === 'function') clearReply();
+  const bar = document.getElementById('editBar');
+  const content = document.getElementById('editContent');
+  if (content) content.textContent = text;
+  if (bar) bar.classList.add('active');
+}
+
+function clearEdit() {
+  editingMessageId = null;
+  editingOriginalText = '';
+  const bar = document.getElementById('editBar');
+  const content = document.getElementById('editContent');
+  if (content) content.textContent = '';
+  if (bar) bar.classList.remove('active');
 }
 
 async function deleteMessage(messageId, e) {
@@ -595,6 +650,10 @@ function updateMessageInChat(m) {
   if (!wrap) return;
   const msg = wrap.querySelector('.message');
   if (!msg) return;
+  const textEl = msg.querySelector('.message-text');
+  if (textEl && typeof m.text === 'string') {
+    textEl.textContent = m.text;
+  }
   const reactionsHtml = renderReactions(m.id, m.reactions || {});
   const currentReactions = msg.querySelector('.message-reactions');
   if (reactionsHtml) {
@@ -608,6 +667,15 @@ function updateMessageInChat(m) {
     const status = m.read ? 'read' : (m.sent || m.delivered) ? 'sent' : 'error';
     statusEl.className = `message-status ${status}`;
     statusEl.textContent = status === 'read' ? '✓✓' : status === 'sent' ? '✓' : '⏳';
+  }
+  const editedEl = msg.querySelector('.message-edited');
+  if (m.editedAt || m.edited) {
+    if (!editedEl) {
+      const timeEl = msg.querySelector('.message-time');
+      if (timeEl) timeEl.insertAdjacentHTML('beforeend', `<span class="message-edited"> (изм.)</span>`);
+    }
+  } else if (editedEl) {
+    editedEl.remove();
   }
 }
 
@@ -712,6 +780,17 @@ async function sendMessage() {
   const orig = btn.innerHTML;
   btn.innerHTML = "⏳"; btn.style.animation = "rotate 1s linear infinite";
   try {
+    if (editingMessageId) {
+      await chatRef.child(editingMessageId).update({ 
+        text: txt, 
+        edited: true, 
+        editedAt: Date.now() 
+      });
+      ti.value = ""; updateSendButton();
+      clearEdit();
+      btn.innerHTML = orig; btn.style.animation = "";
+      return;
+    }
     const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
     const msg = { from: username, text: txt, time: Date.now(), sent: true, delivered: false, read: false, status: 'sent' };
     if (expiresAt) msg.expiresAt = expiresAt;

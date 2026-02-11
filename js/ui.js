@@ -111,6 +111,8 @@ function toggleEmojiPicker() {
     // Скрываем другие меню
     document.getElementById("attachmentMenu").classList.remove("active");
     document.getElementById("recordTypeMenu").classList.remove("active");
+    const stickerPanel = document.getElementById("stickerPanel");
+    if (stickerPanel) stickerPanel.classList.remove("active");
     
     // Переключаем эмодзи-пикер
     if (isActive) {
@@ -133,6 +135,8 @@ function toggleAttachmentMenu() {
     // Скрываем другие меню
     document.getElementById("emojiPicker").classList.remove("active");
     document.getElementById("recordTypeMenu").classList.remove("active");
+    const stickerPanel = document.getElementById("stickerPanel");
+    if (stickerPanel) stickerPanel.classList.remove("active");
     
     // Переключаем меню прикрепления
     if (isActive) {
@@ -155,6 +159,8 @@ function showRecordTypeMenu() {
     // Скрываем другие меню
     document.getElementById("attachmentMenu").classList.remove("active");
     document.getElementById("emojiPicker").classList.remove("active");
+    const stickerPanel = document.getElementById("stickerPanel");
+    if (stickerPanel) stickerPanel.classList.remove("active");
     
     // Переключаем меню выбора типа записи
     if (isActive) {
