@@ -16,6 +16,7 @@ let pendingIncomingCallId = null;
 const incomingHandledById = {};
 let callAnswerRef = null;
 let callCandidatesRef = null;
+let remoteAudioEl = null;
 
 // Конфигурация STUN/TURN серверов
 const rtcConfiguration = {
@@ -61,10 +62,16 @@ async function startAudioCall() {
 
         // Обработка удаленного потока
         peerConnection.ontrack = (event) => {
-            const remoteAudio = document.createElement('audio');
-            remoteAudio.srcObject = event.streams[0];
-            remoteAudio.autoplay = true;
-            document.body.appendChild(remoteAudio);
+            if (!remoteAudioEl) {
+                remoteAudioEl = document.createElement('audio');
+                remoteAudioEl.autoplay = true;
+                remoteAudioEl.playsInline = true;
+                remoteAudioEl.setAttribute('playsinline', 'true');
+                remoteAudioEl.setAttribute('autoplay', 'true');
+                document.body.appendChild(remoteAudioEl);
+            }
+            remoteAudioEl.srcObject = event.streams[0];
+            remoteAudioEl.play().catch(() => {});
         };
 
         // Обработка ICE candidates
@@ -164,8 +171,13 @@ function listenForCallAnswer() {
         
         if (callData.answer && callData.status === 'connected') {
             // Собеседник ответил
-            const answer = new RTCSessionDescription(callData.answer);
-            await peerConnection.setRemoteDescription(answer);
+            if (peerConnection && peerConnection.signalingState === 'have-local-offer') {
+                const current = peerConnection.currentRemoteDescription;
+                if (!current || current.sdp !== callData.answer.sdp) {
+                    const answer = new RTCSessionDescription(callData.answer);
+                    await peerConnection.setRemoteDescription(answer);
+                }
+            }
             
             // Запускаем таймер
             startCallTimer();
@@ -218,10 +230,16 @@ async function acceptIncomingCall(callData) {
         });
         
         peerConnection.ontrack = (event) => {
-            const remoteAudio = document.createElement('audio');
-            remoteAudio.srcObject = event.streams[0];
-            remoteAudio.autoplay = true;
-            document.body.appendChild(remoteAudio);
+            if (!remoteAudioEl) {
+                remoteAudioEl = document.createElement('audio');
+                remoteAudioEl.autoplay = true;
+                remoteAudioEl.playsInline = true;
+                remoteAudioEl.setAttribute('playsinline', 'true');
+                remoteAudioEl.setAttribute('autoplay', 'true');
+                document.body.appendChild(remoteAudioEl);
+            }
+            remoteAudioEl.srcObject = event.streams[0];
+            remoteAudioEl.play().catch(() => {});
         };
         
         peerConnection.onicecandidate = (event) => {
@@ -234,7 +252,9 @@ async function acceptIncomingCall(callData) {
         };
         
         // Устанавливаем удаленное описание из offer
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+        if (!peerConnection.currentRemoteDescription) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+        }
         
         // Создаем answer
         const answer = await peerConnection.createAnswer();
@@ -275,10 +295,11 @@ function resetCallStateLocal() {
         peerConnection.close();
         peerConnection = null;
     }
-    document.querySelectorAll('audio').forEach(audio => {
-        audio.srcObject = null;
-        audio.remove();
-    });
+    if (remoteAudioEl) {
+        remoteAudioEl.srcObject = null;
+        remoteAudioEl.remove();
+        remoteAudioEl = null;
+    }
     stopCallSound();
     hideCallUI();
     isMuted = false;
@@ -307,11 +328,11 @@ async function endCall() {
             peerConnection = null;
         }
         
-        // Удаляем все audio элементы
-        document.querySelectorAll('audio').forEach(audio => {
-            audio.srcObject = null;
-            audio.remove();
-        });
+        if (remoteAudioEl) {
+            remoteAudioEl.srcObject = null;
+            remoteAudioEl.remove();
+            remoteAudioEl = null;
+        }
         
         if (callAnswerRef) {
             callAnswerRef.off();
@@ -418,9 +439,9 @@ function toggleSpeaker() {
     }
     
     // Изменяем громкость удаленного аудио
-    document.querySelectorAll('audio').forEach(audio => {
-        audio.volume = isSpeakerOn ? 1.0 : 0.3;
-    });
+    if (remoteAudioEl) {
+        remoteAudioEl.volume = isSpeakerOn ? 1.0 : 0.3;
+    }
 }
 
 // Звук вызова
