@@ -29,7 +29,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260211c">
+    <link rel="stylesheet" href="css/style.css?v=20260211d">
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -286,6 +286,10 @@
                 </svg>
             </button>
         </div>
+        <div class="call-incoming-controls" id="callIncomingControls">
+            <button class="call-action-btn accept" onclick="acceptIncomingCallFromUI()">Принять</button>
+            <button class="call-action-btn reject" onclick="rejectIncomingCallFromUI()">Отклонить</button>
+        </div>
     </div>
 </div>
 
@@ -343,21 +347,21 @@
 </div>
 
 <!-- Скрипты -->
-<script src="js/firebase-config.js?v=20260211c"></script>
-<script src="js/utils.js?v=20260211c"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
-<script src="js/main.js?v=20260211c"></script>
-<script src="js/ui.js?v=20260211c"></script>
-<script src="js/sounds.js?v=20260211c"></script>
-<script src="js/auth.js?v=20260211c"></script>
-<script src="js/status.js?v=20260211c"></script>
-<script src="js/chat.js?v=20260211c"></script>
-<script src="js/media.js?v=20260211c"></script>
-<script src="js/emoji.js?v=20260211c"></script>
-<script src="js/groups.js?v=20260211c"></script>
-<script src="js/mobile.js?v=20260211c"></script>
-<script src="js/video-messages.js?v=20260211c"></script>
-<script src="js/audio-call.js?v=20260211c"></script>
-<script src="js/settings.js?v=20260211c"></script>
+<script src="js/firebase-config.js?v=20260211d"></script>
+<script src="js/utils.js?v=20260211d"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/main.js?v=20260211d"></script>
+<script src="js/ui.js?v=20260211d"></script>
+<script src="js/sounds.js?v=20260211d"></script>
+<script src="js/auth.js?v=20260211d"></script>
+<script src="js/status.js?v=20260211d"></script>
+<script src="js/chat.js?v=20260211d"></script>
+<script src="js/media.js?v=20260211d"></script>
+<script src="js/emoji.js?v=20260211d"></script>
+<script src="js/groups.js?v=20260211d"></script>
+<script src="js/mobile.js?v=20260211d"></script>
+<script src="js/video-messages.js?v=20260211d"></script>
+<script src="js/audio-call.js?v=20260211d"></script>
+<script src="js/settings.js?v=20260211d"></script>
 
 <script>
     // Функция для проверки локального запуска
@@ -403,7 +407,7 @@
         if (retry) window.retryAction = retry;
     };
     
-    console.log('Build 2026-02-11c');
+    console.log('Build 2026-02-11d');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {

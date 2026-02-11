@@ -10,6 +10,12 @@ let callDuration = 0;
 let isMuted = false;
 let isSpeakerOn = true;
 let currentCall = null;
+let incomingListenerActive = false;
+let pendingIncomingCall = null;
+let pendingIncomingCallId = null;
+const incomingHandledById = {};
+let callAnswerRef = null;
+let callCandidatesRef = null;
 
 // Конфигурация STUN/TURN серверов
 const rtcConfiguration = {
@@ -115,14 +121,20 @@ function showCallUI(name, type) {
     const callAvatar = document.getElementById('callAvatar');
     const callName = document.getElementById('callName');
     const callStatus = document.getElementById('callStatus');
+    const callControls = document.querySelector('.call-controls');
+    const incomingControls = document.getElementById('callIncomingControls');
     
     callAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0088cc&color=fff&size=120`;
     callName.textContent = name;
     
     if (type === 'outgoing') {
         callStatus.textContent = 'Звоним...';
+        if (incomingControls) incomingControls.classList.remove('active');
+        if (callControls) callControls.style.display = 'flex';
     } else {
         callStatus.textContent = 'Входящий звонок...';
+        if (incomingControls) incomingControls.classList.add('active');
+        if (callControls) callControls.style.display = 'none';
     }
     
     callOverlay.classList.add('active');
@@ -136,11 +148,16 @@ function hideCallUI() {
     const callTimer = document.getElementById('callTimer');
     callTimer.style.display = 'none';
     callTimer.textContent = '00:00';
+    const callControls = document.querySelector('.call-controls');
+    const incomingControls = document.getElementById('callIncomingControls');
+    if (callControls) callControls.style.display = 'flex';
+    if (incomingControls) incomingControls.classList.remove('active');
 }
 
 // Слушать ответ на звонок
 function listenForCallAnswer() {
-    db.ref(`calls/${currentChatId}`).on('value', async (snapshot) => {
+    callAnswerRef = db.ref(`calls/${currentChatId}`);
+    callAnswerRef.on('value', async (snapshot) => {
         const callData = snapshot.val();
         
         if (!callData) return;
@@ -154,6 +171,8 @@ function listenForCallAnswer() {
             startCallTimer();
             
             document.getElementById('callStatus').textContent = 'Соединено';
+            const callControls = document.querySelector('.call-controls');
+            if (callControls) callControls.style.display = 'flex';
             
             // Останавливаем звук вызова
             stopCallSound();
@@ -166,7 +185,8 @@ function listenForCallAnswer() {
     });
     
     // Слушаем ICE candidates
-    db.ref(`calls/${currentChatId}/candidates`).on('child_added', async (snapshot) => {
+    callCandidatesRef = db.ref(`calls/${currentChatId}/candidates`);
+    callCandidatesRef.on('child_added', async (snapshot) => {
         const candidateData = snapshot.val();
         if (!candidateData || !candidateData.candidate) return;
         const c = candidateData.candidate;
@@ -231,12 +251,38 @@ async function acceptIncomingCall(callData) {
         
         startCallTimer();
         document.getElementById('callStatus').textContent = 'Соединено';
+        const callControls = document.querySelector('.call-controls');
+        if (callControls) callControls.style.display = 'flex';
         
     } catch (error) {
         console.error('Ошибка при ответе на звонок:', error);
         showNotification('Ошибка', 'Не удалось ответить на звонок', 'error');
         endCall();
     }
+}
+
+function resetCallStateLocal() {
+    if (callTimer) {
+        clearInterval(callTimer);
+        callTimer = null;
+        callDuration = 0;
+    }
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    document.querySelectorAll('audio').forEach(audio => {
+        audio.srcObject = null;
+        audio.remove();
+    });
+    stopCallSound();
+    hideCallUI();
+    isMuted = false;
+    isSpeakerOn = true;
 }
 
 // Завершить звонок
@@ -267,12 +313,22 @@ async function endCall() {
             audio.remove();
         });
         
+        if (callAnswerRef) {
+            callAnswerRef.off();
+            callAnswerRef = null;
+        }
+        if (callCandidatesRef) {
+            callCandidatesRef.off();
+            callCandidatesRef = null;
+        }
+
         // Обновляем статус в Firebase
         if (currentChatId) {
             await db.ref(`calls/${currentChatId}`).update({
                 status: 'ended',
                 endTime: Date.now()
             });
+            db.ref(`calls/${currentChatId}/candidates`).remove();
             db.ref(`calls/${currentChatId}`).off();
         }
         
@@ -408,28 +464,53 @@ function stopCallSound() {
 // Слушатель входящих звонков
 function listenForIncomingCalls() {
     if (!username) return;
+    if (incomingListenerActive) return;
+    incomingListenerActive = true;
     
-    db.ref('calls').on('child_added', (snapshot) => {
-        const callData = snapshot.val();
-        const callId = snapshot.key;
-        
-        // Проверяем, если звонок нам
-        if (callData && callData.to === username && callData.status === 'calling') {
-            // Показываем уведомление о входящем звонке
-            const accept = confirm(`Входящий звонок от ${callData.from}. Принять?`);
-            
-            if (accept) {
-                currentChatId = callId;
-                currentChatPartner = callData.from;
-                acceptIncomingCall(callData);
-            } else {
-                // Отклоняем звонок
-                db.ref(`calls/${callId}`).update({
-                    status: 'rejected'
-                });
-            }
+    const handleIncoming = (callId, callData) => {
+        if (!callData || callData.to !== username) return;
+        if (callData.status === 'calling') {
+            const stamp = `${callId}_${callData.timestamp || 0}`;
+            if (incomingHandledById[stamp]) return;
+            incomingHandledById[stamp] = true;
+            pendingIncomingCall = callData;
+            pendingIncomingCallId = callId;
+            showCallUI(callData.from, 'incoming');
+            playCallSound();
+        } else if (pendingIncomingCallId === callId && (callData.status === 'rejected' || callData.status === 'ended')) {
+            pendingIncomingCall = null;
+            pendingIncomingCallId = null;
+            resetCallStateLocal();
         }
-    });
+    };
+
+    db.ref('calls').on('child_added', (snapshot) => handleIncoming(snapshot.key, snapshot.val()));
+    db.ref('calls').on('child_changed', (snapshot) => handleIncoming(snapshot.key, snapshot.val()));
+}
+
+function acceptIncomingCallFromUI() {
+    if (!pendingIncomingCall || !pendingIncomingCallId) return;
+    currentChatId = pendingIncomingCallId;
+    currentChatPartner = pendingIncomingCall.from;
+    const incomingControls = document.getElementById('callIncomingControls');
+    if (incomingControls) incomingControls.classList.remove('active');
+    const callControls = document.querySelector('.call-controls');
+    if (callControls) callControls.style.display = 'flex';
+    stopCallSound();
+    acceptIncomingCall(pendingIncomingCall);
+    pendingIncomingCall = null;
+    pendingIncomingCallId = null;
+}
+
+function rejectIncomingCallFromUI() {
+    if (!pendingIncomingCallId) {
+        resetCallStateLocal();
+        return;
+    }
+    db.ref(`calls/${pendingIncomingCallId}`).update({ status: 'rejected' });
+    pendingIncomingCall = null;
+    pendingIncomingCallId = null;
+    resetCallStateLocal();
 }
 
 // Инициализация при загрузке
@@ -438,6 +519,8 @@ if (typeof window !== 'undefined') {
     window.endCall = endCall;
     window.toggleMute = toggleMute;
     window.toggleSpeaker = toggleSpeaker;
+    window.acceptIncomingCallFromUI = acceptIncomingCallFromUI;
+    window.rejectIncomingCallFromUI = rejectIncomingCallFromUI;
 }
 
 console.log('Audio call module loaded');
