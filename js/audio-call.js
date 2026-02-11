@@ -21,6 +21,18 @@ let ringtoneAudio = null;
 let ringbackAudio = null;
 let ringtoneInterval = null;
 
+function ensureRemoteAudioEl() {
+    if (!remoteAudioEl) {
+        remoteAudioEl = document.createElement('audio');
+        remoteAudioEl.autoplay = true;
+        remoteAudioEl.playsInline = true;
+        remoteAudioEl.setAttribute('playsinline', 'true');
+        remoteAudioEl.setAttribute('autoplay', 'true');
+        remoteAudioEl.volume = 1.0;
+        document.body.appendChild(remoteAudioEl);
+    }
+}
+
 // Конфигурация STUN/TURN серверов
 const rtcConfiguration = {
     iceServers: [
@@ -44,6 +56,7 @@ async function startAudioCall() {
     try {
         // Показываем UI звонка
         showCallUI(currentChatPartner, 'outgoing');
+        ensureRemoteAudioEl();
         
         // Получаем доступ к микрофону
         localStream = await navigator.mediaDevices.getUserMedia({ 
@@ -65,15 +78,10 @@ async function startAudioCall() {
 
         // Обработка удаленного потока
         peerConnection.ontrack = (event) => {
-            if (!remoteAudioEl) {
-                remoteAudioEl = document.createElement('audio');
-                remoteAudioEl.autoplay = true;
-                remoteAudioEl.playsInline = true;
-                remoteAudioEl.setAttribute('playsinline', 'true');
-                remoteAudioEl.setAttribute('autoplay', 'true');
-                document.body.appendChild(remoteAudioEl);
-            }
+            ensureRemoteAudioEl();
             remoteAudioEl.srcObject = event.streams[0];
+            remoteAudioEl.volume = 1.0;
+            remoteAudioEl.muted = false;
             remoteAudioEl.play().catch(() => {});
         };
         
@@ -147,13 +155,16 @@ function showCallUI(name, type) {
     if (type === 'outgoing') {
         callStatus.textContent = 'Звоним...';
         if (incomingControls) incomingControls.classList.remove('active');
+        if (incomingControls) incomingControls.style.display = 'none';
         if (callControls) callControls.style.display = 'flex';
     } else if (type === 'incoming') {
         callStatus.textContent = 'Входящий звонок...';
         if (incomingControls) incomingControls.classList.add('active');
+        if (incomingControls) incomingControls.style.display = 'flex';
         if (callControls) callControls.style.display = 'none';
     } else if (type === 'connected') {
         if (incomingControls) incomingControls.classList.remove('active');
+        if (incomingControls) incomingControls.style.display = 'none';
         if (callControls) callControls.style.display = 'flex';
     }
     
@@ -171,7 +182,10 @@ function hideCallUI() {
     const callControls = document.querySelector('.call-controls');
     const incomingControls = document.getElementById('callIncomingControls');
     if (callControls) callControls.style.display = 'flex';
-    if (incomingControls) incomingControls.classList.remove('active');
+    if (incomingControls) {
+        incomingControls.classList.remove('active');
+        incomingControls.style.display = 'none';
+    }
 }
 
 // Слушать ответ на звонок
@@ -231,6 +245,7 @@ function listenForCallAnswer() {
 // Принять входящий звонок
 async function acceptIncomingCall(callData) {
     try {
+        ensureRemoteAudioEl();
         // Получаем доступ к микрофону
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         
@@ -242,14 +257,7 @@ async function acceptIncomingCall(callData) {
         });
         
         peerConnection.ontrack = (event) => {
-            if (!remoteAudioEl) {
-                remoteAudioEl = document.createElement('audio');
-                remoteAudioEl.autoplay = true;
-                remoteAudioEl.playsInline = true;
-                remoteAudioEl.setAttribute('playsinline', 'true');
-                remoteAudioEl.setAttribute('autoplay', 'true');
-                document.body.appendChild(remoteAudioEl);
-            }
+            ensureRemoteAudioEl();
             remoteAudioEl.srcObject = event.streams[0];
             remoteAudioEl.volume = 1.0;
             remoteAudioEl.muted = false;
@@ -409,6 +417,9 @@ function startCallTimer() {
     const timerElement = document.getElementById('callTimer');
     timerElement.style.display = 'block';
     
+    if (callTimer) {
+        clearInterval(callTimer);
+    }
     callDuration = 0;
     callTimer = setInterval(() => {
         callDuration++;
@@ -585,6 +596,11 @@ function acceptIncomingCallFromUI() {
     currentChatId = pendingIncomingCallId;
     currentChatPartner = pendingIncomingCall.from;
     showCallUI(pendingIncomingCall.from, 'connected');
+    const incomingControls = document.getElementById('callIncomingControls');
+    if (incomingControls) {
+        incomingControls.classList.remove('active');
+        incomingControls.style.display = 'none';
+    }
     stopCallSound();
     stopRingtone();
     acceptIncomingCall(pendingIncomingCall);
