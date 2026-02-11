@@ -148,10 +148,13 @@ function showCallUI(name, type) {
         callStatus.textContent = 'Звоним...';
         if (incomingControls) incomingControls.classList.remove('active');
         if (callControls) callControls.style.display = 'flex';
-    } else {
+    } else if (type === 'incoming') {
         callStatus.textContent = 'Входящий звонок...';
         if (incomingControls) incomingControls.classList.add('active');
         if (callControls) callControls.style.display = 'none';
+    } else if (type === 'connected') {
+        if (incomingControls) incomingControls.classList.remove('active');
+        if (callControls) callControls.style.display = 'flex';
     }
     
     callOverlay.classList.add('active');
@@ -228,8 +231,6 @@ function listenForCallAnswer() {
 // Принять входящий звонок
 async function acceptIncomingCall(callData) {
     try {
-        showCallUI(callData.from, 'incoming');
-        
         // Получаем доступ к микрофону
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         
@@ -250,6 +251,8 @@ async function acceptIncomingCall(callData) {
                 document.body.appendChild(remoteAudioEl);
             }
             remoteAudioEl.srcObject = event.streams[0];
+            remoteAudioEl.volume = 1.0;
+            remoteAudioEl.muted = false;
             remoteAudioEl.play().catch(() => {});
         };
 
@@ -290,8 +293,7 @@ async function acceptIncomingCall(callData) {
         stopRingtone();
         startCallTimer();
         document.getElementById('callStatus').textContent = 'Соединено';
-        const callControls = document.querySelector('.call-controls');
-        if (callControls) callControls.style.display = 'flex';
+        showCallUI(callData.from, 'connected');
         
         if (!callAnswerRef) {
             callAnswerRef = db.ref(`calls/${currentChatId}`);
@@ -513,7 +515,7 @@ function fallbackBeep(intervalRef, volume = 0.25) {
 
 function playCallSound() {
     stopCallSound();
-    ringbackAudio = ensureLoopAudio(ringbackAudio, 'assets/ringtone.mp3', 0.3);
+    ringbackAudio = ensureLoopAudio(ringbackAudio, 'assets/ringback.mp3', 0.35);
     ringbackAudio.currentTime = 0;
     ringbackAudio.play().catch(() => {
         callSoundInterval = fallbackBeep(callSoundInterval, 0.25);
@@ -582,10 +584,7 @@ function acceptIncomingCallFromUI() {
     if (!pendingIncomingCall || !pendingIncomingCallId) return;
     currentChatId = pendingIncomingCallId;
     currentChatPartner = pendingIncomingCall.from;
-    const incomingControls = document.getElementById('callIncomingControls');
-    if (incomingControls) incomingControls.classList.remove('active');
-    const callControls = document.querySelector('.call-controls');
-    if (callControls) callControls.style.display = 'flex';
+    showCallUI(pendingIncomingCall.from, 'connected');
     stopCallSound();
     stopRingtone();
     acceptIncomingCall(pendingIncomingCall);
