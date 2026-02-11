@@ -95,7 +95,8 @@ const MOJIBAKE_SKIP_KEYS = new Set([
 ]);
 
 async function runMojibakeMigration() {
-    if (!window.db) { showError('База не инициализирована'); return; }
+    const database = window.db || (typeof db !== 'undefined' ? db : null);
+    if (!database) { showError('База не инициализирована'); return; }
     if (window._mojibakeMigrationRunning) return;
     const confirmText = 'Это изменит данные в базе и исправит иероглифы. Продолжить?';
     if (!confirm(confirmText)) return;
@@ -120,7 +121,7 @@ async function runMojibakeMigration() {
     try {
         showNotification('Миграция', 'Сканирую базу...', 'info');
         for (const root of roots) {
-            const snap = await db.ref(root).get();
+            const snap = await database.ref(root).get();
             if (snap.exists()) collect(snap.val(), root, null);
         }
 
@@ -136,7 +137,7 @@ async function runMojibakeMigration() {
             updates.slice(i, i + batchSize).forEach(([path, value]) => {
                 batch[path] = value;
             });
-            await db.ref().update(batch);
+            await database.ref().update(batch);
             applied += Object.keys(batch).length;
             showNotification('Миграция', `Обновлено ${applied} полей`, 'info');
         }
