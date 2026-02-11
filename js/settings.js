@@ -106,6 +106,32 @@ function showSettingsMenu() {
                         </div>
                     </div>
                 </div>
+
+                ${window.username ? `
+                <div style="
+                    background: rgba(255,255,255,0.05);
+                    border-radius: 15px;
+                    padding: 20px;
+                    margin-bottom: 25px;
+                    border: 1px solid rgba(255,255,255,0.1);
+                ">
+                    <div style="color: #f59e0b; font-size: 14px; margin-bottom: 10px; font-weight: 600;">Обслуживание базы</div>
+                    <div style="color: #cbd5e1; font-size: 13px; line-height: 1.6; margin-bottom: 12px;">
+                        Исправляет «иероглифы» в сообщениях, группах и списках.
+                    </div>
+                    <button onclick="fixMojibakeFromSettings()" style="
+                        width: 100%;
+                        padding: 12px 16px;
+                        background: linear-gradient(45deg, #f59e0b, #f97316);
+                        color: #0f172a;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 14px;
+                        font-weight: 700;
+                        cursor: pointer;
+                    ">Исправить иероглифы в базе</button>
+                </div>
+                ` : ''}
                 
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     <button onclick="closeSettings()" style="
@@ -177,6 +203,15 @@ function showSettingsMenu() {
                 logout();
             }
             closeSettings();
+        }
+    };
+
+    window.fixMojibakeFromSettings = function() {
+        closeSettings();
+        if (typeof runMojibakeMigration === 'function') {
+            runMojibakeMigration();
+        } else {
+            showError('Миграция недоступна');
         }
     };
     

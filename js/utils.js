@@ -73,6 +73,84 @@ function isValidMediaUrl(url) {
     );
 }
 
+function fixMojibakeValue(value) {
+    if (typeof value !== 'string') return value;
+    if (!/[А-Яа-яЁё]/.test(value)) return value;
+    if (/^(https?:|data:|blob:)/i.test(value)) return value;
+    const fixed = normalizeText(value);
+    return fixed;
+}
+
+const MOJIBAKE_SKIP_KEYS = new Set([
+    'from',
+    'createdBy',
+    'username',
+    'password',
+    'avatar',
+    'photo',
+    'video',
+    'audio',
+    'document',
+    'chatBg'
+]);
+
+async function runMojibakeMigration() {
+    if (!window.db) { showError('База не инициализирована'); return; }
+    if (window._mojibakeMigrationRunning) return;
+    const confirmText = 'Это изменит данные в базе и исправит иероглифы. Продолжить?';
+    if (!confirm(confirmText)) return;
+    window._mojibakeMigrationRunning = true;
+
+    const roots = ['accounts', 'groups', 'privateChats', 'groupChats'];
+    const updates = [];
+
+    const collect = (node, path, keyName) => {
+        if (typeof node === 'string') {
+            if (keyName && MOJIBAKE_SKIP_KEYS.has(keyName)) return;
+            const fixed = fixMojibakeValue(node);
+            if (fixed !== node) updates.push([path, fixed]);
+            return;
+        }
+        if (!node || typeof node !== 'object') return;
+        Object.keys(node).forEach(k => {
+            collect(node[k], `${path}/${k}`, k);
+        });
+    };
+
+    try {
+        showNotification('Миграция', 'Сканирую базу...', 'info');
+        for (const root of roots) {
+            const snap = await db.ref(root).get();
+            if (snap.exists()) collect(snap.val(), root, null);
+        }
+
+        if (!updates.length) {
+            showNotification('Миграция', 'Исправлений не найдено', 'info');
+            return;
+        }
+
+        const batchSize = 200;
+        let applied = 0;
+        for (let i = 0; i < updates.length; i += batchSize) {
+            const batch = {};
+            updates.slice(i, i + batchSize).forEach(([path, value]) => {
+                batch[path] = value;
+            });
+            await db.ref().update(batch);
+            applied += Object.keys(batch).length;
+            showNotification('Миграция', `Обновлено ${applied} полей`, 'info');
+        }
+        showNotification('Миграция', 'Готово. Перезагрузите страницу.', 'success');
+    } catch (e) {
+        console.error(e);
+        showError('Ошибка миграции базы');
+    } finally {
+        window._mojibakeMigrationRunning = false;
+    }
+}
+
+window.runMojibakeMigration = runMojibakeMigration;
+
 const EPHEMERAL_TTLS = [0, 60_000, 3_600_000, 86_400_000];
 const EPHEMERAL_LABELS = ['Off', '1m', '1h', '1d'];
 let currentEphemeralIndex = 0;
