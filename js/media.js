@@ -86,12 +86,6 @@ async function startVoiceRecord() {
             
             const blob = new Blob(voiceChunks, { type: 'audio/webm' });
             
-            // Проверяем размер файла (максимум 10MB)
-            if (blob.size > 10 * 1024 * 1024) {
-                showError('Аудиосообщение слишком большое. Максимум 10МБ');
-                return;
-            }
-            
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const base64Audio = reader.result;
@@ -343,7 +337,7 @@ async function sendVoiceMessage(audioData, isTest = false) {
             audio: audioData,
             time: Date.now(),
             sent: true,
-            delivered: true,
+            delivered: false,
             read: false,
             status: 'sent',
             type: 'voice_message',
@@ -352,6 +346,9 @@ async function sendVoiceMessage(audioData, isTest = false) {
         };
         const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
         if (expiresAt) message.expiresAt = expiresAt;
+        if (typeof replyToMessage !== 'undefined' && replyToMessage) {
+            message.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
+        }
         
         await chatRef.push(message);
         
@@ -360,6 +357,7 @@ async function sendVoiceMessage(audioData, isTest = false) {
         } else {
             showNotification('Успешно', 'Голосовое сообщение отправлено!');
         }
+        if (typeof clearReply === 'function') clearReply();
         
         // Воспроизводим звук отправки
         if (typeof playSendSound === 'function') {
@@ -370,7 +368,7 @@ async function sendVoiceMessage(audioData, isTest = false) {
         console.error('Ошибка отправки голосового сообщения:', error);
         
         if (error.message && error.message.includes('greater than 10485760')) {
-            showError('Аудиосообщение слишком большое. Максимум 10МБ');
+            showError('Аудиосообщение слишком большое.');
         } else {
             showError('Не удалось отправить голосовое сообщение', () => sendVoiceMessage(audioData, isTest));
         }
@@ -469,49 +467,33 @@ async function sendMediaMessage(type, data, filename, filesize) {
         return; 
     }
     
-    // Проверка размера данных для Firebase (максимум 10MB)
-    const MAX_SIZE = 10 * 1024 * 1024;
     const dataSize = new Blob([data]).size;
-    
-    if (dataSize > MAX_SIZE) {
-        showError(`Файл слишком большой (${Math.round(dataSize/1024/1024)}MB). Максимум 10MB.`);
-        return;
-    }
     
     try {
         const msg = { 
             from: username, 
             time: Date.now(), 
             sent: true, 
-            delivered: true, 
+            delivered: false, 
             read: false, 
             status: 'sent' 
         };
         const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
         if (expiresAt) msg.expiresAt = expiresAt;
+        if (typeof replyToMessage !== 'undefined' && replyToMessage) {
+            msg.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
+        }
         
         switch (type) {
             case 'photo': 
-                if (dataSize > 5 * 1024 * 1024) {
-                    showError("Фото слишком большое. Максимум 5MB.");
-                    return;
-                }
                 msg.photo = data; 
                 msg.text = '📷 Фото'; 
                 break;
             case 'video': 
-                if (dataSize > 10 * 1024 * 1024) {
-                    showError("Видео слишком большое. Максимум 10MB.");
-                    return;
-                }
                 msg.video = data; 
                 msg.text = '🎥 Видео'; 
                 break;
             case 'audio': 
-                if (dataSize > 5 * 1024 * 1024) {
-                    showError("Аудио слишком большое. Максимум 5MB.");
-                    return;
-                }
                 msg.audio = data; 
                 msg.text = '🎵 Аудио'; 
                 break;
@@ -525,11 +507,12 @@ async function sendMediaMessage(type, data, filename, filesize) {
         
         await chatRef.push(msg);
         showNotification("Успешно", "Файл отправлен!");
+        if (typeof clearReply === 'function') clearReply();
         
     } catch (e) {
         console.error(e);
         if (e.message && e.message.includes('greater than 10485760')) {
-            showError("Файл слишком большой для отправки. Максимум 10MB.");
+            showError("Файл слишком большой для отправки.");
         } else {
             showError("Не удалось отправить файл", () => sendMediaMessage(type, data, filename, filesize));
         }

@@ -98,6 +98,17 @@ function showSettingsMenu() {
                         <input id="profileAvatar" type="text" placeholder="URL аватарки" style="
                             padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
                             background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none;">
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <input id="profileAvatarFile" type="file" accept="image/*" style="
+                                flex:1; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+                                background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none;">
+                            <button onclick="uploadProfileAvatar()" style="
+                                padding: 8px 12px; border-radius: 10px; border: none;
+                                background: linear-gradient(45deg, #22c55e, #16a34a);
+                                color: #0b1f12; font-weight: 700; cursor: pointer;">
+                                Загрузить
+                            </button>
+                        </div>
                         <textarea id="profileAbout" placeholder="О себе" rows="3" style="
                             padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
                             background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none; resize: vertical;"></textarea>
@@ -202,7 +213,9 @@ function showSettingsMenu() {
     window.loadProfileSettings = async function() {
         if (!window.username) return;
         try {
-            const snap = await db.ref("accounts/" + window.username).get();
+            const database = window.db || (typeof db !== 'undefined' ? db : null);
+            if (!database) return;
+            const snap = await database.ref("accounts/" + window.username).get();
             if (!snap.exists()) return;
             const data = snap.val() || {};
             const dn = typeof normalizeText === 'function' ? normalizeText(data.displayName || window.username) : (data.displayName || window.username);
@@ -220,6 +233,8 @@ function showSettingsMenu() {
 
     window.saveProfileSettings = async function() {
         if (!window.username) return;
+        const database = window.db || (typeof db !== 'undefined' ? db : null);
+        if (!database) { showError('База не инициализирована'); return; }
         const displayInput = document.getElementById('profileDisplayName');
         const avatarInput = document.getElementById('profileAvatar');
         const aboutInput = document.getElementById('profileAbout');
@@ -230,7 +245,7 @@ function showSettingsMenu() {
         if (avatar && (typeof isValidMediaUrl === 'function') && !isValidMediaUrl(avatar)) { showError('Неверный URL аватарки'); return; }
         try {
             showLoading();
-            await db.ref("accounts/" + window.username).update({
+            await database.ref("accounts/" + window.username).update({
                 displayName: displayName,
                 about: about,
                 avatar: avatar
@@ -242,6 +257,25 @@ function showSettingsMenu() {
         } finally {
             hideLoading();
         }
+    };
+
+    window.uploadProfileAvatar = function() {
+        const fileInput = document.getElementById('profileAvatarFile');
+        if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+            showError('Выберите файл');
+            return;
+        }
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const dataUrl = e.target.result;
+            const avatarInput = document.getElementById('profileAvatar');
+            if (avatarInput) avatarInput.value = dataUrl;
+            if (typeof window.saveProfileSettings === 'function') {
+                await window.saveProfileSettings();
+            }
+        };
+        reader.readAsDataURL(file);
     };
     
     window.closeSettings = function() {

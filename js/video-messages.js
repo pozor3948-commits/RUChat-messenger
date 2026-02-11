@@ -110,11 +110,6 @@ async function startVideoRecording() {
         videoRecorder.onstop = async () => {
             const blob = new Blob(videoChunks, { type: 'video/webm' });
             
-            if (blob.size > videoConfig.maxSize) {
-                showError('Видеосообщение слишком большое. Максимум 50МБ');
-                return;
-            }
-            
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const base64Video = reader.result;
@@ -324,7 +319,7 @@ async function sendVideoMessage(videoData) {
             video: videoData,
             time: Date.now(),
             sent: true,
-            delivered: true,
+            delivered: false,
             read: false,
             status: 'sent',
             type: 'video_message',
@@ -332,9 +327,13 @@ async function sendVideoMessage(videoData) {
         };
         const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
         if (expiresAt) message.expiresAt = expiresAt;
+        if (typeof replyToMessage !== 'undefined' && replyToMessage) {
+            message.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
+        }
         
         await chatRef.push(message);
         showNotification('Успешно', 'Видеосообщение отправлено!');
+        if (typeof clearReply === 'function') clearReply();
         
         if (typeof playSendSound === 'function') {
             playSendSound();

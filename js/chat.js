@@ -19,6 +19,7 @@ const lastMessageKeyByChat = {};
 const reactionOptions = ['👍','❤️','😂','😮','😢','😡'];
 const ephemeralWatch = new Map();
 let ephemeralInterval = null;
+let replyToMessage = null;
 
 /* ==========================================================
    6. ЗАГРУЗКА ДАННЫХ
@@ -33,6 +34,7 @@ function loadFriends() {
   blockedRef.on("value", snap => {
     blockedCache = snap.exists() ? (snap.val() || {}) : {};
     renderFriends();
+    renderBlocked();
   });
 }
 
@@ -63,6 +65,40 @@ function renderFriends() {
       db.ref(`userStatus/${fn}`).once("value").then(s => updateFriendStatusInList(fn, s.val()));
     }, idx * 50);
     idx++;
+  });
+}
+
+function renderBlocked() {
+  const list = document.getElementById("blockedList");
+  if (!list) return;
+  list.innerHTML = "";
+  const keys = Object.keys(blockedCache || {});
+  if (!keys.length) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🚫</div>
+        <div class="title">Нет блокировок</div>
+        <div class="description">Здесь будут заблокированные пользователи</div>
+      </div>`;
+    return;
+  }
+  keys.forEach(fn => {
+    const item = document.createElement("div");
+    item.className = "blocked-item";
+    const name = displayNameCache[fn] || normalizeText(fn);
+    item.innerHTML = `
+      <div class="blocked-name" id="blocked_name_${fn}">${name}</div>
+      <div class="blocked-actions">
+        <button class="blocked-btn" onclick="unblockUser('${fn}')">Разблокировать</button>
+      </div>`;
+    list.appendChild(item);
+    db.ref("accounts/" + fn + "/displayName").once("value").then(s => {
+      const dn = s.val();
+      const display = typeof normalizeText === 'function' ? normalizeText(dn || fn) : (dn || fn);
+      displayNameCache[fn] = display;
+      const el = document.getElementById(`blocked_name_${fn}`);
+      if (el) el.textContent = display;
+    });
   });
 }
 
@@ -248,6 +284,7 @@ function openPrivateChat(fn) {
   currentChatId = [username, fn].sort().join("_");
   currentChatPartner = fn;
   if (typeof clearMessageSearch === 'function') clearMessageSearch();
+  if (typeof clearReply === 'function') clearReply();
   const displayName = displayNameCache[fn] || normalizeText(fn);
   document.getElementById("chatWith").textContent = displayName;
   document.getElementById("mobileChatTitle").textContent = displayName;
@@ -268,6 +305,7 @@ function openGroupChat(g, gid) {
   currentChatId = gid;
   currentChatPartner = null;
   if (typeof clearMessageSearch === 'function') clearMessageSearch();
+  if (typeof clearReply === 'function') clearReply();
   const groupName = normalizeText(g.name);
   document.getElementById("chatWith").textContent = groupName;
   document.getElementById("mobileChatTitle").textContent = groupName;
@@ -288,14 +326,20 @@ function loadChat(path) {
   chatRef = db.ref(path);
   const md = document.getElementById("messages");
   md.innerHTML = "";
-  md.style.opacity = .5;
-  chatRef.limitToLast(50).on("child_added", snap => {
+  md.style.opacity = .7;
+  let firstLoaded = false;
+  chatRef.limitToLast(100).on("child_added", snap => {
     const m = snap.val();
     m.id = snap.key;
     if (!m) return;
     if (m.text === undefined || m.text === null) m.text = "";
     if (!document.getElementById(`message_${m.id}`)) {
-      setTimeout(() => { addMessageToChat(m); md.style.opacity = 1; md.style.transition = 'opacity .3s ease'; }, 50);
+      addMessageToChat(m);
+      if (!firstLoaded) {
+        md.style.opacity = 1;
+        md.style.transition = 'opacity .2s ease';
+        firstLoaded = true;
+      }
     }
   });
   chatRef.on("child_changed", snap => {
@@ -329,16 +373,25 @@ function addMessageToChat(m) {
   if (m.from !== username && typeof playReceiveSound === 'function') {
     playReceiveSound();
   }
+
+  if (m.from !== username && chatRef) {
+    const updates = { delivered: true };
+    if (!isGroupChat) updates.read = true;
+    chatRef.child(m.id).update(updates).catch(() => {});
+  }
   
   const wrap = document.createElement("div");
   wrap.className = `message-wrapper ${m.from === username ? "me" : "other"}`;
   wrap.id = `message_${m.id}`;
+  wrap.dataset.from = m.from || '';
   wrap.style.opacity = 0;
   wrap.style.transform = 'translateY(10px)';
   const msg = document.createElement("div");
   msg.className = `message ${m.from === username ? "me" : "other"}`;
   let status = 'sent';
-  if (m.error) status = 'error'; else if (m.read) status = 'read'; else if (m.delivered) status = 'delivered'; else if (m.sent) status = 'sent';
+  if (m.error) status = 'error';
+  else if (m.read) status = 'read';
+  else if (m.sent || m.delivered) status = 'sent';
   const photoUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.photo)) ? m.photo : null;
   const videoUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.video)) ? m.video : null;
   const audioUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.audio)) ? m.audio : null;
@@ -349,13 +402,22 @@ function addMessageToChat(m) {
   if (!m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl) return;
   const reactionsHtml = renderReactions(m.id, m.reactions || {});
   const expireHtml = m.expiresAt ? `<div class="message-expire" data-expires="${m.expiresAt}"></div>` : "";
-  const actionsHtml = `<div class="message-actions"><button class="reaction-btn" data-message-id="${m.id}" title="Реакции">😊</button></div>`;
+  const actionsHtml = `<div class="message-actions">
+    <button class="reaction-btn" data-message-id="${m.id}" title="Реакции">😊</button>
+    <button class="reaction-btn" onclick="startReply('${m.id}')" title="Ответить">↩</button>
+    <button class="reaction-btn" onclick="forwardMessage('${m.id}')" title="Переслать">↗</button>
+    ${m.from === username ? `<button class="reaction-btn" onclick="deleteMessage('${m.id}')" title="Удалить">🗑</button>` : ""}
+  </div>`;
   let content = "";
+  const replyFrom = m.replyTo && m.replyTo.from ? (displayNameCache[m.replyTo.from] || m.replyTo.from) : '';
+  const replyHtml = m.replyTo ? `<div class="message-reply">↩ ${escapeHtml(replyFrom)}: ${escapeHtml(m.replyTo.text || '')}</div>` : "";
+  const fwdName = m.forwardedFrom ? (displayNameCache[m.forwardedFrom] || m.forwardedFrom) : '';
+  const forwardedHtml = m.forwardedFrom ? `<div class="message-forwarded">↪ Переслано от ${escapeHtml(fwdName)}</div>` : "";
   if (m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl) {
-    content = `<div class="message-text">${escapeHtml(m.text)}</div>`;
+    content = `${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>`;
   } else if (photoUrl) {
     content = `
-      <div class="message-text">${escapeHtml(m.text)}</div>
+      ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
       <a href="${photoUrl}" target="_blank" download>
         <img src="${photoUrl}" class="message-media" onclick="openMedia('${photoUrl}')" alt="Фото">
       </a>
@@ -367,7 +429,7 @@ function addMessageToChat(m) {
     // ВИДЕОСООБЩЕНИЯ - НОВАЯ ЛОГИКА
     if (m.type === 'video_message') {
       content = `
-        <div class="message-text">${escapeHtml(m.text)}</div>
+        ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
         <div class="message-video" onclick="playVideoMessage('${videoUrl}')">
           <video src="${videoUrl}" preload="metadata"></video>
         </div>
@@ -378,7 +440,7 @@ function addMessageToChat(m) {
       `;
     } else {
       content = `
-        <div class="message-text">${escapeHtml(m.text)}</div>
+        ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
         <video src="${videoUrl}" class="message-media" controls onclick="openMedia('${videoUrl}')"></video>
         <div class="message-media-actions">
           <a href="${videoUrl}" target="_blank" download>Скачать</a>
@@ -387,7 +449,7 @@ function addMessageToChat(m) {
     }
   } else if (audioUrl) {
     content = `
-      <div class="message-text">${escapeHtml(m.text)}</div>
+      ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
       <audio src="${audioUrl}" class="message-audio" controls></audio>
       <div class="message-media-actions">
         <a href="${audioUrl}" target="_blank" download>Скачать</a>
@@ -395,7 +457,7 @@ function addMessageToChat(m) {
     `;
   } else if (docUrl) {
     const fs = formatFileSize(m.filesize);
-    content = `<div class="message-text">${escapeHtml(m.text)}</div><a href="${docUrl}" download="${m.filename}" class="message-doc"><div class="doc-icon">📄</div><div class="doc-info"><div class="doc-name">${escapeHtml(m.filename)}</div><div class="doc-size">${fs}</div></div></a>`;
+    content = `${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div><a href="${docUrl}" download="${m.filename}" class="message-doc"><div class="doc-icon">📄</div><div class="doc-info"><div class="doc-name">${escapeHtml(m.filename)}</div><div class="doc-size">${fs}</div></div></a>`;
   }
   const t = new Date(m.time || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const senderName = escapeHtml(normalizeText(m.from || ''));
@@ -408,7 +470,7 @@ function addMessageToChat(m) {
     ${actionsHtml}
     <div class="message-time">
       ${t}
-      ${m.from === username ? `<span class="message-status ${status}">${status === 'read' ? '✓✓' : status === 'delivered' ? '✓✓' : status === 'sent' ? '✓' : '⏳'}</span>` : ''}
+      ${m.from === username ? `<span class="message-status ${status}">${status === 'read' ? '✓✓' : status === 'sent' ? '✓' : '⏳'}</span>` : ''}
     </div>`;
   wrap.appendChild(msg);
   md.appendChild(wrap);
@@ -430,6 +492,104 @@ function renderReactions(messageId, reactions) {
   return `<div class="message-reactions">${items.join('')}</div>`;
 }
 
+function getMessagePreview(m) {
+  if (!m) return '';
+  if (m.text) return m.text;
+  if (m.photo) return '📷 Фото';
+  if (m.video) return m.type === 'video_message' ? '🎥 Видеосообщение' : '🎥 Видео';
+  if (m.audio) return '🎵 Аудио';
+  if (m.document) return '📄 Документ';
+  return 'Сообщение';
+}
+
+function setReply(messageId, from, text) {
+  replyToMessage = { id: messageId, from: from, text: text };
+  const bar = document.getElementById('replyBar');
+  const content = document.getElementById('replyContent');
+  if (bar && content) {
+    const name = from === username ? 'Вы' : (displayNameCache[from] || from);
+    content.textContent = `${name}: ${text}`;
+    bar.classList.add('active');
+  }
+}
+
+function clearReply() {
+  replyToMessage = null;
+  const bar = document.getElementById('replyBar');
+  const content = document.getElementById('replyContent');
+  if (content) content.textContent = '';
+  if (bar) bar.classList.remove('active');
+}
+
+function startReply(messageId) {
+  const el = document.getElementById(`message_${messageId}`);
+  if (!el) return;
+  const from = el.dataset.from || '';
+  const textEl = el.querySelector('.message-text');
+  const text = textEl ? (textEl.textContent || '') : getMessagePreview({});
+  setReply(messageId, from, text);
+}
+
+async function deleteMessage(messageId, e) {
+  if (e) e.stopPropagation();
+  if (!chatRef || !messageId) return;
+  const el = document.getElementById(`message_${messageId}`);
+  const from = el ? el.dataset.from : null;
+  if (from && from !== username) { showError('Можно удалить только свои сообщения'); return; }
+  if (!confirm('Удалить сообщение?')) return;
+  try {
+    await chatRef.child(messageId).remove();
+  } catch (e) {
+    showError('Не удалось удалить сообщение');
+  }
+}
+
+async function forwardMessage(messageId, e) {
+  if (e) e.stopPropagation();
+  if (!chatRef || !messageId) return;
+  const snap = await chatRef.child(messageId).get();
+  if (!snap.exists()) { showError('Сообщение не найдено'); return; }
+  const original = snap.val();
+  const target = prompt('Кому переслать? Введите логин пользователя или ID группы:');
+  if (!target) return;
+  const targetUser = await db.ref(`accounts/${target}`).get();
+  let path = '';
+  let targetChatId = '';
+  if (targetUser.exists()) {
+    targetChatId = [username, target].sort().join("_");
+    path = `privateChats/${targetChatId}`;
+  } else {
+    const targetGroup = await db.ref(`groups/${target}`).get();
+    if (!targetGroup.exists()) { showError('Пользователь/группа не найдены'); return; }
+    targetChatId = target;
+    path = `groupChats/${targetChatId}`;
+  }
+  const forwarded = {
+    from: username,
+    time: Date.now(),
+    sent: true,
+    delivered: false,
+    read: false,
+    status: 'sent',
+    forwardedFrom: original.from || ''
+  };
+  if (original.text) forwarded.text = original.text;
+  if (original.photo) forwarded.photo = original.photo;
+  if (original.video) forwarded.video = original.video;
+  if (original.audio) forwarded.audio = original.audio;
+  if (original.document) {
+    forwarded.document = original.document;
+    forwarded.filename = original.filename;
+    forwarded.filesize = original.filesize;
+  }
+  if (original.type) forwarded.type = original.type;
+  if (original.duration) forwarded.duration = original.duration;
+  const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
+  if (expiresAt) forwarded.expiresAt = expiresAt;
+  await db.ref(path).push(forwarded);
+  showNotification('Переслано', 'Сообщение переслано');
+}
+
 function updateMessageInChat(m) {
   const wrap = document.getElementById(`message_${m.id}`);
   if (!wrap) return;
@@ -445,9 +605,9 @@ function updateMessageInChat(m) {
   }
   const statusEl = msg.querySelector('.message-status');
   if (statusEl && m.from === username) {
-    const status = m.read ? 'read' : m.delivered ? 'delivered' : m.sent ? 'sent' : 'error';
+    const status = m.read ? 'read' : (m.sent || m.delivered) ? 'sent' : 'error';
     statusEl.className = `message-status ${status}`;
-    statusEl.textContent = status === 'read' ? '✓✓' : status === 'delivered' ? '✓✓' : status === 'sent' ? '✓' : '⏳';
+    statusEl.textContent = status === 'read' ? '✓✓' : status === 'sent' ? '✓' : '⏳';
   }
 }
 
@@ -553,10 +713,14 @@ async function sendMessage() {
   btn.innerHTML = "⏳"; btn.style.animation = "rotate 1s linear infinite";
   try {
     const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
-    const msg = { from: username, text: txt, time: Date.now(), sent: true, delivered: true, read: false, status: 'sent' };
+    const msg = { from: username, text: txt, time: Date.now(), sent: true, delivered: false, read: false, status: 'sent' };
     if (expiresAt) msg.expiresAt = expiresAt;
+    if (replyToMessage) {
+      msg.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
+    }
     await chatRef.push(msg);
     ti.value = ""; updateSendButton();
+    clearReply();
     
     // ВОСПРОИЗВОДИМ ЗВУК ОТПРАВКИ
     if (typeof playSendSound === 'function') {
@@ -760,6 +924,19 @@ async function blockUser(fn, e) {
     showNotification("Блокировка", "Пользователь заблокирован");
   } catch (error) {
     showError("Не удалось заблокировать");
+  } finally {
+    hideLoading();
+  }
+}
+
+async function unblockUser(fn) {
+  if (!confirm(`Разблокировать ${fn}?`)) return;
+  try {
+    showLoading();
+    await db.ref(`accounts/${username}/blocked/${fn}`).remove();
+    showNotification("Блокировка", "Пользователь разблокирован");
+  } catch (error) {
+    showError("Не удалось разблокировать");
   } finally {
     hideLoading();
   }
