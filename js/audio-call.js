@@ -17,6 +17,9 @@ const incomingHandledById = {};
 let callAnswerRef = null;
 let callCandidatesRef = null;
 let remoteAudioEl = null;
+let ringtoneAudio = null;
+let ringbackAudio = null;
+let ringtoneInterval = null;
 
 // Конфигурация STUN/TURN серверов
 const rtcConfiguration = {
@@ -73,6 +76,13 @@ async function startAudioCall() {
             remoteAudioEl.srcObject = event.streams[0];
             remoteAudioEl.play().catch(() => {});
         };
+        
+        peerConnection.onconnectionstatechange = () => {
+            if (peerConnection.connectionState === 'failed') {
+                showNotification('Звонок', 'Соединение не удалось', 'error');
+                endCall();
+            }
+        };
 
         // Обработка ICE candidates
         peerConnection.onicecandidate = (event) => {
@@ -106,7 +116,7 @@ async function startAudioCall() {
         // Слушаем ответ
         listenForCallAnswer();
         
-        // Воспроизводим звук вызова
+        // Воспроизводим гудки
         playCallSound();
         
     } catch (error) {
@@ -186,8 +196,9 @@ function listenForCallAnswer() {
             const callControls = document.querySelector('.call-controls');
             if (callControls) callControls.style.display = 'flex';
             
-            // Останавливаем звук вызова
+            // Останавливаем гудки
             stopCallSound();
+            stopRingtone();
         } else if (callData.status === 'rejected') {
             showNotification('Звонок', 'Собеседник отклонил звонок', 'warning');
             endCall();
@@ -241,6 +252,13 @@ async function acceptIncomingCall(callData) {
             remoteAudioEl.srcObject = event.streams[0];
             remoteAudioEl.play().catch(() => {});
         };
+
+        peerConnection.onconnectionstatechange = () => {
+            if (peerConnection.connectionState === 'failed') {
+                showNotification('Звонок', 'Соединение не удалось', 'error');
+                endCall();
+            }
+        };
         
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
@@ -269,10 +287,21 @@ async function acceptIncomingCall(callData) {
             status: 'connected'
         });
         
+        stopRingtone();
         startCallTimer();
         document.getElementById('callStatus').textContent = 'Соединено';
         const callControls = document.querySelector('.call-controls');
         if (callControls) callControls.style.display = 'flex';
+        
+        if (!callAnswerRef) {
+            callAnswerRef = db.ref(`calls/${currentChatId}`);
+            callAnswerRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data && data.status === 'ended') {
+                    endCall();
+                }
+            });
+        }
         
     } catch (error) {
         console.error('Ошибка при ответе на звонок:', error);
@@ -301,6 +330,7 @@ function resetCallStateLocal() {
         remoteAudioEl = null;
     }
     stopCallSound();
+    stopRingtone();
     hideCallUI();
     isMuted = false;
     isSpeakerOn = true;
@@ -358,6 +388,7 @@ async function endCall() {
         
         // Останавливаем звук
         stopCallSound();
+        stopRingtone();
         
         // Сбрасываем состояние
         isMuted = false;
@@ -447,38 +478,76 @@ function toggleSpeaker() {
 // Звук вызова
 let callSoundInterval = null;
 
-function playCallSound() {
+function ensureLoopAudio(existing, src, volume) {
+    if (existing) return existing;
+    const a = new Audio(src);
+    a.loop = true;
+    a.preload = 'auto';
+    a.volume = volume;
+    a.playsInline = true;
+    a.setAttribute('playsinline', 'true');
+    return a;
+}
+
+function fallbackBeep(intervalRef, volume = 0.25) {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    
-    callSoundInterval = setInterval(() => {
-        // Создаем два тона для мелодии звонка
-        const oscillator1 = audioContext.createOscillator();
-        const oscillator2 = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator1.connect(gainNode);
-        oscillator2.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator1.frequency.value = 800;
-        oscillator2.frequency.value = 1000;
-        oscillator1.type = 'sine';
-        oscillator2.type = 'sine';
-        
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-        
-        oscillator1.start(audioContext.currentTime);
-        oscillator2.start(audioContext.currentTime);
-        oscillator1.stop(audioContext.currentTime + 0.5);
-        oscillator2.stop(audioContext.currentTime + 0.5);
+    return setInterval(() => {
+        const osc1 = audioContext.createOscillator();
+        const osc2 = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(audioContext.destination);
+        osc1.frequency.value = 800;
+        osc2.frequency.value = 1000;
+        osc1.type = 'sine';
+        osc2.type = 'sine';
+        gain.gain.setValueAtTime(volume, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        osc1.start(audioContext.currentTime);
+        osc2.start(audioContext.currentTime);
+        osc1.stop(audioContext.currentTime + 0.5);
+        osc2.stop(audioContext.currentTime + 0.5);
     }, 2000);
 }
 
+function playCallSound() {
+    stopCallSound();
+    ringbackAudio = ensureLoopAudio(ringbackAudio, 'assets/ringtone.mp3', 0.3);
+    ringbackAudio.currentTime = 0;
+    ringbackAudio.play().catch(() => {
+        callSoundInterval = fallbackBeep(callSoundInterval, 0.25);
+    });
+}
+
 function stopCallSound() {
+    if (ringbackAudio) {
+        ringbackAudio.pause();
+        ringbackAudio.currentTime = 0;
+    }
     if (callSoundInterval) {
         clearInterval(callSoundInterval);
         callSoundInterval = null;
+    }
+}
+
+function playRingtone() {
+    stopRingtone();
+    ringtoneAudio = ensureLoopAudio(ringtoneAudio, 'assets/ringtone.mp3', 0.6);
+    ringtoneAudio.currentTime = 0;
+    ringtoneAudio.play().catch(() => {
+        ringtoneInterval = fallbackBeep(ringtoneInterval, 0.35);
+    });
+}
+
+function stopRingtone() {
+    if (ringtoneAudio) {
+        ringtoneAudio.pause();
+        ringtoneAudio.currentTime = 0;
+    }
+    if (ringtoneInterval) {
+        clearInterval(ringtoneInterval);
+        ringtoneInterval = null;
     }
 }
 
@@ -497,7 +566,7 @@ function listenForIncomingCalls() {
             pendingIncomingCall = callData;
             pendingIncomingCallId = callId;
             showCallUI(callData.from, 'incoming');
-            playCallSound();
+            playRingtone();
         } else if (pendingIncomingCallId === callId && (callData.status === 'rejected' || callData.status === 'ended')) {
             pendingIncomingCall = null;
             pendingIncomingCallId = null;
@@ -518,6 +587,7 @@ function acceptIncomingCallFromUI() {
     const callControls = document.querySelector('.call-controls');
     if (callControls) callControls.style.display = 'flex';
     stopCallSound();
+    stopRingtone();
     acceptIncomingCall(pendingIncomingCall);
     pendingIncomingCall = null;
     pendingIncomingCallId = null;
