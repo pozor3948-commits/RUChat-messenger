@@ -1,8 +1,8 @@
 ﻿/* ==========================================================
-   13. РђРљРўРР’РќРћРЎРўР¬ / РЎР•РўР¬ / РњРћР‘РР›Р¬РќРћРЎРўР¬
+   13. АКТИВНОСТЬ / СЕТЬ / МОБИЛЬНОСТЬ
    ========================================================== */
 
-// РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј РіР»РѕР±Р°Р»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ
+// Инициализируем глобальные переменные
 if (typeof isMobile === 'undefined') {
     isMobile = window.innerWidth <= 768;
 }
@@ -16,15 +16,16 @@ function closeChat() {
     if (!isMobile) return;
     currentChatId = null; 
     currentChatPartner = null;
-    document.getElementById('chatWith').textContent = 'Р’С‹Р±РµСЂРёС‚Рµ С‡Р°С‚';
+    document.getElementById('chatWith').textContent = 'Выберите чат';
     document.getElementById('chatMembers').textContent = '';
-    document.getElementById('mobileChatStatus').textContent = 'Р’С‹Р±РµСЂРёС‚Рµ С‡Р°С‚';
+    document.getElementById('mobileChatStatus').textContent = 'Выберите чат';
     document.getElementById('messages').innerHTML = '';
     document.getElementById('mobileBackBtn').classList.remove('active');
     if (chatRef) { 
         chatRef.off(); 
         chatRef = null; 
     }
+    clearMessageSearch();
 }
 
 function updateSendButton() {
@@ -52,73 +53,123 @@ function searchChats(q) {
     });
 }
 
-// Р¤СѓРЅРєС†РёСЏ РїРѕРєР°Р·Р°/СЃРєСЂС‹С‚РёСЏ СЌРјРѕРґР·Рё-РїРёРєРµСЂР°
+function toggleMessageSearch() {
+    const box = document.getElementById('chatSearch');
+    if (!box) return;
+    box.classList.toggle('active');
+    if (box.classList.contains('active')) {
+        const input = document.getElementById('chatSearchInput');
+        if (input) input.focus();
+    } else {
+        clearMessageSearch();
+    }
+}
+
+function clearMessageSearch() {
+    const input = document.getElementById('chatSearchInput');
+    if (input) input.value = '';
+    document.querySelectorAll('.message-text').forEach(el => {
+        if (el.dataset.rawText) {
+            el.textContent = el.dataset.rawText;
+            delete el.dataset.rawText;
+        }
+    });
+    const count = document.getElementById('chatSearchCount');
+    if (count) count.textContent = '';
+}
+
+function searchMessages(query) {
+    const q = (query || '').trim().toLowerCase();
+    let found = 0;
+    document.querySelectorAll('.message-text').forEach(el => {
+        const raw = el.dataset.rawText || el.textContent;
+        if (!el.dataset.rawText) el.dataset.rawText = raw;
+        if (!q) {
+            el.textContent = raw;
+            return;
+        }
+        const idx = raw.toLowerCase().indexOf(q);
+        if (idx === -1) {
+            el.textContent = raw;
+            return;
+        }
+        found++;
+        const before = escapeHtml(raw.slice(0, idx));
+        const match = escapeHtml(raw.slice(idx, idx + q.length));
+        const after = escapeHtml(raw.slice(idx + q.length));
+        el.innerHTML = `${before}<mark class="message-highlight">${match}</mark>${after}`;
+    });
+    const count = document.getElementById('chatSearchCount');
+    if (count) count.textContent = found ? String(found) : '';
+}
+
+// Функция показа/скрытия эмодзи-пикера
 function toggleEmojiPicker() {
     const picker = document.getElementById("emojiPicker");
     const isActive = picker.classList.contains("active");
     
-    // РЎРєСЂС‹РІР°РµРј РґСЂСѓРіРёРµ РјРµРЅСЋ
+    // Скрываем другие меню
     document.getElementById("attachmentMenu").classList.remove("active");
     document.getElementById("recordTypeMenu").classList.remove("active");
     
-    // РџРµСЂРµРєР»СЋС‡Р°РµРј СЌРјРѕРґР·Рё-РїРёРєРµСЂ
+    // Переключаем эмодзи-пикер
     if (isActive) {
         picker.classList.remove("active");
     } else {
         picker.classList.add("active");
         
-        // РџРѕР·РёС†РёРѕРЅРёСЂСѓРµРј РЅР° РјРѕР±РёР»СЊРЅС‹С…
+        // Позиционируем на мобильных
         if (isMobile) {
             positionEmojiPickerForMobile();
         }
     }
 }
 
-// Р¤СѓРЅРєС†РёСЏ РїРѕРєР°Р·Р°/СЃРєСЂС‹С‚РёСЏ РјРµРЅСЋ РїСЂРёРєСЂРµРїР»РµРЅРёСЏ
+// Функция показа/скрытия меню прикрепления
 function toggleAttachmentMenu() {
     const menu = document.getElementById("attachmentMenu");
     const isActive = menu.classList.contains("active");
     
-    // РЎРєСЂС‹РІР°РµРј РґСЂСѓРіРёРµ РјРµРЅСЋ
+    // Скрываем другие меню
     document.getElementById("emojiPicker").classList.remove("active");
     document.getElementById("recordTypeMenu").classList.remove("active");
     
-    // РџРµСЂРµРєР»СЋС‡Р°РµРј РјРµРЅСЋ РїСЂРёРєСЂРµРїР»РµРЅРёСЏ
+    // Переключаем меню прикрепления
     if (isActive) {
         menu.classList.remove("active");
     } else {
         menu.classList.add("active");
         
-        // РџРѕР·РёС†РёРѕРЅРёСЂСѓРµРј РЅР° РјРѕР±РёР»СЊРЅС‹С…
+        // Позиционируем на мобильных
         if (isMobile) {
             positionAttachmentMenuForMobile();
         }
     }
 }
 
-// Р¤СѓРЅРєС†РёСЏ РїРѕРєР°Р·Р° РјРµРЅСЋ РІС‹Р±РѕСЂР° С‚РёРїР° Р·Р°РїРёСЃРё
+// Функция показа меню выбора типа записи
 function showRecordTypeMenu() {
     const menu = document.getElementById("recordTypeMenu");
     const isActive = menu.classList.contains("active");
     
-    // РЎРєСЂС‹РІР°РµРј РґСЂСѓРіРёРµ РјРµРЅСЋ
+    // Скрываем другие меню
     document.getElementById("attachmentMenu").classList.remove("active");
     document.getElementById("emojiPicker").classList.remove("active");
     
-    // РџРµСЂРµРєР»СЋС‡Р°РµРј РјРµРЅСЋ РІС‹Р±РѕСЂР° С‚РёРїР° Р·Р°РїРёСЃРё
+    // Переключаем меню выбора типа записи
     if (isActive) {
         menu.classList.remove("active");
     } else {
         menu.classList.add("active");
         
-        // РџРѕР·РёС†РёРѕРЅРёСЂСѓРµРј РЅР° РјРѕР±РёР»СЊРЅС‹С…
+        // Позиционируем на мобильных
         if (isMobile) {
             positionRecordTypeMenuForMobile();
         }
     }
 }
 
-// РџРѕР·РёС†РёРѕРЅРёСЂРѕРІР°РЅРёРµ СЌРјРѕРґР·Рё-РїРёРєРµСЂР° РЅР° РјРѕР±РёР»СЊРЅС‹С…
+// Позиционирование эмодзи-пикера на мобильных
 function positionEmojiPickerForMobile() {
     const picker = document.getElementById("emojiPicker");
     const inputContainer = document.querySelector('.message-input-container');
@@ -128,14 +179,14 @@ function positionEmojiPickerForMobile() {
     const inputRect = inputContainer.getBoundingClientRect();
     const viewportHeight = window.innerHeight;
     
-    // Р Р°Р·РјРµС‰Р°РµРј РЅР°Рґ РїРѕР»РµРј РІРІРѕРґР°
+    // Размещаем над полем ввода
     picker.style.bottom = `${viewportHeight - inputRect.top + 10}px`;
     picker.style.left = '10px';
     picker.style.right = '10px';
     picker.style.width = 'calc(100% - 20px)';
 }
 
-// РџРѕР·РёС†РёРѕРЅРёСЂРѕРІР°РЅРёРµ РјРµРЅСЋ РїСЂРёРєСЂРµРїР»РµРЅРёСЏ РЅР° РјРѕР±РёР»СЊРЅС‹С…
+// Позиционирование меню прикрепления на мобильных
 function positionAttachmentMenuForMobile() {
     const menu = document.getElementById("attachmentMenu");
     const attachmentBtn = document.querySelector('.attachment-btn');
@@ -145,13 +196,13 @@ function positionAttachmentMenuForMobile() {
     const btnRect = attachmentBtn.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     
-    // Р Р°Р·РјРµС‰Р°РµРј СЂСЏРґРѕРј СЃ РєРЅРѕРїРєРѕР№
+    // Размещаем рядом с кнопкой
     if (btnRect.left < viewportWidth / 2) {
-        // РЎР»РµРІР°
+        // Слева
         menu.style.left = '10px';
         menu.style.right = 'auto';
     } else {
-        // РЎРїСЂР°РІР°
+        // Справа
         menu.style.left = 'auto';
         menu.style.right = '10px';
     }
@@ -159,7 +210,7 @@ function positionAttachmentMenuForMobile() {
     menu.style.bottom = '85px';
 }
 
-// РџРѕР·РёС†РёРѕРЅРёСЂРѕРІР°РЅРёРµ РјРµРЅСЋ РІС‹Р±РѕСЂР° С‚РёРїР° Р·Р°РїРёСЃРё РЅР° РјРѕР±РёР»СЊРЅС‹С…
+// Позиционирование меню выбора типа записи на мобильных
 function positionRecordTypeMenuForMobile() {
     const menu = document.getElementById("recordTypeMenu");
     const recordBtn = document.querySelector('.icon-btn[onclick*="showRecordTypeMenu"]');
@@ -169,13 +220,13 @@ function positionRecordTypeMenuForMobile() {
     const btnRect = recordBtn.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     
-    // Р Р°Р·РјРµС‰Р°РµРј СЂСЏРґРѕРј СЃ РєРЅРѕРїРєРѕР№
+    // Размещаем рядом с кнопкой
     if (btnRect.left < viewportWidth / 2) {
-        // РЎР»РµРІР°
+        // Слева
         menu.style.left = '10px';
         menu.style.right = 'auto';
     } else {
-        // РЎРїСЂР°РІР°
+        // Справа
         menu.style.left = 'auto';
         menu.style.right = '10px';
     }
@@ -183,74 +234,78 @@ function positionRecordTypeMenuForMobile() {
     menu.style.bottom = '85px';
 }
 
-// Р¤СѓРЅРєС†РёСЏ РґР»СЏ РіРѕР»РѕСЃРѕРІРѕРіРѕ Р·РІРѕРЅРєР°
+// Функция для голосового звонка
 function startVoiceCall() {
     if (!currentChatId) {
-        showError("Р’С‹Р±РµСЂРёС‚Рµ С‡Р°С‚ РґР»СЏ Р·РІРѕРЅРєР°!");
+        showError("Выберите чат для звонка!");
         return;
     }
     if (typeof startAudioCall === "function") {
         startAudioCall();
     } else {
-        showError("РњРѕРґСѓР»СЊ Р·РІРѕРЅРєРѕРІ РЅРµ Р·Р°РіСЂСѓР¶РµРЅ");
+        showError("Модуль звонков не загружен");
     }
 }
 
-// Р¤СѓРЅРєС†РёСЏ РїРµСЂРµРєР»СЋС‡РµРЅРёСЏ С‚РµРјС‹
+// Функция переключения темы
 function toggleTheme() {
     const body = document.body;
     const isLight = body.classList.toggle('light');
     localStorage.setItem('ruchat_theme', isLight ? 'light' : 'dark');
-    showNotification("Тема", isLight ? "Переключена светлая тема" : "Переключена тёмная тема", 'info');
+    showNotification("Успешно", isLight ? "Включена светлая тема" : "Включена тёмная тема", 'info');
 }
 
-// Р¤СѓРЅРєС†РёСЏ РїРѕРєР°Р·Р° РёРЅС„РѕСЂРјР°С†РёРё Рѕ С‡Р°С‚Рµ
+// Функция показа информации о чате
 function showChatInfo() {
     if (isGroupChat && currentChatId) {
         db.ref("groups/" + currentChatId).once("value").then(s => {
             if (s.exists()) {
                 const g = s.val();
+                const groupName = typeof normalizeText === 'function' ? normalizeText(g.name) : g.name;
+                const createdBy = typeof normalizeText === 'function' ? normalizeText(g.createdBy) : g.createdBy;
                 const memberCount = Object.keys(g.members || {}).length;
                 const info = `
-РРЅС„РѕСЂРјР°С†РёСЏ Рѕ РіСЂСѓРїРїРµ:
-в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
-РќР°Р·РІР°РЅРёРµ: ${g.name}
-РЈС‡Р°СЃС‚РЅРёРєРѕРІ: ${memberCount}
-РЎРѕР·РґР°РЅР°: ${new Date(g.createdAt).toLocaleDateString()}
-РЎРѕР·РґР°С‚РµР»СЊ: ${g.createdBy}
+Информация о группе:
+─────────────────
+Название: ${groupName}
+Участников: ${memberCount}
+Создана: ${new Date(g.createdAt).toLocaleDateString()}
+Создатель: ${createdBy}
                 `;
                 alert(info);
             }
         });
     } else if (currentChatPartner) {
         const friendName = document.getElementById("chatWith").textContent;
-        const status = userStatuses[friendName];
-        let statusText = "Р‘С‹Р»(Р°) РЅРµРґР°РІРЅРѕ";
+        const statusKey = currentChatPartner || friendName;
+        const status = userStatuses[statusKey];
+        let statusText = "Был(а) недавно";
         
         if (status) {
             if (status.online) {
-                statusText = status.idle ? "РќРµР°РєС‚РёРІРµРЅ" : "Р’ СЃРµС‚Рё";
+                statusText = status.idle ? "Неактивен" : "В сети";
             }
         }
         
         const info = `
-РРЅС„РѕСЂРјР°С†РёСЏ Рѕ РїРѕР»СЊР·РѕРІР°С‚РµР»Рµ:
-в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
-РРјСЏ: ${friendName}
-РЎС‚Р°С‚СѓСЃ: ${statusText}
-РџРѕСЃР»РµРґРЅСЏСЏ Р°РєС‚РёРІРЅРѕСЃС‚СЊ: ${status ? new Date(status.lastSeen).toLocaleTimeString() : 'РќРµРёР·РІРµСЃС‚РЅРѕ'}
+Информация о пользователе:
+────────────────────────
+Имя: ${friendName}
+Статус: ${statusText}
+Последняя активность: ${status ? new Date(status.lastSeen).toLocaleTimeString() : 'Неизвестно'}
         `;
         alert(info);
     } else {
-        showError("Р’С‹Р±РµСЂРёС‚Рµ С‡Р°С‚ РґР»СЏ РїСЂРѕСЃРјРѕС‚СЂР° РёРЅС„РѕСЂРјР°С†РёРё");
+        showError("Выберите чат для просмотра информации");
     }
 }
 
-// Р—Р°РіСЂСѓР¶Р°РµРј СЃРѕС…СЂР°РЅРµРЅРЅСѓСЋ С‚РµРјСѓ РїСЂРё Р·Р°РіСЂСѓР·РєРµ
+// Загружаем сохраненную тему при загрузке
 document.addEventListener('DOMContentLoaded', function() {
     const savedTheme = localStorage.getItem('ruchat_theme');
     if (savedTheme === 'light') {
         document.body.classList.add('light');
     }
 });
+
 

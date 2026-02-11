@@ -1,10 +1,10 @@
 ﻿[file name]: stories.js
 [file content begin]
 /* ==========================================================
-   Р¤РЈРќРљР¦РР Р”Р›РЇ РРЎРўРћР РР™ (Instagram-like)
+   ФУНКЦИИ ДЛЯ ИСТОРИЙ (Instagram-like)
    ========================================================== */
 
-// Р“Р»РѕР±Р°Р»СЊРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ РґР»СЏ РёСЃС‚РѕСЂРёР№
+// Глобальные переменные для историй
 let currentStoryFile = null;
 let currentStoryType = null;
 let storyViewerInterval = null;
@@ -13,32 +13,32 @@ let currentUserStories = [];
 let storyProgressInterval = null;
 let viewedStories = {};
 
-// Р¤СѓРЅРєС†РёСЏ РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ С‚РµРєСѓС‰РµРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
+// Функция для получения текущего пользователя
 function getCurrentUser() {
     return window.username || username || '';
 }
 
-// Р“Р›РћР‘РђР›Р¬РќРђРЇ Р¤РЈРќРљР¦РРЇ loadStories
+// ГЛОБАЛЬНАЯ ФУНКЦИЯ loadStories
 function loadStories() {
     const currentUser = getCurrentUser();
     if (!currentUser) {
-        console.warn("РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РёСЃС‚РѕСЂРёРё: РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ Р°РІС‚РѕСЂРёР·РѕРІР°РЅ");
+        console.warn("Не удалось загрузить истории: пользователь не авторизован");
         return;
     }
     
     const sl = document.getElementById("storiesList");
     if (!sl) {
-        console.error("Р­Р»РµРјРµРЅС‚ storiesList РЅРµ РЅР°Р№РґРµРЅ");
+        console.error("Элемент storiesList не найден");
         return;
     }
     
-    // РћС‡РёС‰Р°РµРј СЃРїРёСЃРѕРє
+    // Очищаем список
     sl.innerHTML = '';
     
-    // Р”РѕР±Р°РІР»СЏРµРј РєРЅРѕРїРєСѓ СЃРѕР·РґР°РЅРёСЏ СЃРІРѕРµР№ РёСЃС‚РѕСЂРёРё
+    // Добавляем кнопку создания своей истории
     addMyStoryButton(sl);
     
-    // Р—Р°РіСЂСѓР¶Р°РµРј РёСЃС‚РѕСЂРёРё РґСЂСѓР·РµР№
+    // Загружаем истории друзей
     db.ref("accounts/" + currentUser + "/friends").once("value").then(snap => {
         if (!snap.exists()) {
             return;
@@ -50,7 +50,7 @@ function loadStories() {
             friends.push(ch.key);
         });
         
-        // Р—Р°РіСЂСѓР¶Р°РµРј РёСЃС‚РѕСЂРёРё РєР°Р¶РґРѕРіРѕ РґСЂСѓРіР°
+        // Загружаем истории каждого друга
         friends.forEach(friendName => {
             setTimeout(() => {
                 db.ref(`accounts/${friendName}/stories`)
@@ -67,18 +67,18 @@ function loadStories() {
     });
 }
 
-// РџРѕРєР°Р·Р°С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ СЃРѕР·РґР°РЅРёСЏ РёСЃС‚РѕСЂРёРё
+// Показать модальное окно создания истории
 function showCreateStoryModal() {
     if (!checkConnection()) return;
     document.getElementById('storyModalOverlay').style.display = 'flex';
 }
 
-// Р—Р°РєСЂС‹С‚СЊ РјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ СЃРѕР·РґР°РЅРёСЏ РёСЃС‚РѕСЂРёРё
+// Закрыть модальное окно создания истории
 function closeStoryModal() {
     document.getElementById('storyModalOverlay').style.display = 'none';
 }
 
-// РЎРѕР·РґР°С‚СЊ С„РѕС‚Рѕ-РёСЃС‚РѕСЂРёСЋ
+// Создать фото-историю
 function createPhotoStory() {
     closeStoryModal();
     const input = document.createElement('input');
@@ -88,7 +88,7 @@ function createPhotoStory() {
     input.click();
 }
 
-// РЎРѕР·РґР°С‚СЊ РІРёРґРµРѕ-РёСЃС‚РѕСЂРёСЋ
+// Создать видео-историю
 function createVideoStory() {
     closeStoryModal();
     const input = document.createElement('input');
@@ -98,21 +98,21 @@ function createVideoStory() {
     input.click();
 }
 
-// РћР±СЂР°Р±РѕС‚РєР° РІС‹Р±СЂР°РЅРЅРѕРіРѕ С„Р°Р№Р»Р° РґР»СЏ РёСЃС‚РѕСЂРёРё
+// Обработка выбранного файла для истории
 function handleStoryFileSelected(file, type) {
     if (!file) return;
     
-    // РџСЂРѕРІРµСЂРєР° СЂР°Р·РјРµСЂР° С„Р°Р№Р»Р°
+    // Проверка размера файла
     const maxSize = type === 'photo' ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
     if (file.size > maxSize) {
-        showError(`Р¤Р°Р№Р» СЃР»РёС€РєРѕРј Р±РѕР»СЊС€РѕР№. РњР°РєСЃРёРјР°Р»СЊРЅС‹Р№ СЂР°Р·РјРµСЂ: ${type === 'photo' ? '10MB' : '50MB'}`);
+        showError(`Файл слишком большой. Максимальный размер: ${type === 'photo' ? '10MB' : '50MB'}`);
         return;
     }
     
     currentStoryFile = file;
     currentStoryType = type;
     
-    // РџРѕРєР°Р·Р°С‚СЊ РїСЂРµРІСЊСЋ
+    // Показать превью
     const reader = new FileReader();
     reader.onload = function(e) {
         const previewContent = document.getElementById('storyPreviewContent');
@@ -142,20 +142,20 @@ function handleStoryFileSelected(file, type) {
     reader.readAsDataURL(file);
 }
 
-// Р—Р°РєСЂС‹С‚СЊ РїСЂРµРІСЊСЋ РёСЃС‚РѕСЂРёРё
+// Закрыть превью истории
 function closeStoryPreview() {
     document.getElementById('storyPreviewOverlay').style.display = 'none';
     currentStoryFile = null;
     currentStoryType = null;
 }
 
-// РћРїСѓР±Р»РёРєРѕРІР°С‚СЊ РёСЃС‚РѕСЂРёСЋ
+// Опубликовать историю
 async function publishStory() {
     if (!currentStoryFile || !currentStoryType) return;
     
     const currentUser = getCurrentUser();
     if (!currentUser) {
-        showError("РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ Р°РІС‚РѕСЂРёР·РѕРІР°РЅ");
+        showError("Пользователь не авторизован");
         return;
     }
     
@@ -172,34 +172,34 @@ async function publishStory() {
                 views: {}
             };
             
-            // РЎРѕС…СЂР°РЅСЏРµРј РёСЃС‚РѕСЂРёСЋ РІ Firebase
+            // Сохраняем историю в Firebase
             const storyKey = `story_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             await db.ref(`accounts/${currentUser}/stories/${storyKey}`).set(storyData);
             
-            // РџРѕРјРµС‡Р°РµРј РёСЃС‚РѕСЂРёСЋ РєР°Рє РїСЂРѕСЃРјРѕС‚СЂРµРЅРЅСѓСЋ СЃР°РјРёРј РїРѕР»СЊР·РѕРІР°С‚РµР»РµРј
+            // Помечаем историю как просмотренную самим пользователем
             await db.ref(`accounts/${currentUser}/stories/${storyKey}/views/${currentUser}`).set(true);
             
-            showNotification('РЈСЃРїРµС€РЅРѕ', 'РСЃС‚РѕСЂРёСЏ РѕРїСѓР±Р»РёРєРѕРІР°РЅР°!');
+            showNotification('Успешно', 'История опубликована!');
             closeStoryPreview();
             
-            // РџРµСЂРµР·Р°РіСЂСѓР¶Р°РµРј РёСЃС‚РѕСЂРёРё
+            // Перезагружаем истории
             loadStories();
             
-            // Р’РѕСЃРїСЂРѕРёР·РІРѕРґРёРј Р·РІСѓРє СѓСЃРїРµС…Р°
+            // Воспроизводим звук успеха
             if (typeof playSendSound === 'function') {
                 playSendSound();
             }
         };
         reader.readAsDataURL(currentStoryFile);
     } catch (error) {
-        console.error('РћС€РёР±РєР° РїСЂРё РїСѓР±Р»РёРєР°С†РёРё РёСЃС‚РѕСЂРёРё:', error);
-        showError('РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСѓР±Р»РёРєРѕРІР°С‚СЊ РёСЃС‚РѕСЂРёСЋ');
+        console.error('Ошибка при публикации истории:', error);
+        showError('Не удалось опубликовать историю');
     } finally {
         hideLoading();
     }
 }
 
-// РџРѕР»СѓС‡РёС‚СЊ РґР»РёС‚РµР»СЊРЅРѕСЃС‚СЊ РІРёРґРµРѕ
+// Получить длительность видео
 function getVideoDuration(file) {
     return new Promise((resolve) => {
         const video = document.createElement('video');
@@ -212,7 +212,7 @@ function getVideoDuration(file) {
     });
 }
 
-// Р”РѕР±Р°РІРёС‚СЊ РєРЅРѕРїРєСѓ СЃРІРѕРµР№ РёСЃС‚РѕСЂРёРё
+// Добавить кнопку своей истории
 function addMyStoryButton(container) {
     const currentUser = getCurrentUser();
     if (!currentUser) return;
@@ -221,7 +221,7 @@ function addMyStoryButton(container) {
     myStoryItem.className = "story-item story-add-btn";
     myStoryItem.onclick = showCreateStoryModal;
     
-    // РџРѕР»СѓС‡Р°РµРј URL СЃРІРѕРµРіРѕ Р°РІР°С‚Р°СЂР°
+    // Получаем URL своего аватара
     const myAvatar = document.getElementById('userAvatar');
     const avatarUrl = myAvatar && myAvatar.src ? myAvatar.src : `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser)}&background=0088cc&color=fff&size=60`;
     
@@ -230,13 +230,13 @@ function addMyStoryButton(container) {
             <img class="story-avatar" src="${avatarUrl}" alt="${currentUser}">
             <div class="story-add-icon">+</div>
         </div>
-        <div class="story-name">Р’Р°С€Р° РёСЃС‚РѕСЂРёСЏ</div>
+        <div class="story-name">Ваша история</div>
     `;
     
     container.appendChild(myStoryItem);
 }
 
-// РЎРѕР·РґР°С‚СЊ СЌР»РµРјРµРЅС‚ РёСЃС‚РѕСЂРёРё РґСЂСѓРіР°
+// Создать элемент истории друга
 function createFriendStoryItem(friendName, storiesSnap) {
     const currentUser = getCurrentUser();
     if (!currentUser) return;
@@ -244,7 +244,7 @@ function createFriendStoryItem(friendName, storiesSnap) {
     const sl = document.getElementById("storiesList");
     if (!sl) return;
     
-    // РџСЂРѕРІРµСЂСЏРµРј, РµСЃС‚СЊ Р»Рё РЅРµРїСЂРѕСЃРјРѕС‚СЂРµРЅРЅС‹Рµ РёСЃС‚РѕСЂРёРё
+    // Проверяем, есть ли непросмотренные истории
     let hasUnviewed = false;
     let latestStoryTime = 0;
     
@@ -258,7 +258,7 @@ function createFriendStoryItem(friendName, storiesSnap) {
         }
     });
     
-    // РџРѕРєР°Р·С‹РІР°РµРј С‚РѕР»СЊРєРѕ РёСЃС‚РѕСЂРёРё РјР»Р°РґС€Рµ 24 С‡Р°СЃРѕРІ
+    // Показываем только истории младше 24 часов
     if (Date.now() - latestStoryTime > 24 * 60 * 60 * 1000) {
         return;
     }
@@ -267,7 +267,7 @@ function createFriendStoryItem(friendName, storiesSnap) {
     storyItem.className = `story-item ${hasUnviewed ? 'unviewed' : 'viewed'}`;
     storyItem.onclick = () => viewFriendStories(friendName);
     
-    // РџРѕР»СѓС‡Р°РµРј Р°РІР°С‚Р°СЂ РґСЂСѓРіР°
+    // Получаем аватар друга
     const friendAvatar = document.getElementById(`avatar_${friendName}`);
     const avatarUrl = friendAvatar && friendAvatar.src ? friendAvatar.src : `https://ui-avatars.com/api/?name=${encodeURIComponent(friendName)}&background=0088cc&color=fff&size=60`;
     
@@ -279,11 +279,11 @@ function createFriendStoryItem(friendName, storiesSnap) {
     sl.appendChild(storyItem);
 }
 
-// РџСЂРѕСЃРјРѕС‚СЂ РёСЃС‚РѕСЂРёР№ РґСЂСѓРіР°
+// Просмотр историй друга
 async function viewFriendStories(friendName) {
     const currentUser = getCurrentUser();
     if (!currentUser) {
-        showError("РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ Р°РІС‚РѕСЂРёР·РѕРІР°РЅ");
+        showError("Пользователь не авторизован");
         return;
     }
     
@@ -296,7 +296,7 @@ async function viewFriendStories(friendName) {
             .once("value");
         
         if (!storiesSnap.exists()) {
-            showNotification('РСЃС‚РѕСЂРёРё', 'РЈ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РЅРµС‚ Р°РєС‚РёРІРЅС‹С… РёСЃС‚РѕСЂРёР№');
+            showNotification('Истории', 'У пользователя нет активных историй');
             return;
         }
         
@@ -308,36 +308,36 @@ async function viewFriendStories(friendName) {
             currentUserStories.push(story);
         });
         
-        // РЎРѕСЂС‚РёСЂСѓРµРј РїРѕ РІСЂРµРјРµРЅРё (РѕС‚ СЃС‚Р°СЂС‹С… Рє РЅРѕРІС‹Рј)
+        // Сортируем по времени (от старых к новым)
         currentUserStories.sort((a, b) => a.timestamp - b.timestamp);
         
         if (currentUserStories.length > 0) {
             currentStoryIndex = 0;
             showStoryViewer();
             
-            // РћС‚РјРµС‡Р°РµРј РєР°Рє РїСЂРѕСЃРјРѕС‚СЂРµРЅРЅСѓСЋ
+            // Отмечаем как просмотренную
             await markStoryAsViewed(friendName, currentUserStories[currentStoryIndex].key);
         }
     } catch (error) {
-        console.error('РћС€РёР±РєР° РїСЂРё Р·Р°РіСЂСѓР·РєРµ РёСЃС‚РѕСЂРёР№:', error);
-        showError('РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РёСЃС‚РѕСЂРёРё');
+        console.error('Ошибка при загрузке историй:', error);
+        showError('Не удалось загрузить истории');
     } finally {
         hideLoading();
     }
 }
 
-// РџРѕРєР°Р·Р°С‚СЊ РїСЂРѕСЃРјРѕС‚СЂС‰РёРє РёСЃС‚РѕСЂРёР№
+// Показать просмотрщик историй
 function showStoryViewer() {
     if (currentUserStories.length === 0) return;
     
     const story = currentUserStories[currentStoryIndex];
     const currentUser = getCurrentUser();
     
-    // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ Р°РІС‚РѕСЂРµ
+    // Устанавливаем информацию о авторе
     document.getElementById('storyViewerName').textContent = story.author;
     document.getElementById('storyViewerTime').textContent = formatStoryTime(story.timestamp);
     
-    // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј Р°РІР°С‚Р°СЂ
+    // Устанавливаем аватар
     const friendAvatar = document.getElementById(`avatar_${story.author}`);
     const avatarUrl = friendAvatar && friendAvatar.src ? friendAvatar.src : `https://ui-avatars.com/api/?name=${encodeURIComponent(story.author)}&background=0088cc&color=fff&size=40`;
     const avatarImg = document.getElementById('storyViewerAvatar');
@@ -346,14 +346,14 @@ function showStoryViewer() {
         this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(story.author)}&background=0088cc&color=fff&size=40`;
     };
     
-    // РћС‚РѕР±СЂР°Р¶Р°РµРј РєРѕРЅС‚РµРЅС‚
+    // Отображаем контент
     const contentDiv = document.getElementById('storyViewerContent');
     contentDiv.innerHTML = '';
     
     if (story.type === 'photo') {
         const img = document.createElement('img');
         img.src = story.url;
-        img.alt = 'РСЃС‚РѕСЂРёСЏ';
+        img.alt = 'История';
         img.style.width = '100%';
         img.style.height = '100%';
         img.style.objectFit = 'contain';
@@ -370,22 +370,22 @@ function showStoryViewer() {
         contentDiv.appendChild(video);
     }
     
-    // РџРѕРєР°Р·С‹РІР°РµРј РїСЂРѕРіСЂРµСЃСЃ Р±Р°СЂ
+    // Показываем прогресс бар
     showStoryProgress();
     
-    // РџРѕРєР°Р·С‹РІР°РµРј РїСЂРѕСЃРјРѕС‚СЂС‰РёРє
+    // Показываем просмотрщик
     document.getElementById('storyViewerOverlay').style.display = 'flex';
     
-    // РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРѕРµ РїРµСЂРµРєР»СЋС‡РµРЅРёРµ С‡РµСЂРµР· 5 СЃРµРєСѓРЅРґ РґР»СЏ С„РѕС‚Рѕ
+    // Автоматическое переключение через 5 секунд для фото
     if (story.type === 'photo') {
         startStoryTimer(5000);
     }
     
-    // Р”РѕР±Р°РІР»СЏРµРј РѕР±СЂР°Р±РѕС‚С‡РёРєРё Р¶РµСЃС‚РѕРІ
+    // Добавляем обработчики жестов
     setupStoryGestures();
 }
 
-// РџРѕРєР°Р·Р°С‚СЊ РїСЂРѕРіСЂРµСЃСЃ Р±Р°СЂ
+// Показать прогресс бар
 function showStoryProgress() {
     const progressBar = document.getElementById('storyProgressBar');
     progressBar.innerHTML = '';
@@ -409,7 +409,7 @@ function showStoryProgress() {
             fill.style.transition = `width ${currentUserStories[i].type === 'photo' ? 5 : currentUserStories[i].duration || 10}s linear`;
             segment.appendChild(fill);
             
-            // Р—Р°РїСѓСЃРєР°РµРј Р°РЅРёРјР°С†РёСЋ
+            // Запускаем анимацию
             setTimeout(() => {
                 fill.style.width = '100%';
             }, 10);
@@ -417,26 +417,26 @@ function showStoryProgress() {
     }
 }
 
-// Р—Р°РїСѓСЃС‚РёС‚СЊ С‚Р°Р№РјРµСЂ РґР»СЏ РёСЃС‚РѕСЂРёРё
+// Запустить таймер для истории
 function startStoryTimer(duration) {
     if (storyViewerInterval) clearInterval(storyViewerInterval);
     storyViewerInterval = setTimeout(nextStory, duration);
 }
 
-// РЎР»РµРґСѓСЋС‰Р°СЏ РёСЃС‚РѕСЂРёСЏ
+// Следующая история
 function nextStory() {
     if (currentStoryIndex < currentUserStories.length - 1) {
         currentStoryIndex++;
         showStoryViewer();
         
-        // РћС‚РјРµС‡Р°РµРј РєР°Рє РїСЂРѕСЃРјРѕС‚СЂРµРЅРЅСѓСЋ
+        // Отмечаем как просмотренную
         markStoryAsViewed(currentUserStories[currentStoryIndex].author, currentUserStories[currentStoryIndex].key);
     } else {
         closeStoryViewer();
     }
 }
 
-// РџСЂРµРґС‹РґСѓС‰Р°СЏ РёСЃС‚РѕСЂРёСЏ
+// Предыдущая история
 function prevStory() {
     if (currentStoryIndex > 0) {
         currentStoryIndex--;
@@ -444,7 +444,7 @@ function prevStory() {
     }
 }
 
-// Р—Р°РєСЂС‹С‚СЊ РїСЂРѕСЃРјРѕС‚СЂС‰РёРє РёСЃС‚РѕСЂРёР№
+// Закрыть просмотрщик историй
 function closeStoryViewer() {
     document.getElementById('storyViewerOverlay').style.display = 'none';
     if (storyViewerInterval) clearInterval(storyViewerInterval);
@@ -453,7 +453,7 @@ function closeStoryViewer() {
     currentStoryIndex = 0;
 }
 
-// РћС‚РјРµС‚РёС‚СЊ РёСЃС‚РѕСЂРёСЋ РєР°Рє РїСЂРѕСЃРјРѕС‚СЂРµРЅРЅСѓСЋ
+// Отметить историю как просмотренную
 async function markStoryAsViewed(author, storyKey) {
     const currentUser = getCurrentUser();
     if (!currentUser) return;
@@ -461,7 +461,7 @@ async function markStoryAsViewed(author, storyKey) {
     try {
         await db.ref(`accounts/${author}/stories/${storyKey}/views/${currentUser}`).set(true);
         
-        // РћР±РЅРѕРІР»СЏРµРј РѕС‚РѕР±СЂР°Р¶РµРЅРёРµ РёСЃС‚РѕСЂРёР№
+        // Обновляем отображение историй
         const storyItems = document.querySelectorAll('.story-item');
         storyItems.forEach(item => {
             if (item.onclick && item.onclick.toString().includes(author)) {
@@ -470,23 +470,23 @@ async function markStoryAsViewed(author, storyKey) {
             }
         });
     } catch (error) {
-        console.error('РћС€РёР±РєР° РїСЂРё РѕС‚РјРµС‚РєРµ РёСЃС‚РѕСЂРёРё:', error);
+        console.error('Ошибка при отметке истории:', error);
     }
 }
 
-// Р¤РѕСЂРјР°С‚РёСЂРѕРІР°РЅРёРµ РІСЂРµРјРµРЅРё РёСЃС‚РѕСЂРёРё
+// Форматирование времени истории
 function formatStoryTime(timestamp) {
     const now = Date.now();
     const diff = now - timestamp;
     
     if (diff < 60000) {
-        return 'С‚РѕР»СЊРєРѕ С‡С‚Рѕ';
+        return 'только что';
     } else if (diff < 3600000) {
         const minutes = Math.floor(diff / 60000);
-        return `${minutes} ${getMinutesText(minutes)} РЅР°Р·Р°Рґ`;
+        return `${minutes} ${getMinutesText(minutes)} назад`;
     } else if (diff < 86400000) {
         const hours = Math.floor(diff / 3600000);
-        return `${hours} ${getHoursText(hours)} РЅР°Р·Р°Рґ`;
+        return `${hours} ${getHoursText(hours)} назад`;
     } else {
         const date = new Date(timestamp);
         return date.toLocaleDateString('ru-RU', {
@@ -497,18 +497,18 @@ function formatStoryTime(timestamp) {
 }
 
 function getMinutesText(minutes) {
-    if (minutes % 10 === 1 && minutes % 100 !== 11) return 'РјРёРЅСѓС‚Сѓ';
-    if ([2, 3, 4].includes(minutes % 10) && ![12, 13, 14].includes(minutes % 100)) return 'РјРёРЅСѓС‚С‹';
-    return 'РјРёРЅСѓС‚';
+    if (minutes % 10 === 1 && minutes % 100 !== 11) return 'минуту';
+    if ([2, 3, 4].includes(minutes % 10) && ![12, 13, 14].includes(minutes % 100)) return 'минуты';
+    return 'минут';
 }
 
 function getHoursText(hours) {
-    if (hours % 10 === 1 && hours % 100 !== 11) return 'С‡Р°СЃ';
-    if ([2, 3, 4].includes(hours % 10) && ![12, 13, 14].includes(hours % 100)) return 'С‡Р°СЃР°';
-    return 'С‡Р°СЃРѕРІ';
+    if (hours % 10 === 1 && hours % 100 !== 11) return 'час';
+    if ([2, 3, 4].includes(hours % 10) && ![12, 13, 14].includes(hours % 100)) return 'часа';
+    return 'часов';
 }
 
-// РќР°СЃС‚СЂРѕР№РєР° Р¶РµСЃС‚РѕРІ РґР»СЏ РїСЂРѕСЃРјРѕС‚СЂР° РёСЃС‚РѕСЂРёР№
+// Настройка жестов для просмотра историй
 function setupStoryGestures() {
     const viewer = document.getElementById('storyViewerOverlay');
     let startX = 0;
@@ -537,7 +537,7 @@ function setupStoryGestures() {
         }
     });
     
-    // РћР±СЂР°Р±РѕС‚РєР° РєР»РёРєРѕРІ РґР»СЏ РґРµСЃРєС‚РѕРїР°
+    // Обработка кликов для десктопа
     viewer.addEventListener('click', (e) => {
         const rect = viewer.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -553,7 +553,7 @@ function setupStoryGestures() {
     });
 }
 
-// РћС‡РёСЃС‚РєР° СЃС‚Р°СЂС‹С… РёСЃС‚РѕСЂРёР№ (СЃС‚Р°СЂС€Рµ 24 С‡Р°СЃРѕРІ)
+// Очистка старых историй (старше 24 часов)
 async function cleanupOldStories() {
     const currentUser = getCurrentUser();
     if (!currentUser) return;
@@ -576,25 +576,26 @@ async function cleanupOldStories() {
             await db.ref().update(updates);
         }
     } catch (error) {
-        console.error('РћС€РёР±РєР° РїСЂРё РѕС‡РёСЃС‚РєРµ СЃС‚Р°СЂС‹С… РёСЃС‚РѕСЂРёР№:', error);
+        console.error('Ошибка при очистке старых историй:', error);
     }
 }
 
-// РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РёСЃС‚РѕСЂРёР№ РїРѕСЃР»Рµ РІС…РѕРґР°
+// Инициализация историй после входа
 function initStoriesAfterLogin() {
-    // Р”Р°РµРј РІСЂРµРјСЏ РЅР° Р·Р°РіСЂСѓР·РєСѓ РґСЂСѓР·РµР№
+    // Даем время на загрузку друзей
     setTimeout(() => {
-        // Р—Р°РіСЂСѓР¶Р°РµРј РёСЃС‚РѕСЂРёРё
+        // Загружаем истории
         loadStories();
         
-        // РћС‡РёС‰Р°РµРј СЃС‚Р°СЂС‹Рµ РёСЃС‚РѕСЂРёРё
+        // Очищаем старые истории
         cleanupOldStories();
         
-        // РџРµСЂРёРѕРґРёС‡РµСЃРєР°СЏ РѕС‡РёСЃС‚РєР° СЃС‚Р°СЂС‹С… РёСЃС‚РѕСЂРёР№ (РєР°Р¶РґС‹Р№ С‡Р°СЃ)
+        // Периодическая очистка старых историй (каждый час)
         setInterval(cleanupOldStories, 60 * 60 * 1000);
         
-        // РџРµСЂРёРѕРґРёС‡РµСЃРєРѕРµ РѕР±РЅРѕРІР»РµРЅРёРµ РёСЃС‚РѕСЂРёР№ (РєР°Р¶РґС‹Рµ 30 СЃРµРєСѓРЅРґ)
+        // Периодическое обновление историй (каждые 30 секунд)
         setInterval(loadStories, 30000);
     }, 2000);
 }
 [file content end]
+

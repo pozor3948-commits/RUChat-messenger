@@ -350,6 +350,8 @@ async function sendVoiceMessage(audioData, isTest = false) {
             duration: voiceRecordingTime || 5,
             isTest: isTest || false
         };
+        const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
+        if (expiresAt) message.expiresAt = expiresAt;
         
         await chatRef.push(message);
         
@@ -485,6 +487,8 @@ async function sendMediaMessage(type, data, filename, filesize) {
             read: false, 
             status: 'sent' 
         };
+        const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
+        if (expiresAt) msg.expiresAt = expiresAt;
         
         switch (type) {
             case 'photo': 

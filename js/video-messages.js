@@ -330,6 +330,8 @@ async function sendVideoMessage(videoData) {
             type: 'video_message',
             duration: Math.floor((Date.now() - recordingStartTime) / 1000)
         };
+        const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
+        if (expiresAt) message.expiresAt = expiresAt;
         
         await chatRef.push(message);
         showNotification('Успешно', 'Видеосообщение отправлено!');

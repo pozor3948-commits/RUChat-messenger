@@ -42,17 +42,67 @@ function fixMojibakeCp1251(str) {
 
 function normalizeText(text) {
     if (typeof text !== 'string') return text;
-    // Heuristic: many 'Р'/'С' patterns indicate CP1251 mojibake
-    const suspect = /[РС]/.test(text) && (text.match(/[РС]/g) || []).length >= 3;
-    if (!suspect) return text;
-    const fixed = fixMojibakeCp1251(text);
-    // Accept fix if it contains more typical Cyrillic vowels
     const vowels = /[аеёиоуыэюя]/gi;
-    if ((fixed.match(vowels) || []).length >= (text.match(vowels) || []).length) {
-        return fixed;
+    const countVowels = (str) => (str.match(vowels) || []).length;
+    const countRS = (str) => (str.match(/[РС]/g) || []).length;
+    const score = (str) => countVowels(str) - countRS(str) * 0.5;
+
+    const fixed = fixMojibakeCp1251(text);
+    if (fixed && fixed !== text) {
+        if (score(fixed) >= score(text) + 1 || countRS(fixed) < countRS(text)) {
+            return fixed;
+        }
     }
+
+    const fixedTwice = fixMojibakeCp1251(fixed);
+    if (fixedTwice && fixedTwice !== text) {
+        if (score(fixedTwice) >= score(text) + 1 || countRS(fixedTwice) < countRS(text)) {
+            return fixedTwice;
+        }
+    }
+
     return text;
 }
+
+function isValidMediaUrl(url) {
+    return typeof url === 'string' && (
+        url.startsWith('data:') ||
+        url.startsWith('http://') ||
+        url.startsWith('https://') ||
+        url.startsWith('blob:')
+    );
+}
+
+const EPHEMERAL_TTLS = [0, 60_000, 3_600_000, 86_400_000];
+const EPHEMERAL_LABELS = ['Off', '1m', '1h', '1d'];
+let currentEphemeralIndex = 0;
+
+function getEphemeralExpiresAt() {
+    const ttl = EPHEMERAL_TTLS[currentEphemeralIndex] || 0;
+    return ttl > 0 ? Date.now() + ttl : null;
+}
+
+function updateEphemeralUi() {
+    const btn = document.getElementById('ttlBtn');
+    if (!btn) return;
+    const ttl = EPHEMERAL_TTLS[currentEphemeralIndex] || 0;
+    btn.dataset.ttl = EPHEMERAL_LABELS[currentEphemeralIndex] || 'Off';
+    btn.classList.toggle('active', ttl > 0);
+}
+
+function cycleEphemeralTtl() {
+    currentEphemeralIndex = (currentEphemeralIndex + 1) % EPHEMERAL_TTLS.length;
+    localStorage.setItem('ruchat_ttl_index', String(currentEphemeralIndex));
+    updateEphemeralUi();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = parseInt(localStorage.getItem('ruchat_ttl_index') || '0', 10);
+    if (!Number.isNaN(saved) && saved >= 0 && saved < EPHEMERAL_TTLS.length) {
+        currentEphemeralIndex = saved;
+    }
+    updateEphemeralUi();
+});
 
 // Функция проверки соединения
 function checkConnection() {
@@ -86,6 +136,8 @@ function hideLoading() {
 
 // Функция уведомлений через глобальную
 function showNotification(title, text, type = 'info') {
+    title = normalizeText(title);
+    text = normalizeText(text);
     if (typeof window.showNotification === 'function') {
         window.showNotification(title, text, type);
     } else {
@@ -110,6 +162,7 @@ function showNotification(title, text, type = 'info') {
 
 // Функция ошибок через глобальную
 function showError(msg, retry) {
+    msg = normalizeText(msg);
     if (typeof window.showError === 'function') {
         window.showError(msg, retry);
     } else {

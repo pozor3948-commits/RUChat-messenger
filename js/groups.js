@@ -19,7 +19,8 @@ function loadFriendsForGroup() {
       const fn = ch.key;
       const d = document.createElement("div");
       d.className = "group-member-item";
-      d.innerHTML = `<input type="checkbox" class="group-member-checkbox" id="member_${fn}" value="${fn}"><label for="member_${fn}" style="flex:1;cursor:pointer;">${fn}</label>`;
+      const displayName = typeof normalizeText === 'function' ? normalizeText(fn) : fn;
+      d.innerHTML = `<input type="checkbox" class="group-member-checkbox" id="member_${fn}" value="${fn}"><label for="member_${fn}" style="flex:1;cursor:pointer;">${displayName}</label>`;
       ml.appendChild(d);
     });
   });
@@ -28,6 +29,7 @@ function loadFriendsForGroup() {
 async function createGroup() {
   const n = document.getElementById("groupNameInput").value.trim();
   const av = document.getElementById("groupAvatarInput").value.trim();
+  const avatarUrl = av && (typeof isValidMediaUrl !== 'function' || isValidMediaUrl(av)) ? av : "";
   if (!n) { showError("Введите название группы!"); return; }
   const ch = document.querySelectorAll(".group-member-checkbox:checked");
   if (!ch.length) { showError("Выберите хотя бы одного участника!"); return; }
@@ -36,7 +38,7 @@ async function createGroup() {
   members[username] = true;
   try {
     const ref = db.ref("groups").push();
-    await ref.set({ name: n, avatar: av, members: members, createdBy: username, createdAt: Date.now() });
+    await ref.set({ name: n, avatar: avatarUrl, members: members, createdBy: username, createdAt: Date.now() });
     showNotification("Успешно", `Группа "${n}" создана!`);
     closeGroupModal();
     document.getElementById("groupNameInput").value = "";

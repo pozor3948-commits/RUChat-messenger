@@ -11,6 +11,11 @@ if (typeof userStatuses === 'undefined') {
     window.userStatuses = {};
 }
 
+const lastMessageKeyByChat = {};
+const reactionOptions = ['👍','❤️','😂','😮','😢','😡'];
+const ephemeralWatch = new Map();
+let ephemeralInterval = null;
+
 /* ==========================================================
    6. ЗАГРУЗКА ДАННЫХ
    ========================================================== */
@@ -69,7 +74,12 @@ function createFriendItem(fn) {
   fl.appendChild(item);
   db.ref("accounts/" + fn + "/avatar").on("value", s => {
     const av = document.getElementById(`avatar_${fn}`);
-    if (s.exists() && s.val()) av.src = s.val(); else av.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=48`;
+    const url = s.val();
+    if (s.exists() && url && (typeof isValidMediaUrl !== 'function' || isValidMediaUrl(url))) {
+      av.src = url;
+    } else {
+      av.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=48`;
+    }
   });
   loadLastMessage(fn);
 }
@@ -80,10 +90,24 @@ function loadLastMessage(fn) {
     if (snap.exists()) snap.forEach(ch => {
       const m = ch.val();
       const lm = document.getElementById(`lastMsg_${fn}`);
-      if (lm && m.text) {
-      const t = normalizeText(m.text);
-      lm.textContent = t.length > 30 ? t.substring(0, 30) + "..." : t;
-    }
+      if (lm && m && m.text) {
+        const t = normalizeText(m.text);
+        lm.textContent = t.length > 30 ? t.substring(0, 30) + "..." : t;
+      }
+
+      const lastKey = lastMessageKeyByChat[chatId];
+      if (!lastKey) {
+        lastMessageKeyByChat[chatId] = ch.key;
+        return;
+      }
+      if (ch.key !== lastKey) {
+        lastMessageKeyByChat[chatId] = ch.key;
+        const isCurrentChat = currentChatId === chatId;
+        if (m && m.from !== username && !isCurrentChat) {
+          const preview = m.text ? normalizeText(m.text) : 'Новое сообщение';
+          showNotification(fn, preview);
+        }
+      }
     });
   });
 }
@@ -131,7 +155,9 @@ function createGroupItem(g, gid) {
       <div class="last-seen online">Группа</div>
     </div>`;
   gl.appendChild(item);
-  if (g.avatar) document.getElementById(`group_avatar_${gid}`).src = g.avatar;
+  if (g.avatar && (typeof isValidMediaUrl !== 'function' || isValidMediaUrl(g.avatar))) {
+    document.getElementById(`group_avatar_${gid}`).src = g.avatar;
+  }
 }
 
 function loadStories() {
@@ -189,6 +215,7 @@ function openPrivateChat(fn) {
   isGroupChat = false;
   currentChatId = [username, fn].sort().join("_");
   currentChatPartner = fn;
+  if (typeof clearMessageSearch === 'function') clearMessageSearch();
   const displayName = normalizeText(fn);
   document.getElementById("chatWith").textContent = displayName;
   document.getElementById("mobileChatTitle").textContent = displayName;
@@ -208,6 +235,7 @@ function openGroupChat(g, gid) {
   isGroupChat = true;
   currentChatId = gid;
   currentChatPartner = null;
+  if (typeof clearMessageSearch === 'function') clearMessageSearch();
   const groupName = normalizeText(g.name);
   document.getElementById("chatWith").textContent = groupName;
   document.getElementById("mobileChatTitle").textContent = groupName;
@@ -224,6 +252,7 @@ function openGroupChat(g, gid) {
 
 function loadChat(path) {
   if (chatRef) chatRef.off();
+  clearEphemeralWatch();
   chatRef = db.ref(path);
   const md = document.getElementById("messages");
   md.innerHTML = "";
@@ -237,6 +266,16 @@ function loadChat(path) {
       setTimeout(() => { addMessageToChat(m); md.style.opacity = 1; md.style.transition = 'opacity .3s ease'; }, 50);
     }
   });
+  chatRef.on("child_changed", snap => {
+    const m = snap.val();
+    if (!m) return;
+    m.id = snap.key;
+    updateMessageInChat(m);
+  });
+  chatRef.on("child_removed", snap => {
+    const el = document.getElementById(`message_${snap.key}`);
+    if (el) el.remove();
+  });
 }
 
 function setActiveChatItem(kind, id) {
@@ -249,6 +288,11 @@ function setActiveChatItem(kind, id) {
 function addMessageToChat(m) {
   const md = document.getElementById("messages");
   if (document.getElementById(`message_${m.id}`)) return;
+  const now = Date.now();
+  if (m.expiresAt && m.expiresAt <= now) {
+    if (m.from === username && chatRef) chatRef.child(m.id).remove();
+    return;
+  }
   
   if (m.from !== username && typeof playReceiveSound === 'function') {
     playReceiveSound();
@@ -271,6 +315,9 @@ function addMessageToChat(m) {
     m.text = String(m.photo || m.video || m.audio || m.document);
   }
   if (!m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl) return;
+  const reactionsHtml = renderReactions(m.id, m.reactions || {});
+  const expireHtml = m.expiresAt ? `<div class="message-expire" data-expires="${m.expiresAt}"></div>` : "";
+  const actionsHtml = `<div class="message-actions"><button class="reaction-btn" data-message-id="${m.id}" title="Реакции">😊</button></div>`;
   let content = "";
   if (m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl) {
     content = `<div class="message-text">${escapeHtml(m.text)}</div>`;
@@ -324,6 +371,9 @@ function addMessageToChat(m) {
     ${m.from !== username && !isGroupChat ? `<div class="message-sender">${senderName}</div>` : ""}
     ${isGroupChat && m.from !== username ? `<div class="message-sender">${senderName}</div>` : ""}
     ${content}
+    ${reactionsHtml}
+    ${expireHtml}
+    ${actionsHtml}
     <div class="message-time">
       ${t}
       ${m.from === username ? `<span class="message-status ${status}">${status === 'read' ? '✓✓' : status === 'delivered' ? '✓✓' : status === 'sent' ? '✓' : '⏳'}</span>` : ''}
@@ -332,7 +382,134 @@ function addMessageToChat(m) {
   md.appendChild(wrap);
   setTimeout(() => { wrap.style.opacity = 1; wrap.style.transform = 'translateY(0)'; wrap.style.transition = 'all .3s ease'; }, 10);
   md.scrollTop = md.scrollHeight;
+  if (m.expiresAt) registerEphemeral(m.id, m.expiresAt, wrap, m.from);
 }
+
+function renderReactions(messageId, reactions) {
+  const items = [];
+  Object.keys(reactions || {}).forEach(emoji => {
+    const users = reactions[emoji] || {};
+    const count = Object.keys(users).length;
+    if (!count) return;
+    const active = !!users[username];
+    items.push(`<button class="reaction-emoji ${active ? 'active' : ''}" data-message-id="${messageId}" data-emoji="${emoji}">${emoji} <span>${count}</span></button>`);
+  });
+  if (!items.length) return '';
+  return `<div class="message-reactions">${items.join('')}</div>`;
+}
+
+function updateMessageInChat(m) {
+  const wrap = document.getElementById(`message_${m.id}`);
+  if (!wrap) return;
+  const msg = wrap.querySelector('.message');
+  if (!msg) return;
+  const reactionsHtml = renderReactions(m.id, m.reactions || {});
+  const currentReactions = msg.querySelector('.message-reactions');
+  if (reactionsHtml) {
+    if (currentReactions) currentReactions.outerHTML = reactionsHtml;
+    else msg.insertAdjacentHTML('beforeend', reactionsHtml);
+  } else if (currentReactions) {
+    currentReactions.remove();
+  }
+  const statusEl = msg.querySelector('.message-status');
+  if (statusEl && m.from === username) {
+    const status = m.read ? 'read' : m.delivered ? 'delivered' : m.sent ? 'sent' : 'error';
+    statusEl.className = `message-status ${status}`;
+    statusEl.textContent = status === 'read' ? '✓✓' : status === 'delivered' ? '✓✓' : status === 'sent' ? '✓' : '⏳';
+  }
+}
+
+function toggleReaction(messageId, emoji) {
+  if (!chatRef || !messageId || !emoji || !username) return;
+  const ref = chatRef.child(`${messageId}/reactions/${emoji}/${username}`);
+  ref.get().then(s => {
+    if (s.exists()) ref.remove();
+    else ref.set(true);
+  });
+}
+
+function showReactionPicker(target) {
+  hideReactionPicker();
+  const msg = target.closest('.message');
+  if (!msg) return;
+  const picker = document.createElement('div');
+  picker.className = 'reaction-picker';
+  picker.dataset.messageId = target.dataset.messageId;
+  picker.innerHTML = reactionOptions.map(e => `<button class="reaction-option" data-emoji="${e}">${e}</button>`).join('');
+  msg.appendChild(picker);
+}
+
+function hideReactionPicker() {
+  document.querySelectorAll('.reaction-picker').forEach(p => p.remove());
+}
+
+function formatRemaining(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  const ss = s % 60;
+  const mm = m % 60;
+  if (h > 0) return `${h}ч ${mm}м`;
+  if (mm > 0) return `${mm}м ${ss}с`;
+  return `${ss}с`;
+}
+
+function registerEphemeral(messageId, expiresAt, wrap, from) {
+  ephemeralWatch.set(messageId, { expiresAt, wrap, from });
+  if (!ephemeralInterval) {
+    ephemeralInterval = setInterval(() => {
+      const now = Date.now();
+      ephemeralWatch.forEach((item, id) => {
+        const remain = item.expiresAt - now;
+        const el = item.wrap.querySelector('.message-expire');
+        if (remain <= 0) {
+          item.wrap.remove();
+          ephemeralWatch.delete(id);
+          if (item.from === username && chatRef) chatRef.child(id).remove();
+        } else if (el) {
+          el.textContent = `⏳ ${formatRemaining(remain)}`;
+        }
+      });
+      if (ephemeralWatch.size === 0) {
+        clearInterval(ephemeralInterval);
+        ephemeralInterval = null;
+      }
+    }, 1000);
+  }
+}
+
+function clearEphemeralWatch() {
+  ephemeralWatch.clear();
+  if (ephemeralInterval) {
+    clearInterval(ephemeralInterval);
+    ephemeralInterval = null;
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const reactionBtn = e.target.closest('.reaction-btn');
+  if (reactionBtn) {
+    showReactionPicker(reactionBtn);
+    return;
+  }
+  const reactionOption = e.target.closest('.reaction-option');
+  if (reactionOption) {
+    const picker = reactionOption.closest('.reaction-picker');
+    const messageId = picker ? picker.dataset.messageId : null;
+    const emoji = reactionOption.dataset.emoji;
+    toggleReaction(messageId, emoji);
+    hideReactionPicker();
+    return;
+  }
+  const reactionEmoji = e.target.closest('.reaction-emoji');
+  if (reactionEmoji) {
+    toggleReaction(reactionEmoji.dataset.messageId, reactionEmoji.dataset.emoji);
+    return;
+  }
+  if (!e.target.closest('.reaction-picker') && !e.target.closest('.reaction-btn')) {
+    hideReactionPicker();
+  }
+});
 
 async function sendMessage() {
   if (!checkConnection()) return;
@@ -343,7 +520,10 @@ async function sendMessage() {
   const orig = btn.innerHTML;
   btn.innerHTML = "⏳"; btn.style.animation = "rotate 1s linear infinite";
   try {
-    await chatRef.push({ from: username, text: txt, time: Date.now(), sent: true, delivered: true, read: false, status: 'sent' });
+    const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
+    const msg = { from: username, text: txt, time: Date.now(), sent: true, delivered: true, read: false, status: 'sent' };
+    if (expiresAt) msg.expiresAt = expiresAt;
+    await chatRef.push(msg);
     ti.value = ""; updateSendButton();
     
     // ВОСПРОИЗВОДИМ ЗВУК ОТПРАВКИ
