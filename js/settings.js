@@ -90,6 +90,33 @@ function showSettingsMenu() {
                     margin-bottom: 25px;
                     border: 1px solid rgba(255,255,255,0.1);
                 ">
+                    <div style="color: #a5b4fc; font-size: 14px; margin-bottom: 10px; font-weight: 600;">Профиль</div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <input id="profileDisplayName" type="text" placeholder="Имя для отображения" style="
+                            padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+                            background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none;">
+                        <input id="profileAvatar" type="text" placeholder="URL аватарки" style="
+                            padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+                            background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none;">
+                        <textarea id="profileAbout" placeholder="О себе" rows="3" style="
+                            padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+                            background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none; resize: vertical;"></textarea>
+                        <button onclick="saveProfileSettings()" style="
+                            padding: 10px 14px; border-radius: 12px; border: none;
+                            background: linear-gradient(45deg, #0088cc, #00b4ff);
+                            color: white; font-weight: 600; cursor: pointer;">
+                            Сохранить профиль
+                        </button>
+                    </div>
+                </div>
+
+                <div style="
+                    background: rgba(255,255,255,0.05);
+                    border-radius: 15px;
+                    padding: 20px;
+                    margin-bottom: 25px;
+                    border: 1px solid rgba(255,255,255,0.1);
+                ">
                     <div style="color: #a5b4fc; font-size: 14px; margin-bottom: 10px; font-weight: 600;">Информация</div>
                     <div style="color: #cbd5e1; font-size: 14px; line-height: 1.8;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
@@ -171,6 +198,51 @@ function showSettingsMenu() {
     div.innerHTML = html;
     div.id = 'settingsOverlay';
     document.body.appendChild(div);
+
+    window.loadProfileSettings = async function() {
+        if (!window.username) return;
+        try {
+            const snap = await db.ref("accounts/" + window.username).get();
+            if (!snap.exists()) return;
+            const data = snap.val() || {};
+            const dn = typeof normalizeText === 'function' ? normalizeText(data.displayName || window.username) : (data.displayName || window.username);
+            const about = typeof normalizeText === 'function' ? normalizeText(data.about || '') : (data.about || '');
+            const displayInput = document.getElementById('profileDisplayName');
+            const avatarInput = document.getElementById('profileAvatar');
+            const aboutInput = document.getElementById('profileAbout');
+            if (displayInput) displayInput.value = dn;
+            if (avatarInput) avatarInput.value = data.avatar || '';
+            if (aboutInput) aboutInput.value = about;
+        } catch (e) {
+            // ignore
+        }
+    };
+
+    window.saveProfileSettings = async function() {
+        if (!window.username) return;
+        const displayInput = document.getElementById('profileDisplayName');
+        const avatarInput = document.getElementById('profileAvatar');
+        const aboutInput = document.getElementById('profileAbout');
+        const displayName = displayInput ? displayInput.value.trim() : '';
+        const avatar = avatarInput ? avatarInput.value.trim() : '';
+        const about = aboutInput ? aboutInput.value.trim() : '';
+        if (displayName.length < 2) { showError('Имя должно быть минимум 2 символа'); return; }
+        if (avatar && (typeof isValidMediaUrl === 'function') && !isValidMediaUrl(avatar)) { showError('Неверный URL аватарки'); return; }
+        try {
+            showLoading();
+            await db.ref("accounts/" + window.username).update({
+                displayName: displayName,
+                about: about,
+                avatar: avatar
+            });
+            showNotification('Профиль', 'Профиль обновлен', 'success');
+            closeSettings();
+        } catch (e) {
+            showError('Не удалось сохранить профиль');
+        } finally {
+            hideLoading();
+        }
+    };
     
     window.closeSettings = function() {
         const overlay = document.getElementById('settingsOverlay');
@@ -226,4 +298,8 @@ function showSettingsMenu() {
             closeSettings();
         }
     });
+
+    if (typeof window.loadProfileSettings === 'function') {
+        window.loadProfileSettings();
+    }
 }

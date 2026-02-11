@@ -276,25 +276,29 @@ function showChatInfo() {
             }
         });
     } else if (currentChatPartner) {
-        const friendName = document.getElementById("chatWith").textContent;
-        const statusKey = currentChatPartner || friendName;
-        const status = userStatuses[statusKey];
+        const status = userStatuses[currentChatPartner];
         let statusText = "Был(а) недавно";
-        
         if (status) {
             if (status.online) {
                 statusText = status.idle ? "Неактивен" : "В сети";
+            } else if (status.lastSeen) {
+                statusText = "Был(а) " + new Date(status.lastSeen).toLocaleString();
             }
         }
-        
-        const info = `
+        db.ref("accounts/" + currentChatPartner).get().then(s => {
+            const data = s.exists() ? (s.val() || {}) : {};
+            const displayName = typeof normalizeText === 'function' ? normalizeText(data.displayName || currentChatPartner) : (data.displayName || currentChatPartner);
+            const about = typeof normalizeText === 'function' ? normalizeText(data.about || '') : (data.about || '');
+            const info = `
 Информация о пользователе:
 ────────────────────────
-Имя: ${friendName}
+Имя: ${displayName}
+Логин: ${currentChatPartner}
+О себе: ${about || '—'}
 Статус: ${statusText}
-Последняя активность: ${status ? new Date(status.lastSeen).toLocaleTimeString() : 'Неизвестно'}
-        `;
-        alert(info);
+            `;
+            alert(info);
+        });
     } else {
         showError("Выберите чат для просмотра информации");
     }

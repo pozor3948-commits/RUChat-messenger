@@ -11,6 +11,10 @@ if (typeof userStatuses === 'undefined') {
     window.userStatuses = {};
 }
 
+const displayNameCache = {};
+let friendsCache = {};
+let blockedCache = {};
+
 const lastMessageKeyByChat = {};
 const reactionOptions = ['👍','❤️','😂','😮','😢','😡'];
 const ephemeralWatch = new Map();
@@ -20,37 +24,50 @@ let ephemeralInterval = null;
    6. ЗАГРУЗКА ДАННЫХ
    ========================================================== */
 function loadFriends() {
+  const friendsRef = db.ref("accounts/" + username + "/friends");
+  friendsRef.on("value", snap => {
+    friendsCache = snap.exists() ? (snap.val() || {}) : {};
+    renderFriends();
+  });
+  const blockedRef = db.ref("accounts/" + username + "/blocked");
+  blockedRef.on("value", snap => {
+    blockedCache = snap.exists() ? (snap.val() || {}) : {};
+    renderFriends();
+  });
+}
+
+function renderFriends() {
   const friendList = document.getElementById("friendList");
-  db.ref("accounts/" + username + "/friends").on("value", snap => {
-    friendList.innerHTML = "";
-    if (!snap.exists()) {
-      friendList.innerHTML = `
-        <div class="empty-state">
-          <div class="icon">👤</div>
-          <div class="title">У вас пока нет друзей</div>
-          <div class="description">Добавьте друзей, чтобы начать общение</div>
-        </div>`;
-      return;
-    }
-    Object.keys(friendStatusListeners).forEach(f => {
-      if (friendStatusListeners[f]) db.ref("userStatus/" + f).off('value', friendStatusListeners[f]);
-    });
-    friendStatusListeners = {};
-    let idx = 0;
-    snap.forEach(ch => {
-      const fn = ch.key;
-      setTimeout(() => {
-        createFriendItem(fn);
-        friendStatusListeners[fn] = db.ref(`userStatus/${fn}`).on("value", st => updateFriendStatusInList(fn, st.val()));
-        db.ref(`userStatus/${fn}`).once("value").then(s => updateFriendStatusInList(fn, s.val()));
-      }, idx * 50);
-      idx++;
-    });
+  if (!friendList) return;
+  friendList.innerHTML = "";
+  const friendKeys = Object.keys(friendsCache || {});
+  const visibleKeys = friendKeys.filter(fn => !blockedCache[fn]);
+  if (!visibleKeys.length) {
+    friendList.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">👤</div>
+        <div class="title">У вас пока нет друзей</div>
+        <div class="description">Добавьте друзей, чтобы начать общение</div>
+      </div>`;
+    return;
+  }
+  Object.keys(friendStatusListeners).forEach(f => {
+    if (friendStatusListeners[f]) db.ref("userStatus/" + f).off('value', friendStatusListeners[f]);
+  });
+  friendStatusListeners = {};
+  let idx = 0;
+  visibleKeys.forEach(fn => {
+    setTimeout(() => {
+      createFriendItem(fn);
+      friendStatusListeners[fn] = db.ref(`userStatus/${fn}`).on("value", st => updateFriendStatusInList(fn, st.val()));
+      db.ref(`userStatus/${fn}`).once("value").then(s => updateFriendStatusInList(fn, s.val()));
+    }, idx * 50);
+    idx++;
   });
 }
 
 function createFriendItem(fn) {
-  const displayName = normalizeText(fn);
+  const displayName = displayNameCache[fn] || normalizeText(fn);
   const fl = document.getElementById("friendList");
   const item = document.createElement("div");
   item.className = "contact-item";
@@ -66,9 +83,13 @@ function createFriendItem(fn) {
       <span class="online-dot recently" id="online_${fn}"></span>
     </div>
     <div class="contact-info">
-      <div class="contact-name">${displayName}</div>
+      <div class="contact-name" id="contactName_${fn}">${displayName}</div>
       <div class="last-message" id="lastMsg_${fn}">Напишите сообщение...</div>
       <div class="last-seen recently" id="lastSeen_${fn}">Был(а) недавно</div>
+    </div>
+    <div class="contact-actions">
+      <button class="contact-action-btn" title="Удалить" onclick="removeFriend('${fn}', event)">🗑</button>
+      <button class="contact-action-btn" title="Блокировать" onclick="blockUser('${fn}', event)">🚫</button>
     </div>
     <div class="unread-badge" id="unread_${fn}" style="display:none">0</div>`;
   fl.appendChild(item);
@@ -79,6 +100,17 @@ function createFriendItem(fn) {
       av.src = url;
     } else {
       av.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=48`;
+    }
+  });
+  db.ref("accounts/" + fn + "/displayName").on("value", s => {
+    const dn = s.val();
+    const name = typeof normalizeText === 'function' ? normalizeText(dn || fn) : (dn || fn);
+    displayNameCache[fn] = name;
+    const nameEl = document.getElementById(`contactName_${fn}`);
+    if (nameEl) nameEl.textContent = name;
+    if (currentChatPartner === fn) {
+      document.getElementById("chatWith").textContent = name;
+      document.getElementById("mobileChatTitle").textContent = name;
     }
   });
   loadLastMessage(fn);
@@ -190,7 +222,7 @@ function createStoryItem(fn) {
   const item = document.createElement("div");
   item.className = "story-item";
   item.style.animation = "slideUp .5s ease-out";
-  const displayName = normalizeText(fn);
+  const displayName = displayNameCache[fn] || normalizeText(fn);
   item.innerHTML = `
     <img class="story-avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=60" alt="${displayName}">
     <div class="story-name">${displayName}</div>`;
@@ -216,7 +248,7 @@ function openPrivateChat(fn) {
   currentChatId = [username, fn].sort().join("_");
   currentChatPartner = fn;
   if (typeof clearMessageSearch === 'function') clearMessageSearch();
-  const displayName = normalizeText(fn);
+  const displayName = displayNameCache[fn] || normalizeText(fn);
   document.getElementById("chatWith").textContent = displayName;
   document.getElementById("mobileChatTitle").textContent = displayName;
   if (isMobile) document.getElementById('mobileBackBtn').classList.add('active');
@@ -581,14 +613,156 @@ function handleTyping() {
 function showAddFriend() {
   const fn = prompt("Введите имя пользователя:");
   if (!fn || fn === username) { showError("Некорректное имя пользователя"); return; }
+  if (blockedCache[fn]) { showError("Пользователь заблокирован"); return; }
   showLoading();
   db.ref("accounts/" + fn).get().then(async s => {
-    hideLoading();
     if (!s.exists()) { showError("Пользователь не найден"); return; }
-    await db.ref("accounts/" + username + "/friends/" + fn).set(true);
-    await db.ref("accounts/" + fn + "/friends/" + username).set(true);
-    showNotification("Успешно", `Друг ${fn} добавлен`);
-  }).catch(() => { hideLoading(); showError("Ошибка поиска пользователя"); });
+    const blockedBy = await db.ref(`accounts/${fn}/blocked/${username}`).get();
+    if (blockedBy.exists()) { showError("Этот пользователь недоступен"); return; }
+    const alreadyFriend = await db.ref(`accounts/${username}/friends/${fn}`).get();
+    if (alreadyFriend.exists()) { showNotification("Друзья", "Этот пользователь уже в друзьях"); return; }
+    const incoming = await db.ref(`accounts/${username}/friendRequests/incoming/${fn}`).get();
+    if (incoming.exists()) {
+      const accept = confirm("У вас уже есть заявка от этого пользователя. Принять?");
+      if (accept) await acceptFriendRequest(fn);
+      return;
+    }
+    const outgoing = await db.ref(`accounts/${username}/friendRequests/outgoing/${fn}`).get();
+    if (outgoing.exists()) { showNotification("Заявка", "Запрос уже отправлен"); return; }
+    await db.ref(`accounts/${fn}/friendRequests/incoming/${username}`).set(true);
+    await db.ref(`accounts/${username}/friendRequests/outgoing/${fn}`).set(true);
+    showNotification("Заявка", `Запрос отправлен пользователю ${fn}`);
+  }).catch(() => { showError("Ошибка поиска пользователя"); })
+    .finally(() => hideLoading());
+}
+
+function loadFriendRequests() {
+  const list = document.getElementById("friendRequestsList");
+  if (!list) return;
+  db.ref(`accounts/${username}/friendRequests/incoming`).on("value", snap => {
+    list.innerHTML = "";
+    if (!snap.exists()) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">🤝</div>
+          <div class="title">Нет заявок</div>
+          <div class="description">Новые заявки появятся здесь</div>
+        </div>`;
+      return;
+    }
+    let hasAny = false;
+    snap.forEach(ch => {
+      const from = ch.key;
+      if (blockedCache[from]) return;
+      hasAny = true;
+      createRequestItem(from);
+    });
+    if (!hasAny) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">🤝</div>
+          <div class="title">Нет заявок</div>
+          <div class="description">Новые заявки появятся здесь</div>
+        </div>`;
+    }
+  });
+}
+
+function createRequestItem(from) {
+  const list = document.getElementById("friendRequestsList");
+  const item = document.createElement("div");
+  item.className = "request-item";
+  const name = displayNameCache[from] || normalizeText(from);
+  item.innerHTML = `
+    <img class="contact-avatar" id="req_avatar_${from}" alt="${name}" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0088cc&color=fff&size=48'">
+    <div class="request-name" id="req_name_${from}">${name}</div>
+    <div class="request-actions">
+      <button class="request-btn accept" title="Принять">Принять</button>
+      <button class="request-btn reject" title="Отклонить">Отклонить</button>
+    </div>`;
+  list.appendChild(item);
+  const acceptBtn = item.querySelector('.request-btn.accept');
+  const rejectBtn = item.querySelector('.request-btn.reject');
+  acceptBtn.onclick = (e) => { e.stopPropagation(); acceptFriendRequest(from); };
+  rejectBtn.onclick = (e) => { e.stopPropagation(); rejectFriendRequest(from); };
+  db.ref("accounts/" + from + "/avatar").once("value").then(s => {
+    const av = document.getElementById(`req_avatar_${from}`);
+    const url = s.val();
+    if (av) {
+      if (s.exists() && url && (typeof isValidMediaUrl !== 'function' || isValidMediaUrl(url))) av.src = url;
+      else av.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0088cc&color=fff&size=48`;
+    }
+  });
+  db.ref("accounts/" + from + "/displayName").once("value").then(s => {
+    const dn = s.val();
+    const display = typeof normalizeText === 'function' ? normalizeText(dn || from) : (dn || from);
+    displayNameCache[from] = display;
+    const nameEl = document.getElementById(`req_name_${from}`);
+    if (nameEl) nameEl.textContent = display;
+  });
+}
+
+async function acceptFriendRequest(from) {
+  try {
+    showLoading();
+    await db.ref(`accounts/${username}/friendRequests/incoming/${from}`).remove();
+    await db.ref(`accounts/${from}/friendRequests/outgoing/${username}`).remove();
+    await db.ref(`accounts/${username}/friends/${from}`).set(true);
+    await db.ref(`accounts/${from}/friends/${username}`).set(true);
+    showNotification("Друзья", `Теперь вы друзья с ${from}`);
+  } catch (e) {
+    showError("Не удалось принять заявку");
+  } finally {
+    hideLoading();
+  }
+}
+
+async function rejectFriendRequest(from) {
+  try {
+    showLoading();
+    await db.ref(`accounts/${username}/friendRequests/incoming/${from}`).remove();
+    await db.ref(`accounts/${from}/friendRequests/outgoing/${username}`).remove();
+    showNotification("Заявка", "Заявка отклонена");
+  } catch (e) {
+    showError("Не удалось отклонить заявку");
+  } finally {
+    hideLoading();
+  }
+}
+
+async function removeFriend(fn, e) {
+  if (e) e.stopPropagation();
+  if (!confirm(`Удалить ${fn} из друзей?`)) return;
+  try {
+    showLoading();
+    await db.ref(`accounts/${username}/friends/${fn}`).remove();
+    await db.ref(`accounts/${fn}/friends/${username}`).remove();
+    showNotification("Друзья", "Пользователь удален");
+  } catch (error) {
+    showError("Не удалось удалить");
+  } finally {
+    hideLoading();
+  }
+}
+
+async function blockUser(fn, e) {
+  if (e) e.stopPropagation();
+  if (!confirm(`Заблокировать ${fn}?`)) return;
+  try {
+    showLoading();
+    await db.ref(`accounts/${username}/blocked/${fn}`).set(true);
+    await db.ref(`accounts/${username}/friends/${fn}`).remove();
+    await db.ref(`accounts/${fn}/friends/${username}`).remove();
+    await db.ref(`accounts/${username}/friendRequests/incoming/${fn}`).remove();
+    await db.ref(`accounts/${username}/friendRequests/outgoing/${fn}`).remove();
+    await db.ref(`accounts/${fn}/friendRequests/incoming/${username}`).remove();
+    await db.ref(`accounts/${fn}/friendRequests/outgoing/${username}`).remove();
+    showNotification("Блокировка", "Пользователь заблокирован");
+  } catch (error) {
+    showError("Не удалось заблокировать");
+  } finally {
+    hideLoading();
+  }
 }
 
 

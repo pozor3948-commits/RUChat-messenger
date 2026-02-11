@@ -19,7 +19,20 @@ async function register() {
     const snap = await db.ref("accounts/" + u).get();
     if (snap.exists()) throw new Error("Пользователь уже существует!");
     const ts = Date.now();
-    await db.ref("accounts/" + u).set({ password: hashPassword(p), friends: {}, avatar: "", chatBg: "", stories: {}, lastSeen: ts, createdAt: ts, chatThemes: {} });
+    await db.ref("accounts/" + u).set({ 
+      password: hashPassword(p), 
+      friends: {}, 
+      avatar: "", 
+      displayName: u,
+      about: "",
+      friendRequests: { incoming: {}, outgoing: {} },
+      blocked: {},
+      chatBg: "", 
+      stories: {}, 
+      lastSeen: ts, 
+      createdAt: ts, 
+      chatThemes: {} 
+    });
     showNotification("Успешно", "Регистрация прошла успешно!");
     document.getElementById("usernameInput").value = "";
     document.getElementById("passwordInput").value = "";
@@ -62,6 +75,12 @@ async function login() {
     loadGroups();
     loadStories();
     updateUserAvatar();
+    if (typeof loadMyProfile === 'function') {
+      loadMyProfile();
+    }
+    if (typeof loadFriendRequests === 'function') {
+      loadFriendRequests();
+    }
     initEmojiPicker();
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {});
@@ -133,6 +152,12 @@ function recoverPassword() {
       loadGroups();
       loadStories();
       updateUserAvatar();
+      if (typeof loadMyProfile === 'function') {
+        loadMyProfile();
+      }
+      if (typeof loadFriendRequests === 'function') {
+        loadFriendRequests();
+      }
       initEmojiPicker();
       if ('Notification' in window && Notification.permission === 'default') {
         Notification.requestPermission().catch(() => {});
@@ -174,6 +199,22 @@ function updateUserAvatar() {
     } else {
       av.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=0088cc&color=fff&size=44`;
     }
+  });
+}
+
+function loadMyProfile() {
+  if (!username) return;
+  db.ref("accounts/" + username).on("value", s => {
+    if (!s.exists()) return;
+    const data = s.val() || {};
+    const displayName = typeof normalizeText === 'function' ? normalizeText(data.displayName || username) : (data.displayName || username);
+    const userNameEl = document.getElementById("userName");
+    if (userNameEl) userNameEl.textContent = displayName;
+    if (!currentChatId) {
+      const mobileTitle = document.getElementById("mobileChatTitle");
+      if (mobileTitle) mobileTitle.textContent = displayName;
+    }
+    window.myProfile = data;
   });
 }
 
