@@ -224,20 +224,59 @@ function showNotification(title, text, type = 'info') {
         notificationQueue.push({ title, text });
         if (!isNotificationShowing) showNextNotification();
     }
+}
 
-    // Показываем системные уведомления (fallback)
+function isSystemNotificationsEnabled() {
+    return localStorage.getItem('systemNotifications') !== 'false';
+}
+
+function isNotifyOnlyHidden() {
+    return localStorage.getItem('notifyOnlyHidden') !== 'false';
+}
+
+async function requestSystemNotifications() {
+    if (!('Notification' in window)) {
+        showError('Уведомления не поддерживаются в этом браузере');
+        return 'unsupported';
+    }
     try {
-        if (document.visibilityState !== 'visible' && 'Notification' in window) {
-            if (Notification.permission === 'granted') {
-                new Notification(title, { body: text });
-            } else if (Notification.permission === 'default') {
-                Notification.requestPermission();
-            }
+        const perm = await Notification.requestPermission();
+        if (perm === 'granted') {
+            localStorage.setItem('systemNotifications', 'true');
+            showNotification('Уведомления', 'Разрешение получено', 'success');
+        } else {
+            showNotification('Уведомления', 'Разрешение не получено', 'warning');
         }
+        return perm;
+    } catch (e) {
+        showError('Не удалось запросить разрешение');
+        return 'error';
+    }
+}
+
+function maybeShowSystemNotification(title, body, options = {}) {
+    if (!isSystemNotificationsEnabled()) return;
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    if (isNotifyOnlyHidden() && document.hasFocus()) return;
+    try {
+        const n = new Notification(title, {
+            body: body || '',
+            icon: options.icon || undefined,
+            tag: options.tag || undefined,
+            silent: options.silent || false
+        });
+        if (typeof navigator !== 'undefined' && navigator.vibrate && isMobile) {
+            navigator.vibrate(150);
+        }
+        return n;
     } catch (e) {
         // ignore
     }
 }
+
+window.requestSystemNotifications = requestSystemNotifications;
+window.maybeShowSystemNotification = maybeShowSystemNotification;
 
 // Функция ошибок через глобальную
 function showError(msg, retry) {

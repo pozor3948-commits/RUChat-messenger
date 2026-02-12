@@ -176,6 +176,11 @@ function loadLastMessage(fn) {
         if (m && m.from !== username && !isCurrentChat) {
           const preview = m.text ? normalizeText(m.text) : 'Новое сообщение';
           showNotification(fn, preview);
+          if (typeof maybeShowSystemNotification === 'function') {
+            const title = displayNameCache[fn] || fn;
+            const body = m.text ? normalizeText(m.text) : getMessagePreview(m);
+            maybeShowSystemNotification(title, body, { tag: `chat_${chatId}` });
+          }
         }
       }
     });
@@ -376,6 +381,12 @@ function addMessageToChat(m) {
   
   if (m.from !== username && typeof playReceiveSound === 'function') {
     playReceiveSound();
+  }
+  if (m.from !== username && typeof maybeShowSystemNotification === 'function') {
+    const chatTitle = document.getElementById('chatWith');
+    const senderTitle = isGroupChat ? `${normalizeText(m.from || '')} • ${chatTitle ? chatTitle.textContent : 'Чат'}` : (displayNameCache[m.from] || m.from);
+    const body = m.text ? normalizeText(m.text) : getMessagePreview(m);
+    maybeShowSystemNotification(senderTitle, body, { tag: `chat_${currentChatId}` });
   }
 
   if (m.from !== username && chatRef) {

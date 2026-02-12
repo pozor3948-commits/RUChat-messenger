@@ -68,6 +68,41 @@ function showSettingsMenu() {
                             cursor: pointer;
                         ">${localStorage.getItem('soundsEnabled') === 'false' ? 'Включить' : 'Выключить'}</button>
                     </div>
+
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <span style="color: #e2e8f0; font-size: 16px;">Системные уведомления</span>
+                        <button onclick="toggleSystemNotifications()" style="
+                            padding: 8px 16px;
+                            background: linear-gradient(45deg, #0088cc, #00b4ff);
+                            color: white;
+                            border: none;
+                            border-radius: 12px;
+                            font-size: 14px;
+                            cursor: pointer;
+                        ">${localStorage.getItem('systemNotifications') === 'false' ? 'Включить' : 'Выключить'}</button>
+                    </div>
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom: 20px;">
+                        <button onclick="requestSystemNotificationsFromSettings()" style="
+                            padding: 8px 12px;
+                            background: linear-gradient(45deg, #22c55e, #16a34a);
+                            color: #0b1f12;
+                            border: none;
+                            border-radius: 12px;
+                            font-size: 14px;
+                            cursor: pointer;
+                            font-weight: 700;
+                        ">Разрешить</button>
+                        <button onclick="toggleNotifyOnlyHidden()" style="
+                            padding: 8px 12px;
+                            background: linear-gradient(45deg, #0ea5e9, #38bdf8);
+                            color: #0b1f12;
+                            border: none;
+                            border-radius: 12px;
+                            font-size: 12px;
+                            cursor: pointer;
+                            font-weight: 700;
+                        ">${localStorage.getItem('notifyOnlyHidden') === 'false' ? 'Всегда' : 'Только когда не активна'}</button>
+                    </div>
                     
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
                         <span style="color: #e2e8f0; font-size: 16px;">Темная тема</span>
@@ -293,6 +328,31 @@ function showSettingsMenu() {
         }
         
         showNotification('Звуки', newValue === 'true' ? 'Звуки включены' : 'Звуки выключены', 'info');
+        closeSettings();
+    };
+
+    window.toggleSystemNotifications = function() {
+        const current = localStorage.getItem('systemNotifications');
+        const newValue = current === 'false' ? 'true' : 'false';
+        localStorage.setItem('systemNotifications', newValue);
+        showNotification('Уведомления', newValue === 'true' ? 'Системные уведомления включены' : 'Системные уведомления выключены', 'info');
+        closeSettings();
+    };
+
+    window.toggleNotifyOnlyHidden = function() {
+        const current = localStorage.getItem('notifyOnlyHidden');
+        const newValue = current === 'false' ? 'true' : 'false';
+        localStorage.setItem('notifyOnlyHidden', newValue);
+        showNotification('Уведомления', newValue === 'true' ? 'Только когда вкладка не активна' : 'Всегда показывать', 'info');
+        closeSettings();
+    };
+
+    window.requestSystemNotificationsFromSettings = async function() {
+        if (typeof requestSystemNotifications === 'function') {
+            await requestSystemNotifications();
+        } else {
+            showError('Функция уведомлений недоступна');
+        }
         closeSettings();
     };
 
