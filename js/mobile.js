@@ -5,6 +5,7 @@ function checkMobile() {
     // Используем глобальную переменную isMobile из utils.js
     isMobile = window.innerWidth <= 768;
     updateCallButtonVisibility();
+    updateMobileMenuButton();
     if (isMobile && currentChatId) document.getElementById('mobileBackBtn').classList.add('active');
     else document.getElementById('mobileBackBtn').classList.remove('active');
 }
@@ -46,6 +47,7 @@ function openChatCommon() {
     // Скрываем stories (как в TG)
     document.getElementById('storiesContainer').style.display = 'none';
     updateCallButtonVisibility();
+    updateMobileMenuButton();
 }
 
 function closeChatMobile() {
@@ -76,7 +78,37 @@ function closeChatMobile() {
     }
     document.getElementById('messages').innerHTML = '';
     updateCallButtonVisibility();
+    const mobileAvatar = document.getElementById('mobileChatAvatar');
+    if (mobileAvatar) {
+        mobileAvatar.style.display = 'none';
+        mobileAvatar.src = '';
+    }
+    const chatSettingsMenu = document.getElementById('chatSettingsMenu');
+    if (chatSettingsMenu) chatSettingsMenu.classList.remove('active');
+    updateMobileMenuButton();
 }
+
+function updateMobileMenuButton() {
+    const btn = document.getElementById('mobileMenuBtn');
+    if (!btn) return;
+    if (currentChatId) {
+        btn.textContent = '☰';
+        btn.dataset.mode = 'chat';
+    } else {
+        btn.textContent = '⚙️';
+        btn.dataset.mode = 'settings';
+    }
+}
+
+function handleMobileMenuButton() {
+    if (currentChatId) {
+        if (typeof toggleChatSettingsMenu === 'function') toggleChatSettingsMenu();
+    } else {
+        if (typeof showSettingsMenu === 'function') showSettingsMenu();
+    }
+}
+
+window.handleMobileMenuButton = handleMobileMenuButton;
 
 // Переопределяем существующие функции открытия чата
 const originalOpenPrivateChat = openPrivateChat;

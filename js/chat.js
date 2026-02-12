@@ -301,8 +301,14 @@ function openPrivateChat(fn) {
   const chatAvatar = document.getElementById("chatAvatar");
   const fAvatar = document.getElementById(`avatar_${fn}`);
   if (fAvatar) chatAvatar.src = fAvatar.src; else chatAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=44`;
+  const mobileAvatar = document.getElementById('mobileChatAvatar');
+  if (mobileAvatar) {
+    mobileAvatar.style.display = 'block';
+    mobileAvatar.src = fAvatar ? fAvatar.src : `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=44`;
+  }
   const st = userStatuses[fn];
   updateChatStatus(fn, st);
+  if (typeof applyChatBackground === 'function') applyChatBackground(currentChatId);
   loadChat("privateChats/" + currentChatId);
   setupTypingIndicator();
   if (typeof updateCallButtonVisibility === 'function') updateCallButtonVisibility();
@@ -323,9 +329,15 @@ function openGroupChat(g, gid) {
   const chatAvatar = document.getElementById("chatAvatar");
   const gAvatar = document.getElementById(`group_avatar_${gid}`);
   if (gAvatar) chatAvatar.src = gAvatar.src; else chatAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(groupName)}&background=0088cc&color=fff&size=44`;
+  const mobileAvatar = document.getElementById('mobileChatAvatar');
+  if (mobileAvatar) {
+    mobileAvatar.style.display = 'block';
+    mobileAvatar.src = gAvatar ? gAvatar.src : `https://ui-avatars.com/api/?name=${encodeURIComponent(groupName)}&background=0088cc&color=fff&size=44`;
+  }
   const mc = Object.keys(g.members || {}).length;
   document.getElementById("chatMembers").textContent = `${mc} участников`;
   document.getElementById("mobileChatStatus").textContent = `${mc} участников`;
+  if (typeof applyChatBackground === 'function') applyChatBackground(currentChatId);
   loadChat("groupChats/" + currentChatId);
   if (typeof updateCallButtonVisibility === 'function') updateCallButtonVisibility();
 }
@@ -760,6 +772,57 @@ function clearEphemeralWatch() {
     ephemeralInterval = null;
   }
 }
+
+function applyChatBackground(chatId) {
+  const md = document.getElementById('messages');
+  if (!md || !chatId) return;
+  const key = `ruchat_chat_bg_${chatId}`;
+  const value = localStorage.getItem(key) || '';
+  if (!value) {
+    md.style.backgroundImage = '';
+    md.style.backgroundColor = '';
+    return;
+  }
+  if (/^(https?:|data:|blob:)/i.test(value)) {
+    md.style.backgroundImage = `url('${value}')`;
+    md.style.backgroundSize = 'cover';
+    md.style.backgroundPosition = 'center';
+    md.style.backgroundRepeat = 'no-repeat';
+  } else {
+    md.style.backgroundImage = '';
+    md.style.background = value;
+  }
+}
+
+function openChatBackground() {
+  if (!currentChatId) { showError('Сначала откройте чат'); return; }
+  const key = `ruchat_chat_bg_${currentChatId}`;
+  const current = localStorage.getItem(key) || '';
+  const value = prompt('Вставьте ссылку на фон (или CSS цвет/градиент). Пусто — очистить.', current);
+  if (value === null) return;
+  if (!value.trim()) {
+    localStorage.removeItem(key);
+  } else {
+    localStorage.setItem(key, value.trim());
+  }
+  applyChatBackground(currentChatId);
+}
+
+async function clearCurrentChat() {
+  if (!chatRef || !currentChatId) return;
+  if (!confirm('Очистить весь чат?')) return;
+  try {
+    await chatRef.remove();
+    document.getElementById('messages').innerHTML = '';
+    showNotification('Чат', 'История очищена');
+  } catch (e) {
+    showError('Не удалось очистить чат');
+  }
+}
+
+window.applyChatBackground = applyChatBackground;
+window.openChatBackground = openChatBackground;
+window.clearCurrentChat = clearCurrentChat;
 
 document.addEventListener('click', (e) => {
   const reactionBtn = e.target.closest('.reaction-btn');

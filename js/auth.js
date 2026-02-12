@@ -46,6 +46,9 @@ async function register() {
 async function doLoginAfterAuth(u, title, message) {
   username = u;
   window.username = username;
+  if (localStorage.getItem('ruchat_autologin') === null) {
+    localStorage.setItem('ruchat_autologin', 'true');
+  }
   localStorage.setItem('ruchat_last_user', u);
   updateMyStatus(true, false);
   setupActivityTracking();
@@ -164,11 +167,14 @@ function logout() {
 function updateUserAvatar() {
   db.ref("accounts/" + username + "/avatar").on("value", s => {
     const av = document.getElementById("userAvatar");
+    const avTop = document.getElementById("userAvatarTop");
     const url = s.val();
     if (s.exists() && url && (typeof isValidMediaUrl !== 'function' || isValidMediaUrl(url))) {
       av.src = url;
+      if (avTop) avTop.src = url;
     } else {
       av.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=0088cc&color=fff&size=44`;
+      if (avTop) avTop.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}&background=0088cc&color=fff&size=36`;
     }
   });
 }
@@ -231,8 +237,11 @@ async function unregisterDeviceToken(u) {
   localStorage.removeItem('ruchat_device_token');
 }
 
+window.unregisterDeviceToken = unregisterDeviceToken;
+
 async function autoLoginFromDevice() {
   if (username) return;
+  if (localStorage.getItem('ruchat_autologin') === 'false') return;
   const u = localStorage.getItem('ruchat_device_user');
   const token = localStorage.getItem('ruchat_device_token');
   if (!u || !token) return;

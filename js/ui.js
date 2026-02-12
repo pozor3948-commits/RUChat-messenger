@@ -65,6 +65,16 @@ function toggleMessageSearch() {
     }
 }
 
+function toggleChatSettingsMenu() {
+    const menu = document.getElementById('chatSettingsMenu');
+    if (!menu) return;
+    const isActive = menu.classList.contains('active');
+    if (isActive) menu.classList.remove('active');
+    else menu.classList.add('active');
+}
+
+window.toggleChatSettingsMenu = toggleChatSettingsMenu;
+
 function clearMessageSearch() {
     const input = document.getElementById('chatSearchInput');
     if (input) input.value = '';

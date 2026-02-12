@@ -104,6 +104,19 @@ function showSettingsMenu() {
                             font-weight: 700;
                         ">${localStorage.getItem('notifyOnlyHidden') === 'false' ? 'Всегда' : 'Только когда не активна'}</button>
                     </div>
+
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 20px;">
+                        <span style="color: #e2e8f0; font-size: 16px;">Автовход на этом устройстве</span>
+                        <button onclick="toggleAutoLogin()" style="
+                            padding: 8px 16px;
+                            background: linear-gradient(45deg, #0088cc, #00b4ff);
+                            color: white;
+                            border: none;
+                            border-radius: 12px;
+                            font-size: 14px;
+                            cursor: pointer;
+                        ">${localStorage.getItem('ruchat_autologin') === 'false' ? 'Включить' : 'Выключить'}</button>
+                    </div>
                     
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
                         <span style="color: #e2e8f0; font-size: 16px;">Темная тема</span>
@@ -348,6 +361,17 @@ function showSettingsMenu() {
         const newValue = current === 'false' ? 'true' : 'false';
         localStorage.setItem('notifyOnlyHidden', newValue);
         showNotification('Уведомления', newValue === 'true' ? 'Только когда вкладка не активна' : 'Всегда показывать', 'info');
+        closeSettings();
+    };
+
+    window.toggleAutoLogin = function() {
+        const current = localStorage.getItem('ruchat_autologin');
+        const newValue = current === 'false' ? 'true' : 'false';
+        localStorage.setItem('ruchat_autologin', newValue);
+        if (newValue === 'false' && typeof unregisterDeviceToken === 'function') {
+            unregisterDeviceToken(window.username || username);
+        }
+        showNotification('Автовход', newValue === 'true' ? 'Автовход включен' : 'Автовход выключен', 'info');
         closeSettings();
     };
 
