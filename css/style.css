@@ -2298,6 +2298,80 @@ body.light .sticker-bot-modal input[type="file"],
 body.light .sticker-bot-modal input[type="text"] { background:#ffffff; color:#0f172a; border-color: rgba(15,23,42,0.12); }
 body.light .sticker-preview-wrap { background:#f8fafc; border-color: rgba(15,23,42,0.12); }
 
+/* ===== Mobile Performance Tune ===== */
+@media (max-width: 768px) {
+    html, body {
+        overscroll-behavior: none;
+    }
+    .login-container,
+    .login-title,
+    .login-btn,
+    .main-container,
+    .user-header,
+    .menu-section,
+    .chat-header,
+    .stories-container,
+    .message-wrapper,
+    .record-modal,
+    .notification,
+    .group-modal,
+    .message-input-container {
+        animation: none !important;
+    }
+    .login-box::before,
+    .chat-container::before,
+    .story-avatar::before,
+    .online-dot,
+    .user-status,
+    .unread-badge,
+    .record-title,
+    .record-timer,
+    .typing-dot,
+    .ttl-btn::after {
+        animation: none !important;
+    }
+    .sidebar,
+    .chat-container,
+    .chat-header,
+    .stories-container,
+    .messages-container,
+    .message-input-container,
+    .emoji-picker,
+    .attachment-menu,
+    .sticker-panel,
+    .record-modal,
+    .group-modal,
+    .notification {
+        backdrop-filter: none !important;
+    }
+    .contact-item,
+    .group-item,
+    .story-item,
+    .message,
+    .icon-btn,
+    .attachment-btn,
+    .send-btn,
+    .record-btn,
+    .reaction-btn,
+    .emoji-item {
+        transition: none !important;
+    }
+    .contact-item:hover,
+    .group-item:hover,
+    .story-item:hover,
+    .message:hover,
+    .icon-btn:hover,
+    .attachment-btn:hover,
+    .send-btn:hover,
+    .record-btn:hover {
+        transform: none !important;
+        box-shadow: none !important;
+    }
+    .messages-container {
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
 
 
 

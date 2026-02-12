@@ -59,14 +59,13 @@ function renderFriends() {
     if (friendStatusListeners[f]) db.ref("userStatus/" + f).off('value', friendStatusListeners[f]);
   });
   friendStatusListeners = {};
-  let idx = 0;
-  visibleKeys.forEach(fn => {
+  const delayStep = isMobile ? 0 : 50;
+  visibleKeys.forEach((fn, idx) => {
     setTimeout(() => {
       createFriendItem(fn);
       friendStatusListeners[fn] = db.ref(`userStatus/${fn}`).on("value", st => updateFriendStatusInList(fn, st.val()));
       db.ref(`userStatus/${fn}`).once("value").then(s => updateFriendStatusInList(fn, s.val()));
-    }, idx * 50);
-    idx++;
+    }, idx * delayStep);
   });
 }
 
@@ -110,7 +109,7 @@ function createFriendItem(fn) {
   const item = document.createElement("div");
   item.className = "contact-item";
   item.id = `contact_${fn}`;
-  item.style.animation = "slideUp .3s ease-out";
+  item.style.animation = isMobile ? "none" : "slideUp .3s ease-out";
   item.onclick = () => {
     openPrivateChat(fn);
     if (isMobile) document.getElementById('sidebar').classList.remove('active');
@@ -200,10 +199,11 @@ function loadGroups() {
         </div>`;
       return;
     }
+    const delayStep = isMobile ? 0 : 50;
     let idx = 0;
     snap.forEach(ch => {
       const g = ch.val(), gid = ch.key;
-      setTimeout(() => createGroupItem(g, gid), idx * 50);
+      setTimeout(() => createGroupItem(g, gid), idx * delayStep);
       idx++;
     });
   });
@@ -215,7 +215,7 @@ function createGroupItem(g, gid) {
   const item = document.createElement("div");
   item.className = "group-item";
   item.id = `group_${gid}`;
-  item.style.animation = "slideUp .3s ease-out";
+  item.style.animation = isMobile ? "none" : "slideUp .3s ease-out";
   item.onclick = () => {
     openGroupChat(g, gid);
     if (isMobile) document.getElementById('sidebar').classList.remove('active');
@@ -247,6 +247,7 @@ function loadStories() {
         </div>`;
       return;
     }
+    const delayStep = isMobile ? 0 : 100;
     let cnt = 0;
     snap.forEach(ch => {
       const fn = ch.key;
@@ -255,7 +256,7 @@ function loadStories() {
         db.ref("accounts/" + fn + "/stories").limitToLast(1).once("value", st => {
           if (st.exists()) createStoryItem(fn); else if (cnt === Object.keys(snap.val()).length) checkEmptyStories();
         });
-      }, cnt * 100);
+      }, cnt * delayStep);
     });
   });
 }
@@ -264,7 +265,7 @@ function createStoryItem(fn) {
   const sl = document.getElementById("storiesList");
   const item = document.createElement("div");
   item.className = "story-item";
-  item.style.animation = "slideUp .5s ease-out";
+  item.style.animation = isMobile ? "none" : "slideUp .5s ease-out";
   const displayName = displayNameCache[fn] || normalizeText(fn);
   item.innerHTML = `
     <img class="story-avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=60" alt="${displayName}">
@@ -501,7 +502,12 @@ function addMessageToChat(m) {
     </div>`;
   wrap.appendChild(msg);
   md.appendChild(wrap);
-  setTimeout(() => { wrap.style.opacity = 1; wrap.style.transform = 'translateY(0)'; wrap.style.transition = 'all .3s ease'; }, 10);
+  if (isMobile) {
+    wrap.style.opacity = 1;
+    wrap.style.transform = 'none';
+  } else {
+    setTimeout(() => { wrap.style.opacity = 1; wrap.style.transform = 'translateY(0)'; wrap.style.transition = 'all .3s ease'; }, 10);
+  }
   md.scrollTop = md.scrollHeight;
   if (m.expiresAt) registerEphemeral(m.id, m.expiresAt, wrap, m.from);
 }
