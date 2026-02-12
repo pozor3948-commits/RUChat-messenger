@@ -29,7 +29,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260211u">
+    <link rel="stylesheet" href="css/style.css?v=20260211v">
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -320,13 +320,13 @@
                 </button>
             </div>
         </div>
-        <div class="record-controls">
+        <div class="record-controls video-record-controls">
             <div class="record-lock" id="videoLockIndicator">
                 <div class="lock-icon">🔒</div>
                 <div class="lock-text" id="videoLockHint">Потяните вверх, чтобы закрепить</div>
             </div>
-            <button class="record-btn video-record-btn" id="videoRecordBtn" 
-                    onmousedown="startVideoRecordingAction()" 
+            <button class="record-btn video-record-btn" id="videoRecordBtn"
+                    onmousedown="startVideoRecordingAction()"
                     ontouchstart="startVideoRecordingAction()"
                     title="Удерживайте для записи">
                 <div class="video-record-btn-inner"></div>
@@ -381,10 +381,13 @@
 </div>
 
 <!-- ===== ОВЕРЛЕЙ ЗАПИСИ ГОЛОСОВОГО ===== -->
-<div class="record-overlay" id="voiceRecordOverlay">
-    <div class="record-modal">
-        <h2 class="record-title">Запись голосового сообщения</h2>
-        <div class="waveform" id="voiceWaveform">
+<div class="record-overlay voice-record-overlay" id="voiceRecordOverlay">
+    <div class="record-modal voice-record-modal">
+        <div class="voice-record-top">
+            <div class="voice-record-label">Голосовое сообщение</div>
+            <div class="record-timer" id="voiceTimer">00:00</div>
+        </div>
+        <div class="voice-waveform" id="voiceWaveform">
             <div class="waveform-line" style="left:10%"></div>
             <div class="waveform-line" style="left:20%"></div>
             <div class="waveform-line" style="left:30%"></div>
@@ -395,12 +398,14 @@
             <div class="waveform-line" style="left:80%"></div>
             <div class="waveform-line" style="left:90%"></div>
         </div>
-        <div class="record-timer" id="voiceTimer">00:00</div>
-        <div class="record-controls"><div class="lock-text" id="videoLockHint">Потяните вверх, чтобы закрепить</div>
+        <div class="voice-record-bar">
+            <button class="voice-cancel-btn" onclick="cancelVoiceRecord()">Отмена</button>
+            <div class="voice-record-center">
+                <button class="record-btn start" onclick="startVoiceRecord()" id="voiceStartBtn" title="Удерживайте для записи">●</button>
+                <button class="record-btn stop" onclick="stopVoiceRecord()" id="voiceStopBtn" style="display:none" title="Остановить запись">■</button>
+                <div class="voice-record-hint">Удерживайте для записи</div>
             </div>
-            <button class="record-btn cancel" onclick="cancelVoiceRecord()" title="Отмена">✕</button>
-            <button class="record-btn start" onclick="startVoiceRecord()" id="voiceStartBtn" title="Начать запись">●</button>
-            <button class="record-btn stop" onclick="stopVoiceRecord()" id="voiceStopBtn" style="display:none" title="Остановить запись">■</button>
+            <div class="voice-lock-pill">🔒</div>
         </div>
     </div>
 </div>
@@ -435,22 +440,22 @@
 </div>
 
 <!-- Скрипты -->
-<script src="js/firebase-config.js?v=20260211u"></script>
-<script src="js/utils.js?v=20260211u"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
-<script src="js/main.js?v=20260211u"></script>
-<script src="js/ui.js?v=20260211u"></script>
-<script src="js/sounds.js?v=20260211u"></script>
-<script src="js/auth.js?v=20260211u"></script>
-<script src="js/status.js?v=20260211u"></script>
-<script src="js/chat.js?v=20260211u"></script>
-<script src="js/media.js?v=20260211u"></script>
-<script src="js/emoji.js?v=20260211u"></script>
-<script src="js/stickers.js?v=20260211u"></script>
-<script src="js/groups.js?v=20260211u"></script>
-<script src="js/mobile.js?v=20260211u"></script>
-<script src="js/video-messages.js?v=20260211u"></script>
-<script src="js/audio-call.js?v=20260211u"></script>
-<script src="js/settings.js?v=20260211u"></script>
+<script src="js/firebase-config.js?v=20260211v"></script>
+<script src="js/utils.js?v=20260211v"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/main.js?v=20260211v"></script>
+<script src="js/ui.js?v=20260211v"></script>
+<script src="js/sounds.js?v=20260211v"></script>
+<script src="js/auth.js?v=20260211v"></script>
+<script src="js/status.js?v=20260211v"></script>
+<script src="js/chat.js?v=20260211v"></script>
+<script src="js/media.js?v=20260211v"></script>
+<script src="js/emoji.js?v=20260211v"></script>
+<script src="js/stickers.js?v=20260211v"></script>
+<script src="js/groups.js?v=20260211v"></script>
+<script src="js/mobile.js?v=20260211v"></script>
+<script src="js/video-messages.js?v=20260211v"></script>
+<script src="js/audio-call.js?v=20260211v"></script>
+<script src="js/settings.js?v=20260211v"></script>
 
 <script>
     // Функция для проверки локального запуска
@@ -496,7 +501,7 @@
         if (retry) window.retryAction = retry;
     };
     
-    console.log('Build 2026-02-11u');
+    console.log('Build 2026-02-11v');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {
@@ -550,6 +555,7 @@
 
 </body>
 </html>
+
 
 
 

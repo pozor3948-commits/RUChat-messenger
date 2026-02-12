@@ -309,12 +309,11 @@ body.light .contact-action-btn { background: #fff; color: #0f172a; border-color:
 }
 .loading-text { font-size:16px; color:#e2e8f0; letter-spacing:.3px; }
 
-.record-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.9); display:none; align-items:center; justify-content:center; z-index:2002; backdrop-filter:blur(10px); animation:slideUp .3s ease-out; }
-.record-modal { background:linear-gradient(135deg,rgba(30,39,54,.95),rgba(15,23,42,.95)); border-radius:25px; padding:40px; width:90%; max-width:450px; box-shadow:0 25px 50px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.1); animation:slideUp .4s ease-out; backdrop-filter:blur(20px); }
-.record-title { text-align:center; margin-bottom:30px; font-size:24px; font-weight:600; background:linear-gradient(45deg,#fff,#a5b4fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation:pulse 2s infinite; }
-.record-timer { text-align:center; font-size:56px; font-weight:300; margin:30px 0; color:#0088cc; font-family:monospace; text-shadow:0 0 20px rgba(0,136,204,.5); animation:glow 2s infinite; }
-.record-controls { display:flex; justify-content:center; gap:25px; margin-top:40px; }
-.record-controls { position: relative; }
+.record-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.92); display:none; align-items:center; justify-content:center; z-index:2002; backdrop-filter:blur(10px); animation:slideUp .3s ease-out; }
+.record-modal { background:linear-gradient(135deg,rgba(30,39,54,.95),rgba(15,23,42,.95)); border-radius:22px; padding:28px; width:90%; max-width:520px; box-shadow:0 25px 50px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.08); animation:slideUp .4s ease-out; backdrop-filter:blur(18px); }
+.record-title { text-align:center; margin-bottom:16px; font-size:20px; font-weight:600; color:#e2e8f0; }
+.record-timer { text-align:center; font-size:34px; font-weight:400; margin:6px 0 10px; color:#00b4ff; font-family:monospace; text-shadow:0 0 12px rgba(0,180,255,.4); }
+.record-controls { display:flex; justify-content:center; gap:18px; margin-top:18px; position: relative; }
 .record-lock {
     position: absolute;
     top: -84px;
@@ -344,9 +343,9 @@ body.light .contact-action-btn { background: #fff; color: #0f172a; border-color:
     box-shadow: 0 10px 24px rgba(0,136,204,0.4);
 }
 @media (max-width: 480px) {
-    .record-lock { top: -74px; min-width: 170px; font-size: 11px; }
+    .video-record-modal .record-lock { left: 6px; min-width: 150px; font-size: 10px; }
 }
-.record-btn { width:80px; height:80px; border-radius:50%; border:none; font-size:28px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .3s cubic-bezier(.4,0,.2,1); position:relative; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.3); }
+.record-btn { width:72px; height:72px; border-radius:50%; border:none; font-size:26px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s cubic-bezier(.4,0,.2,1); position:relative; overflow:hidden; box-shadow:0 10px 26px rgba(0,0,0,.28); }
 .record-btn:hover { transform:translateY(-5px) scale(1.1); box-shadow:0 20px 40px rgba(0,0,0,.4); animation:bounce .5s ease; }
 .record-btn:active { transform:translateY(-2px) scale(1); transition:transform .1s ease; }
 .record-btn::after { content:''; position:absolute; top:50%; left:50%; width:5px; height:5px; background:rgba(255,255,255,.5); opacity:0; border-radius:100%; transform:scale(1) translate(-50%); transform-origin:50% 50%; }
@@ -354,9 +353,27 @@ body.light .contact-action-btn { background: #fff; color: #0f172a; border-color:
 .record-btn.start { background:linear-gradient(45deg,#0088cc,#00b4ff); color:white; animation:pulse 1.5s infinite; }
 .record-btn.stop { background:linear-gradient(45deg,#ef4444,#dc2626); color:white; animation:pulse 1s infinite; }
 .record-btn.cancel { background:linear-gradient(45deg,#6b7280,#4b5563); color:white; }
-.waveform { width:100%; height:120px; position:relative; overflow:hidden; border-radius:15px; background:rgba(255,255,255,.05); padding:20px; backdrop-filter:blur(5px); border:1px solid rgba(255,255,255,.1); }
-.waveform-line { position:absolute; width:6px; height:40px; background:linear-gradient(45deg,#0088cc,#00b4ff); border-radius:3px; bottom:0; animation:wave 1s ease-in-out infinite alternate; box-shadow:0 0 10px rgba(0,136,204,.5); }
+.waveform { width:100%; height:80px; position:relative; overflow:hidden; border-radius:14px; background:rgba(255,255,255,.04); padding:14px; border:1px solid rgba(255,255,255,.08); }
+.waveform-line { position:absolute; width:4px; height:26px; background:linear-gradient(45deg,#00b4ff,#60a5fa); border-radius:3px; bottom:0; animation:wave 1s ease-in-out infinite alternate; box-shadow:0 0 8px rgba(0,136,204,.4); }
 @keyframes wave { 0%{height:20px;transform:translateY(0)} 100%{height:80px;transform:translateY(-20px)} }
+
+/* --- voice recording (TG-like) --- */
+.voice-record-overlay { align-items:flex-end; padding:24px 16px; }
+.voice-record-modal { width:100%; max-width:560px; margin:0 auto 10px; background:rgba(15,23,42,.92); border-radius:20px; padding:18px; }
+.voice-record-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.voice-record-label { font-size:14px; color:#a5b4fc; }
+.voice-waveform { width:100%; height:60px; position:relative; overflow:hidden; border-radius:12px; background:rgba(255,255,255,.04); padding:10px; border:1px solid rgba(255,255,255,.08); }
+.voice-record-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; }
+.voice-cancel-btn { background:transparent; border:none; color:#fca5a5; font-size:14px; cursor:pointer; }
+.voice-record-center { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.voice-record-hint { font-size:12px; color:rgba(255,255,255,.6); }
+.voice-lock-pill { width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,.08); display:flex; align-items:center; justify-content:center; color:#e2e8f0; border:1px solid rgba(255,255,255,.12); }
+
+/* --- video record layout --- */
+.video-record-modal { max-width:420px; width:92%; padding:16px; }
+.video-record-controls { margin-top: 8px; gap: 14px; }
+.video-record-controls .record-lock { position:absolute; left:8px; top:50%; transform:translateY(-50%); min-width:170px; }
+.video-record-controls .record-hint { font-size:13px; margin-top:8px; }
 
 .notification { position:fixed; top:25px; right:25px; background:linear-gradient(135deg,rgba(0,136,204,.95),rgba(0,180,255,.95)); color:white; padding:20px 25px; border-radius:15px; box-shadow:0 15px 35px rgba(0,136,204,.4),inset 0 1px 0 rgba(255,255,255,.2); display:none; align-items:center; gap:15px; z-index:1001; max-width:400px; animation:slideIn .3s ease-out,bounce 1s ease; backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.2); transform-origin:top right; }
 @keyframes slideIn { from{transform:translateX(100%) rotate(10deg);opacity:0} to{transform:translateX(0) rotate(0deg);opacity:1} }
