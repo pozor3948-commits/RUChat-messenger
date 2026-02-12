@@ -374,11 +374,6 @@ function setActiveChatItem(kind, id) {
 function addMessageToChat(m) {
   const md = document.getElementById("messages");
   if (document.getElementById(`message_${m.id}`)) return;
-  const now = Date.now();
-  if (m.expiresAt && m.expiresAt <= now) {
-    if (m.from === username && chatRef) chatRef.child(m.id).remove();
-    return;
-  }
   
   if (m.from !== username && typeof playReceiveSound === 'function') {
     playReceiveSound();
@@ -418,7 +413,7 @@ function addMessageToChat(m) {
   }
   if (!m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl && !stickerUrl) return;
   const reactionsHtml = renderReactions(m.id, m.reactions || {});
-  const expireHtml = m.expiresAt ? `<div class="message-expire" data-expires="${m.expiresAt}"></div>` : "";
+  const expireHtml = "";
   const actionsHtml = `<div class="message-actions">
     <button class="reaction-btn" data-message-id="${m.id}" title="Реакции">😊</button>
     <button class="reaction-btn" onclick="startReply('${m.id}')" title="Ответить">↩</button>
@@ -498,7 +493,7 @@ function addMessageToChat(m) {
     <div class="message-time">
       ${t}
       ${m.editedAt || m.edited ? `<span class="message-edited"> (изм.)</span>` : ''}
-      ${m.from === username ? `<span class="message-status ${status}">${status === 'read' ? '✓✓' : status === 'sent' ? '✓' : '⏳'}</span>` : ''}
+      ${m.from === username ? `<span class="message-status ${status}">${status === 'read' ? '✓✓' : status === 'sent' ? '✓' : ''}</span>` : ''}
     </div>`;
   wrap.appendChild(msg);
   md.appendChild(wrap);
@@ -509,7 +504,7 @@ function addMessageToChat(m) {
     setTimeout(() => { wrap.style.opacity = 1; wrap.style.transform = 'translateY(0)'; wrap.style.transition = 'all .3s ease'; }, 10);
   }
   md.scrollTop = md.scrollHeight;
-  if (m.expiresAt) registerEphemeral(m.id, m.expiresAt, wrap, m.from);
+  // авто-удаление отключено
 }
 
 function renderReactions(messageId, reactions) {
@@ -683,7 +678,16 @@ function updateMessageInChat(m) {
   if (statusEl && m.from === username) {
     const status = m.read ? 'read' : (m.sent || m.delivered) ? 'sent' : 'error';
     statusEl.className = `message-status ${status}`;
-    statusEl.textContent = status === 'read' ? '✓✓' : status === 'sent' ? '✓' : '⏳';
+    if (status === 'read') {
+      statusEl.textContent = '✓✓';
+      statusEl.style.display = 'inline-block';
+    } else if (status === 'sent') {
+      statusEl.textContent = '✓';
+      statusEl.style.display = 'inline-block';
+    } else {
+      statusEl.textContent = '';
+      statusEl.style.display = 'none';
+    }
   }
   const editedEl = msg.querySelector('.message-edited');
   if (m.editedAt || m.edited) {

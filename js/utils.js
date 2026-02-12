@@ -152,8 +152,8 @@ async function runMojibakeMigration() {
 
 window.runMojibakeMigration = runMojibakeMigration;
 
-const EPHEMERAL_TTLS = [0, 60_000, 3_600_000, 86_400_000];
-const EPHEMERAL_LABELS = ['Off', '1m', '1h', '1d'];
+const EPHEMERAL_TTLS = [0];
+const EPHEMERAL_LABELS = ['Off'];
 let currentEphemeralIndex = 0;
 
 function getEphemeralExpiresAt() {
