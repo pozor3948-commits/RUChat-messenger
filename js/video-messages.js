@@ -10,6 +10,8 @@ let recordingStartTime = 0;
 let isRecordingVideo = false;
 let isVideoLocked = false;
 let recordStartY = 0;
+let recordStartX = 0;
+let videoRecordCancelled = false;
 let lockActivatedAt = 0;
 let currentCamera = 'user';
 
@@ -108,6 +110,10 @@ async function startVideoRecording() {
         };
         
         videoRecorder.onstop = async () => {
+            if (videoRecordCancelled) {
+                cleanupVideoRecording();
+                return;
+            }
             const blob = new Blob(videoChunks, { type: 'video/webm' });
             
             const reader = new FileReader();
@@ -138,27 +144,46 @@ function updateVideoLockUI(locked) {
     if (!lock) return;
     lock.style.display = isRecordingVideo ? 'flex' : 'none';
     lock.classList.toggle('locked', !!locked);
-    if (hint) hint.textContent = locked ? 'Запись закреплена' : 'Потяните вверх, чтобы закрепить';
+    lock.classList.toggle('cancel', !!videoRecordCancelled);
+    if (hint) {
+        if (videoRecordCancelled) hint.textContent = 'Отпустите чтобы отменить';
+        else hint.textContent = locked ? 'Запись закреплена' : 'Свайп вверх — закрепить, влево — отмена';
+    }
 }
 
 function handleVideoRecordMove(event) {
     if (!isRecordingVideo || isVideoLocked) return;
     const touch = event.touches && event.touches[0];
     const y = touch ? touch.clientY : event.clientY;
-    if (typeof y !== 'number') return;
+    const x = touch ? touch.clientX : event.clientX;
+    if (typeof y !== 'number' || typeof x !== 'number') return;
     if (!recordStartY) recordStartY = y;
-    if (recordStartY - y > 60) {
+    if (!recordStartX) recordStartX = x;
+    const dy = recordStartY - y;
+    const dx = x - recordStartX;
+    if (dy > 60) {
         isVideoLocked = true;
         updateVideoLockUI(true);
+    }
+    if (dx < -80) {
+        videoRecordCancelled = true;
+        updateVideoLockUI(false);
     }
     if (event.cancelable) event.preventDefault();
 }
 function startVideoRecordingAction(event) {
-    if (!videoRecorder || isRecordingVideo) return;
+    if (!videoRecorder) return;
+    if (isRecordingVideo && isVideoLocked) {
+        stopVideoRecordingAction({ forceStop: true });
+        return;
+    }
+    if (isRecordingVideo) return;
 
     const touch = event && event.touches && event.touches[0];
     recordStartY = touch ? touch.clientY : (event ? event.clientY : 0);
+    recordStartX = touch ? touch.clientX : (event ? event.clientX : 0);
     isVideoLocked = false;
+    videoRecordCancelled = false;
     updateVideoLockUI(false);
 
     videoRecorder.start(1000);
@@ -201,6 +226,10 @@ function updateRecordingTimer() {
 
 function stopVideoRecordingAction(event) {
     const forceStop = event && event.forceStop;
+    if (videoRecordCancelled) {
+        cancelVideoRecording();
+        return;
+    }
     if (isVideoLocked && !forceStop) return;
 
     if (event && typeof event.preventDefault === "function") {
@@ -214,6 +243,8 @@ function stopVideoRecordingAction(event) {
     isRecordingVideo = false;
     isVideoLocked = false;
     recordStartY = 0;
+    recordStartX = 0;
+    videoRecordCancelled = false;
 
     if (recordingTimer) {
         clearInterval(recordingTimer);
@@ -294,6 +325,7 @@ function cleanupVideoRecording() {
 }
 
 function cancelVideoRecording() {
+    videoRecordCancelled = true;
     if (videoRecorder && videoRecorder.state !== 'inactive') {
         videoRecorder.stop();
     }

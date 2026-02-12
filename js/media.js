@@ -8,9 +8,20 @@ let voiceChunks = [];
 let voiceStream = null;
 let voiceRecordingTimer = null;
 let voiceRecordingTime = 0;
+let voiceRecordStartX = 0;
+let voiceRecordStartY = 0;
+let voiceRecordLocked = false;
+let voiceRecordCancelled = false;
+let voiceHoldActive = false;
 
 // Функция запуска записи голосового сообщения
 async function startVoiceRecord() {
+    if (voiceRecorder && voiceRecorder.state === 'recording') {
+        return;
+    }
+    voiceRecordCancelled = false;
+    voiceRecordLocked = false;
+    setVoiceLockPill('idle');
     if (!window.isSecureContext) {
         showError('Для записи нужен HTTPS (безопасный контекст). Откройте сайт по HTTPS.');
         return;
@@ -79,6 +90,10 @@ async function startVoiceRecord() {
         };
         
         voiceRecorder.onstop = async () => {
+            if (voiceRecordCancelled) {
+                cleanupVoiceRecording();
+                return;
+            }
             if (voiceChunks.length === 0) {
                 showError('Не удалось записать аудио. Пожалуйста, попробуйте снова.');
                 return;
@@ -157,6 +172,74 @@ async function startVoiceRecord() {
             }
         }
     }
+}
+
+function setVoiceLockPill(state) {
+    const pill = document.querySelector('.voice-lock-pill');
+    const hint = document.querySelector('.voice-record-hint');
+    if (pill) {
+        pill.classList.remove('locked', 'cancel');
+        if (state === 'locked') pill.classList.add('locked');
+        if (state === 'cancel') pill.classList.add('cancel');
+        pill.textContent = state === 'cancel' ? '✖' : '🔒';
+    }
+    if (hint) {
+        if (state === 'locked') hint.textContent = 'Запись закреплена — нажмите ■';
+        else if (state === 'cancel') hint.textContent = 'Отпустите для отмены';
+        else hint.textContent = 'Свайп вверх — закрепить, влево — отмена';
+    }
+}
+
+function onVoicePressStart(e) {
+    if (voiceRecorder && voiceRecorder.state === 'recording') return;
+    voiceHoldActive = true;
+    voiceRecordCancelled = false;
+    voiceRecordLocked = false;
+    setVoiceLockPill('idle');
+    const point = e.touches && e.touches[0] ? e.touches[0] : e;
+    voiceRecordStartX = point.clientX;
+    voiceRecordStartY = point.clientY;
+    startVoiceRecord();
+    document.addEventListener('pointermove', onVoicePressMove);
+    document.addEventListener('pointerup', onVoicePressEnd);
+    document.addEventListener('pointercancel', onVoicePressEnd);
+    if (e.cancelable) e.preventDefault();
+}
+
+function onVoicePressMove(e) {
+    if (!voiceHoldActive) return;
+    if (voiceRecordLocked || voiceRecordCancelled) return;
+    const point = e.touches && e.touches[0] ? e.touches[0] : e;
+    const dx = point.clientX - voiceRecordStartX;
+    const dy = point.clientY - voiceRecordStartY;
+    if (dy < -60) {
+        voiceRecordLocked = true;
+        setVoiceLockPill('locked');
+    }
+    if (dx < -80) {
+        voiceRecordCancelled = true;
+        setVoiceLockPill('cancel');
+    }
+    if (e.cancelable) e.preventDefault();
+}
+
+function onVoicePressEnd(e) {
+    if (!voiceHoldActive) return;
+    voiceHoldActive = false;
+    document.removeEventListener('pointermove', onVoicePressMove);
+    document.removeEventListener('pointerup', onVoicePressEnd);
+    document.removeEventListener('pointercancel', onVoicePressEnd);
+    if (voiceRecordCancelled) {
+        cancelVoiceRecord();
+        setVoiceLockPill('idle');
+        return;
+    }
+    if (voiceRecordLocked) {
+        setVoiceLockPill('locked');
+        return;
+    }
+    stopVoiceRecord();
+    setVoiceLockPill('idle');
 }
 
 // Для тестирования без микрофона
@@ -252,10 +335,12 @@ function stopVoiceRecord() {
         document.getElementById("voiceStopBtn").style.display = "none";
         document.getElementById("voiceTimer").textContent = "00:00";
         document.getElementById("voiceRecordOverlay").style.display = "none";
+        setVoiceLockPill('idle');
         return;
     }
     
     // Останавливаем запись
+    voiceRecordCancelled = false;
     voiceRecorder.stop();
     
     // Останавливаем таймер
@@ -273,6 +358,7 @@ function stopVoiceRecord() {
     setTimeout(() => {
         document.getElementById("voiceRecordOverlay").style.display = "none";
     }, 100);
+    setVoiceLockPill('idle');
     
     if (voiceRecordingTime > 0) {
         showNotification("Успешно", "Голосовое сообщение отправляется...");
@@ -281,6 +367,7 @@ function stopVoiceRecord() {
 
 // Отмена записи голосового сообщения
 function cancelVoiceRecord() {
+    voiceRecordCancelled = true;
     // Останавливаем запись если она идет
     if (voiceRecorder && voiceRecorder.state !== 'inactive') {
         voiceRecorder.stop();
@@ -303,6 +390,7 @@ function cancelVoiceRecord() {
     document.getElementById("voiceStopBtn").style.display = "none";
     document.getElementById("voiceTimer").textContent = "00:00";
     document.getElementById("voiceRecordOverlay").style.display = "none";
+    setVoiceLockPill('idle');
 }
 
 // Очистка ресурсов после записи
@@ -518,6 +606,14 @@ async function sendMediaMessage(type, data, filename, filesize) {
         }
     }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('voiceStartBtn');
+    if (btn) {
+        btn.addEventListener('pointerdown', onVoicePressStart);
+        btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
+    }
+});
 
 function openMedia(url) { window.open(url, '_blank'); }
 
