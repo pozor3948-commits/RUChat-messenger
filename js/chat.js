@@ -20,6 +20,7 @@ const reactionOptions = ['👍','❤️','😂','😮','😢','😡'];
 const ephemeralWatch = new Map();
 let ephemeralInterval = null;
 let replyToMessage = null;
+let pendingChatBgValue = '';
 let editingMessageId = null;
 let editingOriginalText = '';
 
@@ -783,8 +784,8 @@ function applyChatBackground(chatId) {
     md.style.backgroundColor = '';
     return;
   }
-  if (/^(https?:|data:|blob:)/i.test(value)) {
-    md.style.backgroundImage = `url('${value}')`;
+  if (/^(https?:|data:|blob:|url\()/i.test(value)) {
+    md.style.backgroundImage = value.startsWith('url(') ? value : `url('${value}')`;
     md.style.backgroundSize = 'cover';
     md.style.backgroundPosition = 'center';
     md.style.backgroundRepeat = 'no-repeat';
@@ -796,16 +797,83 @@ function applyChatBackground(chatId) {
 
 function openChatBackground() {
   if (!currentChatId) { showError('Сначала откройте чат'); return; }
+  const overlay = document.getElementById('chatBgOverlay');
+  if (!overlay) return;
   const key = `ruchat_chat_bg_${currentChatId}`;
-  const current = localStorage.getItem(key) || '';
-  const value = prompt('Вставьте ссылку на фон (или CSS цвет/градиент). Пусто — очистить.', current);
-  if (value === null) return;
-  if (!value.trim()) {
+  pendingChatBgValue = localStorage.getItem(key) || '';
+  const preview = document.getElementById('chatBgPreviewBox');
+  if (preview) {
+    preview.style.backgroundImage = '';
+    preview.style.background = pendingChatBgValue || 'rgba(255,255,255,0.04)';
+    if (/^(https?:|data:|blob:|url\()/i.test(pendingChatBgValue)) {
+      preview.style.background = 'transparent';
+      preview.style.backgroundImage = pendingChatBgValue.startsWith('url(') ? pendingChatBgValue : `url('${pendingChatBgValue}')`;
+      preview.style.backgroundSize = 'cover';
+      preview.style.backgroundPosition = 'center';
+    }
+  }
+  document.querySelectorAll('.chat-bg-item').forEach(b => b.classList.remove('active'));
+  if (pendingChatBgValue) {
+    document.querySelectorAll('.chat-bg-item').forEach(b => {
+      if (b.dataset.bg === pendingChatBgValue) b.classList.add('active');
+    });
+  }
+  overlay.classList.add('active');
+}
+
+function closeChatBackground() {
+  const overlay = document.getElementById('chatBgOverlay');
+  if (overlay) overlay.classList.remove('active');
+}
+
+function selectChatBackground(btn) {
+  if (!btn) return;
+  const value = btn.dataset.bg || '';
+  pendingChatBgValue = value;
+  document.querySelectorAll('.chat-bg-item').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const preview = document.getElementById('chatBgPreviewBox');
+  if (preview) {
+    preview.style.backgroundImage = '';
+    preview.style.background = value || 'rgba(255,255,255,0.04)';
+    if (/^url\(/i.test(value) || /^(https?:|data:|blob:)/i.test(value)) {
+      preview.style.background = 'transparent';
+      preview.style.backgroundImage = value.startsWith('url(') ? value : `url('${value}')`;
+      preview.style.backgroundSize = 'cover';
+      preview.style.backgroundPosition = 'center';
+    }
+  }
+}
+
+function handleChatBgFileChange(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { showError('Нужна картинка'); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    pendingChatBgValue = reader.result;
+    const preview = document.getElementById('chatBgPreviewBox');
+    if (preview) {
+      preview.style.background = 'transparent';
+      preview.style.backgroundImage = `url('${pendingChatBgValue}')`;
+      preview.style.backgroundSize = 'cover';
+      preview.style.backgroundPosition = 'center';
+    }
+    document.querySelectorAll('.chat-bg-item').forEach(b => b.classList.remove('active'));
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveChatBackground() {
+  if (!currentChatId) return;
+  const key = `ruchat_chat_bg_${currentChatId}`;
+  if (!pendingChatBgValue) {
     localStorage.removeItem(key);
   } else {
-    localStorage.setItem(key, value.trim());
+    localStorage.setItem(key, pendingChatBgValue);
   }
   applyChatBackground(currentChatId);
+  closeChatBackground();
 }
 
 async function clearCurrentChat() {
@@ -823,6 +891,10 @@ async function clearCurrentChat() {
 window.applyChatBackground = applyChatBackground;
 window.openChatBackground = openChatBackground;
 window.clearCurrentChat = clearCurrentChat;
+window.closeChatBackground = closeChatBackground;
+window.selectChatBackground = selectChatBackground;
+window.handleChatBgFileChange = handleChatBgFileChange;
+window.saveChatBackground = saveChatBackground;
 
 document.addEventListener('click', (e) => {
   const reactionBtn = e.target.closest('.reaction-btn');

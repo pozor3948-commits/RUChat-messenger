@@ -29,7 +29,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260211t">
+    <link rel="stylesheet" href="css/style.css?v=20260211u">
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -252,6 +252,35 @@
     </div>
 </div>
 
+<!-- ===== ФОН ЧАТА ===== -->
+<div class="chat-bg-overlay" id="chatBgOverlay">
+    <div class="chat-bg-modal">
+        <h2 class="chat-bg-title">Фон чата</h2>
+        <p class="chat-bg-subtitle">Выберите готовый фон или загрузите свой</p>
+        <div class="chat-bg-grid" id="chatBgGrid">
+            <button class="chat-bg-item" data-bg="linear-gradient(135deg,#0f172a,#1e293b)" onclick="selectChatBackground(this)"></button>
+            <button class="chat-bg-item" data-bg="linear-gradient(135deg,#0ea5e9,#2563eb)" onclick="selectChatBackground(this)"></button>
+            <button class="chat-bg-item" data-bg="linear-gradient(135deg,#9333ea,#4f46e5)" onclick="selectChatBackground(this)"></button>
+            <button class="chat-bg-item" data-bg="linear-gradient(135deg,#f59e0b,#ef4444)" onclick="selectChatBackground(this)"></button>
+            <button class="chat-bg-item" data-bg="linear-gradient(135deg,#10b981,#14b8a6)" onclick="selectChatBackground(this)"></button>
+            <button class="chat-bg-item" data-bg="linear-gradient(135deg,#1f2937,#111827)" onclick="selectChatBackground(this)"></button>
+            <button class="chat-bg-item" data-bg="url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=60')" onclick="selectChatBackground(this)"></button>
+            <button class="chat-bg-item" data-bg="url('https://images.unsplash.com/photo-1496307653780-42ee777d4833?auto=format&fit=crop&w=800&q=60')" onclick="selectChatBackground(this)"></button>
+        </div>
+        <div class="chat-bg-upload">
+            <input type="file" id="chatBgFileInput" accept="image/*" onchange="handleChatBgFileChange(event)">
+            <button class="chat-bg-btn" onclick="saveChatBackground()">Применить</button>
+            <button class="chat-bg-btn secondary" onclick="clearChatBackground()">Сбросить</button>
+        </div>
+        <div class="chat-bg-preview">
+            <div class="chat-bg-preview-box" id="chatBgPreviewBox"></div>
+        </div>
+        <div class="chat-bg-actions">
+            <button class="login-btn" onclick="closeChatBackground()">Закрыть</button>
+        </div>
+    </div>
+</div>
+
 <!-- ===== МЕНЮ ПРИКРЕПЛЕНИЯ ===== -->
 <div class="attachment-menu" id="attachmentMenu">
     <div class="attachment-item" onclick="attachPhoto()"><div class="icon">📷</div><div class="text">Фото</div></div>
@@ -406,22 +435,22 @@
 </div>
 
 <!-- Скрипты -->
-<script src="js/firebase-config.js?v=20260211t"></script>
-<script src="js/utils.js?v=20260211t"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
-<script src="js/main.js?v=20260211t"></script>
-<script src="js/ui.js?v=20260211t"></script>
-<script src="js/sounds.js?v=20260211t"></script>
-<script src="js/auth.js?v=20260211t"></script>
-<script src="js/status.js?v=20260211t"></script>
-<script src="js/chat.js?v=20260211t"></script>
-<script src="js/media.js?v=20260211t"></script>
-<script src="js/emoji.js?v=20260211t"></script>
-<script src="js/stickers.js?v=20260211t"></script>
-<script src="js/groups.js?v=20260211t"></script>
-<script src="js/mobile.js?v=20260211t"></script>
-<script src="js/video-messages.js?v=20260211t"></script>
-<script src="js/audio-call.js?v=20260211t"></script>
-<script src="js/settings.js?v=20260211t"></script>
+<script src="js/firebase-config.js?v=20260211u"></script>
+<script src="js/utils.js?v=20260211u"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/main.js?v=20260211u"></script>
+<script src="js/ui.js?v=20260211u"></script>
+<script src="js/sounds.js?v=20260211u"></script>
+<script src="js/auth.js?v=20260211u"></script>
+<script src="js/status.js?v=20260211u"></script>
+<script src="js/chat.js?v=20260211u"></script>
+<script src="js/media.js?v=20260211u"></script>
+<script src="js/emoji.js?v=20260211u"></script>
+<script src="js/stickers.js?v=20260211u"></script>
+<script src="js/groups.js?v=20260211u"></script>
+<script src="js/mobile.js?v=20260211u"></script>
+<script src="js/video-messages.js?v=20260211u"></script>
+<script src="js/audio-call.js?v=20260211u"></script>
+<script src="js/settings.js?v=20260211u"></script>
 
 <script>
     // Функция для проверки локального запуска
@@ -467,7 +496,7 @@
         if (retry) window.retryAction = retry;
     };
     
-    console.log('Build 2026-02-11t');
+    console.log('Build 2026-02-11u');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {
@@ -476,6 +505,7 @@
         const emojiPicker = document.getElementById('emojiPicker');
         const stickerPanel = document.getElementById('stickerPanel');
         const chatSettingsMenu = document.getElementById('chatSettingsMenu');
+        const chatBgOverlay = document.getElementById('chatBgOverlay');
         
         if (attachmentMenu && attachmentMenu.classList.contains('active') && 
             !e.target.closest('.attachment-menu') && 
@@ -506,6 +536,10 @@
             !e.target.closest('#mobileMenuBtn')) {
             chatSettingsMenu.classList.remove('active');
         }
+        if (chatBgOverlay && chatBgOverlay.classList.contains('active') &&
+            e.target === chatBgOverlay) {
+            chatBgOverlay.classList.remove('active');
+        }
     });
 
     // Автоматическое обновление isMobile при изменении размера окна
@@ -516,6 +550,7 @@
 
 </body>
 </html>
+
 
 
 
