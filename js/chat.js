@@ -336,20 +336,14 @@ function loadChat(path) {
   chatRef = db.ref(path);
   const md = document.getElementById("messages");
   md.innerHTML = "";
-  md.style.opacity = .7;
-  let firstLoaded = false;
-  chatRef.limitToLast(100).on("child_added", snap => {
+  md.style.opacity = 1;
+  chatRef.limitToLast(200).on("child_added", snap => {
     const m = snap.val();
     m.id = snap.key;
     if (!m) return;
     if (m.text === undefined || m.text === null) m.text = "";
     if (!document.getElementById(`message_${m.id}`)) {
       addMessageToChat(m);
-      if (!firstLoaded) {
-        md.style.opacity = 1;
-        md.style.transition = 'opacity .2s ease';
-        firstLoaded = true;
-      }
     }
   });
   chatRef.on("child_changed", snap => {

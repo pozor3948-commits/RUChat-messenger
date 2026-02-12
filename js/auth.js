@@ -43,6 +43,57 @@ async function register() {
   }
 }
 
+async function doLoginAfterAuth(u, title, message) {
+  username = u;
+  window.username = username;
+  localStorage.setItem('ruchat_last_user', u);
+  updateMyStatus(true, false);
+  setupActivityTracking();
+  setupUserStatusMonitoring();
+  db.ref(`userStatus/${username}`).onDisconnect().set({ online: false, idle: false, lastSeen: Date.now(), username: username });
+  document.getElementById("login").style.display = "none";
+  document.getElementById("main").style.display = "flex";
+  const safeName = typeof normalizeText === 'function' ? normalizeText(username) : username;
+  document.getElementById("userName").textContent = safeName;
+  document.getElementById("mobileChatTitle").textContent = safeName;
+  document.getElementById("userStatus").textContent = "В сети";
+  document.getElementById("userStatus").className = "user-status";
+  const callBtn = document.getElementById('callButton');
+  if (callBtn) {
+    callBtn.classList.add('active');
+    callBtn.style.display = 'flex';
+  }
+  loadFriends();
+  loadGroups();
+  loadStories();
+  updateUserAvatar();
+  if (typeof loadMyProfile === 'function') {
+    loadMyProfile();
+  }
+  if (typeof loadFriendRequests === 'function') {
+    loadFriendRequests();
+  }
+  if (typeof loadStickers === 'function') {
+    loadStickers();
+  }
+  initEmojiPicker();
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {});
+  }
+  if (typeof initSoundsAfterLogin === 'function') {
+    initSoundsAfterLogin();
+  }
+  if (typeof listenForIncomingCalls === 'function') {
+    listenForIncomingCalls();
+  }
+  if (typeof initVideoMessagesAfterLogin === 'function') {
+    initVideoMessagesAfterLogin();
+  }
+  await registerDeviceToken(username);
+  if (title && message) showNotification(title, message);
+  checkMobile();
+}
+
 async function login() {
   if (!checkConnection()) return;
   showLoading();
@@ -53,57 +104,7 @@ async function login() {
     const snap = await db.ref("accounts/" + u).get();
     if (!snap.exists()) throw new Error("Пользователь не найден!");
     if (snap.val().password !== hashPassword(p)) throw new Error("Неверный пароль!");
-    username = u;
-    localStorage.setItem('ruchat_last_user', u);
-    updateMyStatus(true, false);
-    setupActivityTracking();
-    setupUserStatusMonitoring();
-    db.ref(`userStatus/${username}`).onDisconnect().set({ online: false, idle: false, lastSeen: Date.now(), username: username });
-    document.getElementById("login").style.display = "none";
-    document.getElementById("main").style.display = "flex";
-    const safeName = typeof normalizeText === 'function' ? normalizeText(username) : username;
-    document.getElementById("userName").textContent = safeName;
-    document.getElementById("mobileChatTitle").textContent = safeName;
-    document.getElementById("userStatus").textContent = "В сети";
-    document.getElementById("userStatus").className = "user-status";
-    const callBtn = document.getElementById('callButton');
-    if (callBtn) {
-      callBtn.classList.add('active');
-      callBtn.style.display = 'flex';
-    }
-    loadFriends();
-    loadGroups();
-    loadStories();
-    updateUserAvatar();
-    if (typeof loadMyProfile === 'function') {
-      loadMyProfile();
-    }
-    if (typeof loadFriendRequests === 'function') {
-      loadFriendRequests();
-    }
-    if (typeof loadStickers === 'function') {
-      loadStickers();
-    }
-    initEmojiPicker();
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(() => {});
-    }
-    
-    // ИНИЦИАЛИЗАЦИЯ ЗВУКОВ ПОСЛЕ ВХОДА
-    if (typeof initSoundsAfterLogin === 'function') {
-      initSoundsAfterLogin();
-    }
-    if (typeof listenForIncomingCalls === 'function') {
-      listenForIncomingCalls();
-    }
-    
-    // ИНИЦИАЛИЗАЦИЯ ВИДЕОСООБЩЕНИЙ ПОСЛЕ ВХОДА
-    if (typeof initVideoMessagesAfterLogin === 'function') {
-      initVideoMessagesAfterLogin();
-    }
-    
-    showNotification("Добро пожаловать", `Привет, ${username}!`);
-    checkMobile();
+    await doLoginAfterAuth(u, "Добро пожаловать", `Привет, ${u}!`);
   } catch (e) {
     showError(e.message, () => login());
   } finally {
@@ -118,6 +119,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const u = document.getElementById('usernameInput');
     if (u) u.value = savedUser;
   }
+  // Автовход на этом устройстве (если ранее входили)
+  setTimeout(autoLoginFromDevice, 300);
 });
 function recoverPassword() {
   const u = prompt("Введите имя пользователя:");
@@ -138,54 +141,16 @@ function recoverPassword() {
       showNotification("Успешно", "Пароль успешно изменен!");
     } else if (choice === "2") {
       username = u;
+      window.username = username;
       showLoading();
-      updateMyStatus(true, false);
-      setupActivityTracking();
-      setupUserStatusMonitoring();
-      db.ref(`userStatus/${username}`).onDisconnect().set({ online: false, idle: false, lastSeen: Date.now(), username: username });
-      document.getElementById("login").style.display = "none";
-      document.getElementById("main").style.display = "flex";
-      const safeName = typeof normalizeText === 'function' ? normalizeText(username) : username;
-      document.getElementById("userName").textContent = safeName;
-      document.getElementById("mobileChatTitle").textContent = safeName;
-      document.getElementById("userStatus").textContent = "В сети";
-      document.getElementById("userStatus").className = "user-status";
-      document.getElementById('callButton').classList.add('active');
-      loadFriends();
-      loadGroups();
-      loadStories();
-      updateUserAvatar();
-      if (typeof loadMyProfile === 'function') {
-        loadMyProfile();
-      }
-      if (typeof loadFriendRequests === 'function') {
-        loadFriendRequests();
-      }
-      if (typeof loadStickers === 'function') {
-        loadStickers();
-      }
-      initEmojiPicker();
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission().catch(() => {});
-      }
-      
-      // ИНИЦИАЛИЗАЦИЯ ЗВУКОВ ПОСЛЕ ВХОДА
-      if (typeof initSoundsAfterLogin === 'function') {
-        initSoundsAfterLogin();
-      }
-      if (typeof listenForIncomingCalls === 'function') {
-        listenForIncomingCalls();
-      }
-      
-      hideLoading();
-      showNotification("Вход выполнен", "Вы вошли без пароля!");
-      checkMobile();
+      await doLoginAfterAuth(u, "Вход выполнен", "Вы вошли без пароля!");
     }
   }).catch(e => { hideLoading(); showError("Ошибка загрузки данных пользователя"); });
 }
 
 function logout() {
   if (!confirm("Вы уверены, что хотите выйти?")) return;
+  unregisterDeviceToken(username).catch(() => {});
   updateMyStatus(false, false);
   Object.keys(friendStatusListeners).forEach(f => {
     if (friendStatusListeners[f]) db.ref("userStatus/" + f).off('value', friendStatusListeners[f]);
@@ -222,6 +187,62 @@ function loadMyProfile() {
     }
     window.myProfile = data;
   });
+}
+
+function getDeviceToken() {
+  let token = localStorage.getItem('ruchat_device_token');
+  if (!token) {
+    try {
+      const arr = new Uint8Array(16);
+      (crypto.getRandomValues || window.msCrypto.getRandomValues).call(crypto, arr);
+      token = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch {
+      token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+    localStorage.setItem('ruchat_device_token', token);
+  }
+  return token;
+}
+
+async function registerDeviceToken(u) {
+  if (!u) return;
+  const token = getDeviceToken();
+  localStorage.setItem('ruchat_device_user', u);
+  try {
+    await db.ref(`accounts/${u}/devices/${token}`).set({
+      createdAt: Date.now(),
+      userAgent: navigator.userAgent || ''
+    });
+  } catch (e) {
+    // ignore
+  }
+}
+
+async function unregisterDeviceToken(u) {
+  const token = localStorage.getItem('ruchat_device_token');
+  const user = u || localStorage.getItem('ruchat_device_user');
+  if (!token || !user) return;
+  try {
+    await db.ref(`accounts/${user}/devices/${token}`).remove();
+  } catch (e) {
+    // ignore
+  }
+  localStorage.removeItem('ruchat_device_user');
+  localStorage.removeItem('ruchat_device_token');
+}
+
+async function autoLoginFromDevice() {
+  if (username) return;
+  const u = localStorage.getItem('ruchat_device_user');
+  const token = localStorage.getItem('ruchat_device_token');
+  if (!u || !token) return;
+  try {
+    const snap = await db.ref(`accounts/${u}/devices/${token}`).get();
+    if (!snap.exists()) return;
+    await doLoginAfterAuth(u, "Автовход", "Вы вошли на этом устройстве");
+  } catch (e) {
+    // ignore
+  }
 }
 
 

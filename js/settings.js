@@ -3,6 +3,7 @@
    ========================================================== */
 
 function showSettingsMenu() {
+    const currentUser = (typeof username !== 'undefined' && username) ? username : (window.username || '');
     const html = `
         <div style="
             position: fixed;
@@ -167,7 +168,7 @@ function showSettingsMenu() {
                     <div style="color: #cbd5e1; font-size: 14px; line-height: 1.8;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                             <span>Пользователь:</span>
-                            <span style="color: #0088cc;">${window.username || 'Не авторизован'}</span>
+                            <span style="color: #0088cc;">${currentUser || 'Не авторизован'}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                             <span>Версия:</span>
@@ -180,7 +181,7 @@ function showSettingsMenu() {
                     </div>
                 </div>
 
-                ${window.username ? `
+                ${currentUser ? `
                 <div style="
                     background: rgba(255,255,255,0.05);
                     border-radius: 15px;
@@ -220,7 +221,7 @@ function showSettingsMenu() {
                         transition: all 0.3s ease;
                     ">Закрыть</button>
                     
-                    ${window.username ? `
+                    ${currentUser ? `
                     <button onclick="logoutFromSettings()" style="
                         flex-basis: 100%;
                         padding: 16px;
@@ -246,14 +247,15 @@ function showSettingsMenu() {
     document.body.appendChild(div);
 
     window.loadProfileSettings = async function() {
-        if (!window.username) return;
+        const user = (typeof username !== 'undefined' && username) ? username : (window.username || '');
+        if (!user) return;
         try {
             const database = window.db || (typeof db !== 'undefined' ? db : null);
             if (!database) return;
-            const snap = await database.ref("accounts/" + window.username).get();
+            const snap = await database.ref("accounts/" + user).get();
             if (!snap.exists()) return;
             const data = snap.val() || {};
-            const dn = typeof normalizeText === 'function' ? normalizeText(data.displayName || window.username) : (data.displayName || window.username);
+            const dn = typeof normalizeText === 'function' ? normalizeText(data.displayName || user) : (data.displayName || user);
             const about = typeof normalizeText === 'function' ? normalizeText(data.about || '') : (data.about || '');
             const displayInput = document.getElementById('profileDisplayName');
             const avatarInput = document.getElementById('profileAvatar');
@@ -267,7 +269,8 @@ function showSettingsMenu() {
     };
 
     window.saveProfileSettings = async function() {
-        if (!window.username) return;
+        const user = (typeof username !== 'undefined' && username) ? username : (window.username || '');
+        if (!user) { showError('Пользователь не найден'); return; }
         const database = window.db || (typeof db !== 'undefined' ? db : null);
         if (!database) { showError('База не инициализирована'); return; }
         const displayInput = document.getElementById('profileDisplayName');
@@ -276,12 +279,13 @@ function showSettingsMenu() {
         const displayName = displayInput ? displayInput.value.trim() : '';
         const avatar = avatarInput ? avatarInput.value.trim() : '';
         const about = aboutInput ? aboutInput.value.trim() : '';
-        if (displayName.length < 2) { showError('Имя должно быть минимум 2 символа'); return; }
+        const finalName = displayName.length ? displayName : user;
+        if (finalName.length < 2) { showError('Имя должно быть минимум 2 символа'); return; }
         if (avatar && (typeof isValidMediaUrl === 'function') && !isValidMediaUrl(avatar)) { showError('Неверный URL аватарки'); return; }
         try {
             showLoading();
-            await database.ref("accounts/" + window.username).update({
-                displayName: displayName,
+            await database.ref("accounts/" + user).update({
+                displayName: finalName,
                 about: about,
                 avatar: avatar
             });
