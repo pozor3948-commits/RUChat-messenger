@@ -29,7 +29,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260211x">
+    <link rel="stylesheet" href="css/style.css?v=20260211z">
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -169,6 +169,7 @@
             </div>
             <div class="chat-actions">
                 <button class="icon-btn" onclick="toggleMessageSearch()" title="Поиск в чате">🔍</button>
+                <button class="icon-btn" onclick="openMediaLibrary()" title="Медиа">🗂</button>
                 <button class="icon-btn" onclick="toggleTheme()" title="Сменить тему">🌙</button>
                 <button class="icon-btn" onclick="showChatInfo()" title="Информация о чате">№️</button>
                 <button class="icon-btn" onclick="toggleEmojiPicker()" title="Эмодзи">😊</button>
@@ -219,6 +220,7 @@
 <!-- ===== МЕНЮ НАСТРОЕК ЧАТА ===== -->
 <div class="chat-settings-menu" id="chatSettingsMenu">
     <button class="chat-settings-item" onclick="openChatBackground()">Поменять фон чата</button>
+    <button class="chat-settings-item" onclick="openMediaLibrary()">Медиа чата</button>
     <button class="chat-settings-item" onclick="clearCurrentChat()">Очистить чат</button>
     <button class="chat-settings-item" onclick="toggleMessageSearch()">Поиск в чате</button>
 </div>
@@ -248,6 +250,25 @@
         <div class="sticker-bot-actions">
             <button class="login-btn" onclick="saveSticker()">Добавить стикер</button>
             <button class="login-btn secondary" onclick="closeStickerBot()">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== МЕДИАТЕКА ЧАТА ===== -->
+<div class="media-library-overlay" id="mediaLibraryOverlay" onclick="closeMediaLibrary()">
+    <div class="media-library-modal" onclick="event.stopPropagation()">
+        <div class="media-library-header">
+            <div class="media-library-title">Медиа</div>
+            <button class="icon-btn" onclick="closeMediaLibrary()" title="Закрыть">✕</button>
+        </div>
+        <div class="media-library-tabs">
+            <button class="media-tab active" data-tab="photos" onclick="setMediaTab('photos')">Фото</button>
+            <button class="media-tab" data-tab="videos" onclick="setMediaTab('videos')">Видео</button>
+            <button class="media-tab" data-tab="files" onclick="setMediaTab('files')">Файлы</button>
+        </div>
+        <div class="media-library-content">
+            <div class="media-grid" id="mediaGrid"></div>
+            <div class="media-empty" id="mediaEmpty" style="display:none;">Нет файлов в этом чате</div>
         </div>
     </div>
 </div>
@@ -440,22 +461,22 @@
 </div>
 
 <!-- Скрипты -->
-<script src="js/firebase-config.js?v=20260211x"></script>
-<script src="js/utils.js?v=20260211x"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
-<script src="js/main.js?v=20260211x"></script>
-<script src="js/ui.js?v=20260211x"></script>
-<script src="js/sounds.js?v=20260211x"></script>
-<script src="js/auth.js?v=20260211x"></script>
-<script src="js/status.js?v=20260211x"></script>
-<script src="js/chat.js?v=20260211x"></script>
-<script src="js/media.js?v=20260211x"></script>
-<script src="js/emoji.js?v=20260211x"></script>
-<script src="js/stickers.js?v=20260211x"></script>
-<script src="js/groups.js?v=20260211x"></script>
-<script src="js/mobile.js?v=20260211x"></script>
-<script src="js/video-messages.js?v=20260211x"></script>
-<script src="js/audio-call.js?v=20260211x"></script>
-<script src="js/settings.js?v=20260211x"></script>
+<script src="js/firebase-config.js?v=20260211z"></script>
+<script src="js/utils.js?v=20260211z"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/main.js?v=20260211z"></script>
+<script src="js/ui.js?v=20260211z"></script>
+<script src="js/sounds.js?v=20260211z"></script>
+<script src="js/auth.js?v=20260211z"></script>
+<script src="js/status.js?v=20260211z"></script>
+<script src="js/chat.js?v=20260211z"></script>
+<script src="js/media.js?v=20260211z"></script>
+<script src="js/emoji.js?v=20260211z"></script>
+<script src="js/stickers.js?v=20260211z"></script>
+<script src="js/groups.js?v=20260211z"></script>
+<script src="js/mobile.js?v=20260211z"></script>
+<script src="js/video-messages.js?v=20260211z"></script>
+<script src="js/audio-call.js?v=20260211z"></script>
+<script src="js/settings.js?v=20260211z"></script>
 
 <script>
     // Функция для проверки локального запуска
@@ -501,7 +522,7 @@
         if (retry) window.retryAction = retry;
     };
     
-    console.log('Build 2026-02-11x');
+    console.log('Build 2026-02-11z');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {

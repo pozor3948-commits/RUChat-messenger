@@ -34,11 +34,26 @@ async function createGroup() {
   const ch = document.querySelectorAll(".group-member-checkbox:checked");
   if (!ch.length) { showError("Выберите хотя бы одного участника!"); return; }
   const members = {};
+  const roles = {};
   ch.forEach(c => members[c.value] = true);
+  ch.forEach(c => roles[c.value] = 'member');
   members[username] = true;
+  roles[username] = 'owner';
   try {
     const ref = db.ref("groups").push();
-    await ref.set({ name: n, avatar: avatarUrl, members: members, createdBy: username, createdAt: Date.now() });
+    await ref.set({
+      name: n,
+      avatar: avatarUrl,
+      members: members,
+      roles: roles,
+      permissions: {
+        canInvite: 'owner_admin',
+        canPin: 'owner_admin',
+        canChangeInfo: 'owner_admin'
+      },
+      createdBy: username,
+      createdAt: Date.now()
+    });
     showNotification("Успешно", `Группа "${n}" создана!`);
     closeGroupModal();
     document.getElementById("groupNameInput").value = "";

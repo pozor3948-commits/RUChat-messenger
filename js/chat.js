@@ -14,6 +14,8 @@ if (typeof userStatuses === 'undefined') {
 const displayNameCache = {};
 let friendsCache = {};
 let blockedCache = {};
+const friendPrivacyCache = {};
+window.friendPrivacyCache = friendPrivacyCache;
 
 const lastMessageKeyByChat = {};
 const reactionOptions = ['👍','❤️','😂','😮','😢','😡'];
@@ -23,6 +25,76 @@ let replyToMessage = null;
 let pendingChatBgValue = '';
 let editingMessageId = null;
 let editingOriginalText = '';
+let mediaLibraryTab = 'photos';
+let mediaLibraryCache = { photos: [], videos: [], files: [] };
+let mediaLibraryChatId = null;
+const renderedClientMessageIds = new Set();
+let currentChatPath = '';
+let oldestLoadedKey = null;
+let newestLoadedKey = null;
+let hasMoreHistory = true;
+let isHistoryLoading = false;
+let addedMessagesQuery = null;
+let addedMessagesHandler = null;
+const CHAT_INITIAL_PAGE_SIZE = 80;
+const CHAT_HISTORY_PAGE_SIZE = 60;
+const SEND_RATE_WINDOW_MS = 3000;
+const SEND_RATE_MAX_MESSAGES = 8;
+let sendRateTimestamps = [];
+
+function chatCacheKey(path) {
+  return `ruchat_chat_cache_${path.replace(/[^\w]/g, '_')}`;
+}
+
+function readChatCache(path) {
+  try {
+    const raw = localStorage.getItem(chatCacheKey(path));
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeChatCache(path, items) {
+  try {
+    const prepared = (items || []).slice(-120).map(m => ({
+      id: m.id,
+      from: m.from || '',
+      text: m.text || '',
+      time: m.time || 0,
+      sent: !!m.sent,
+      delivered: !!m.delivered,
+      read: !!m.read,
+      edited: !!m.edited,
+      editedAt: m.editedAt || 0,
+      photo: m.photo || '',
+      video: m.video || '',
+      audio: m.audio || '',
+      document: m.document || '',
+      filename: m.filename || '',
+      filesize: m.filesize || 0,
+      type: m.type || '',
+      duration: m.duration || 0,
+      sticker: m.sticker || '',
+      stickerEmoji: m.stickerEmoji || '',
+      clientMessageId: m.clientMessageId || ''
+    }));
+    localStorage.setItem(chatCacheKey(path), JSON.stringify(prepared));
+  } catch {
+    // ignore cache errors
+  }
+}
+
+function upsertChatCacheMessage(path, message) {
+  if (!path || !message || !message.id) return;
+  const list = readChatCache(path);
+  const idx = list.findIndex(m => m.id === message.id);
+  if (idx >= 0) list[idx] = { ...list[idx], ...message };
+  else list.push(message);
+  list.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  writeChatCache(path, list);
+}
 
 /* ==========================================================
    6. ЗАГРУЗКА ДАННЫХ
@@ -151,6 +223,12 @@ function createFriendItem(fn) {
       document.getElementById("mobileChatTitle").textContent = name;
     }
   });
+  db.ref(`accounts/${fn}/privacy/showLastSeen`).on("value", s => {
+    friendPrivacyCache[fn] = s.val() || 'everyone';
+    if (typeof updateFriendStatusInList === 'function') {
+      updateFriendStatusInList(fn, userStatuses[fn] || null);
+    }
+  });
   loadLastMessage(fn);
 }
 
@@ -212,6 +290,8 @@ function loadGroups() {
 
 function createGroupItem(g, gid) {
   const groupName = normalizeText(g.name);
+  const myRole = (g.roles && g.roles[username]) ? g.roles[username] : 'member';
+  const roleLabel = myRole === 'owner' ? 'Владелец' : (myRole === 'admin' ? 'Админ' : 'Участник');
   const gl = document.getElementById("groupList");
   const item = document.createElement("div");
   item.className = "group-item";
@@ -228,7 +308,7 @@ function createGroupItem(g, gid) {
     <div class="contact-info">
       <div class="contact-name">${groupName}</div>
       <div class="last-message" id="group_lastMsg_${gid}">${Object.keys(g.members || {}).length} участников</div>
-      <div class="last-seen online">Группа</div>
+      <div class="last-seen online">Группа • ${roleLabel}</div>
     </div>`;
   gl.appendChild(item);
   if (g.avatar && (typeof isValidMediaUrl !== 'function' || isValidMediaUrl(g.avatar))) {
@@ -313,6 +393,7 @@ function openPrivateChat(fn) {
   loadChat("privateChats/" + currentChatId);
   setupTypingIndicator();
   if (typeof updateCallButtonVisibility === 'function') updateCallButtonVisibility();
+  flushPendingQueue();
 }
 
 function openGroupChat(g, gid) {
@@ -341,34 +422,136 @@ function openGroupChat(g, gid) {
   if (typeof applyChatBackground === 'function') applyChatBackground(currentChatId);
   loadChat("groupChats/" + currentChatId);
   if (typeof updateCallButtonVisibility === 'function') updateCallButtonVisibility();
+  flushPendingQueue();
 }
 
 function loadChat(path) {
   if (chatRef) chatRef.off();
+  if (addedMessagesQuery && addedMessagesHandler) {
+    addedMessagesQuery.off("child_added", addedMessagesHandler);
+    addedMessagesQuery = null;
+    addedMessagesHandler = null;
+  }
   clearEphemeralWatch();
+  currentChatPath = path;
   chatRef = db.ref(path);
+  oldestLoadedKey = null;
+  newestLoadedKey = null;
+  hasMoreHistory = true;
+  isHistoryLoading = false;
+  renderedClientMessageIds.clear();
+
   const md = document.getElementById("messages");
   md.innerHTML = "";
   md.style.opacity = 1;
-  chatRef.limitToLast(200).on("child_added", snap => {
-    const m = snap.val();
-    m.id = snap.key;
-    if (!m) return;
-    if (m.text === undefined || m.text === null) m.text = "";
-    if (!document.getElementById(`message_${m.id}`)) {
-      addMessageToChat(m);
-    }
+  md.onscroll = handleMessagesScroll;
+  const expectedPath = path;
+  const cachedMessages = readChatCache(path);
+  if (cachedMessages.length) {
+    cachedMessages.forEach(m => addMessageToChat(m, { autoScroll: false, animate: false }));
+    oldestLoadedKey = cachedMessages[0].id || null;
+    newestLoadedKey = cachedMessages[cachedMessages.length - 1].id || null;
+    md.scrollTop = md.scrollHeight;
+  }
+
+  chatRef.orderByKey().limitToLast(CHAT_INITIAL_PAGE_SIZE).once("value").then(snap => {
+    if (currentChatPath !== expectedPath) return;
+    const items = [];
+    snap.forEach(ch => {
+      const m = ch.val();
+      if (!m) return;
+      m.id = ch.key;
+      if (m.text === undefined || m.text === null) m.text = "";
+      items.push(m);
+    });
+    items.forEach(m => addMessageToChat(m, { autoScroll: false, animate: false }));
+    oldestLoadedKey = items.length ? items[0].id : null;
+    newestLoadedKey = items.length ? items[items.length - 1].id : null;
+    hasMoreHistory = items.length === CHAT_INITIAL_PAGE_SIZE;
+    md.scrollTop = md.scrollHeight;
+    writeChatCache(path, items);
+    markCurrentChatAsRead();
+    setupAddedMessagesListener();
   });
+
   chatRef.on("child_changed", snap => {
     const m = snap.val();
     if (!m) return;
     m.id = snap.key;
     updateMessageInChat(m);
+    upsertChatCacheMessage(currentChatPath, m);
   });
   chatRef.on("child_removed", snap => {
     const el = document.getElementById(`message_${snap.key}`);
     if (el) el.remove();
+    const list = readChatCache(currentChatPath).filter(m => m.id !== snap.key);
+    writeChatCache(currentChatPath, list);
   });
+}
+
+function setupAddedMessagesListener() {
+  if (!chatRef) return;
+  const anchor = newestLoadedKey;
+  let skipAnchor = !!anchor;
+  addedMessagesQuery = anchor ? chatRef.orderByKey().startAt(anchor) : chatRef.limitToLast(1);
+  addedMessagesHandler = snap => {
+    const m = snap.val();
+    if (!m) return;
+    m.id = snap.key;
+    if (skipAnchor && anchor && m.id === anchor) {
+      skipAnchor = false;
+      return;
+    }
+    skipAnchor = false;
+    if (m.text === undefined || m.text === null) m.text = "";
+    newestLoadedKey = m.id;
+    addMessageToChat(m);
+    upsertChatCacheMessage(currentChatPath, m);
+    markCurrentChatAsRead();
+  };
+  addedMessagesQuery.on("child_added", addedMessagesHandler);
+}
+
+function handleMessagesScroll() {
+  const md = document.getElementById("messages");
+  if (!md || isHistoryLoading || !hasMoreHistory) return;
+  if (md.scrollTop <= 120) {
+    loadOlderMessages();
+  }
+}
+
+function loadOlderMessages() {
+  if (!chatRef || !oldestLoadedKey || isHistoryLoading || !hasMoreHistory) return;
+  const md = document.getElementById("messages");
+  if (!md) return;
+  isHistoryLoading = true;
+  const expectedPath = currentChatPath;
+  const prevHeight = md.scrollHeight;
+  const prevTop = md.scrollTop;
+  chatRef.orderByKey().endAt(oldestLoadedKey).limitToLast(CHAT_HISTORY_PAGE_SIZE + 1).once("value")
+    .then(snap => {
+      if (currentChatPath !== expectedPath) return;
+      const items = [];
+      snap.forEach(ch => {
+        const m = ch.val();
+        if (!m) return;
+        m.id = ch.key;
+        if (m.text === undefined || m.text === null) m.text = "";
+        items.push(m);
+      });
+      if (items.length <= 1) {
+        hasMoreHistory = false;
+        return;
+      }
+      const older = items.slice(0, -1);
+      older.forEach(m => addMessageToChat(m, { prepend: true, autoScroll: false, animate: false }));
+      oldestLoadedKey = older[0].id;
+      hasMoreHistory = older.length === CHAT_HISTORY_PAGE_SIZE;
+      md.scrollTop = (md.scrollHeight - prevHeight) + prevTop;
+    })
+    .finally(() => {
+      isHistoryLoading = false;
+    });
 }
 
 function setActiveChatItem(kind, id) {
@@ -378,9 +561,16 @@ function setActiveChatItem(kind, id) {
   if (el) el.classList.add('active');
 }
 
-function addMessageToChat(m) {
+function addMessageToChat(m, options = {}) {
+  const opts = {
+    prepend: false,
+    autoScroll: true,
+    animate: !isMobile,
+    ...options
+  };
   const md = document.getElementById("messages");
   if (document.getElementById(`message_${m.id}`)) return;
+  if (m.clientMessageId && renderedClientMessageIds.has(m.clientMessageId)) return;
   
   if (m.from !== username && typeof playReceiveSound === 'function') {
     playReceiveSound();
@@ -503,14 +693,21 @@ function addMessageToChat(m) {
       ${m.from === username ? `<span class="message-status ${status}">${status === 'read' ? '✓✓' : status === 'sent' ? '✓' : ''}</span>` : ''}
     </div>`;
   wrap.appendChild(msg);
-  md.appendChild(wrap);
-  if (isMobile) {
+  if (m.clientMessageId) renderedClientMessageIds.add(m.clientMessageId);
+  if (opts.prepend) {
+    md.insertBefore(wrap, md.firstChild);
+  } else {
+    md.appendChild(wrap);
+  }
+  if (!opts.animate || isMobile) {
     wrap.style.opacity = 1;
     wrap.style.transform = 'none';
   } else {
     setTimeout(() => { wrap.style.opacity = 1; wrap.style.transform = 'translateY(0)'; wrap.style.transition = 'all .3s ease'; }, 10);
   }
-  md.scrollTop = md.scrollHeight;
+  if (opts.autoScroll && !opts.prepend) {
+    md.scrollTop = md.scrollHeight;
+  }
   // авто-удаление отключено
 }
 
@@ -645,6 +842,7 @@ async function forwardMessage(messageId, e) {
     delivered: false,
     read: false,
     status: 'sent',
+    clientMessageId: createClientMessageId(),
     forwardedFrom: original.from || ''
   };
   if (original.text) forwarded.text = original.text;
@@ -660,8 +858,13 @@ async function forwardMessage(messageId, e) {
   if (original.duration) forwarded.duration = original.duration;
   const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
   if (expiresAt) forwarded.expiresAt = expiresAt;
-  await db.ref(path).push(forwarded);
-  showNotification('Переслано', 'Сообщение переслано');
+  const sent = navigator.onLine ? await sendMessagePayload(path, forwarded) : false;
+  if (!sent) {
+    enqueuePendingMessage(path, forwarded);
+    showNotification('Сеть', 'Пересылка поставлена в очередь');
+  } else {
+    showNotification('Переслано', 'Сообщение переслано');
+  }
 }
 
 function updateMessageInChat(m) {
@@ -921,11 +1124,107 @@ document.addEventListener('click', (e) => {
   }
 });
 
+function createClientMessageId() {
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function canSendNow() {
+  const now = Date.now();
+  sendRateTimestamps = sendRateTimestamps.filter(ts => (now - ts) < SEND_RATE_WINDOW_MS);
+  if (sendRateTimestamps.length >= SEND_RATE_MAX_MESSAGES) return false;
+  sendRateTimestamps.push(now);
+  return true;
+}
+
+function getPendingQueueKey() {
+  if (!username) return null;
+  return `ruchat_pending_queue_${username}`;
+}
+
+function readPendingQueue() {
+  const key = getPendingQueueKey();
+  if (!key) return [];
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePendingQueue(items) {
+  const key = getPendingQueueKey();
+  if (!key) return;
+  if (!items || !items.length) {
+    localStorage.removeItem(key);
+    return;
+  }
+  localStorage.setItem(key, JSON.stringify(items.slice(-300)));
+}
+
+function enqueuePendingMessage(path, msg) {
+  if (!path || !msg || !msg.clientMessageId) return;
+  const queue = readPendingQueue();
+  const exists = queue.some(item => item.path === path && item.msg && item.msg.clientMessageId === msg.clientMessageId);
+  if (!exists) queue.push({ path, msg });
+  writePendingQueue(queue);
+}
+
+async function sendMessagePayload(path, msg) {
+  if (!path || !msg || !msg.clientMessageId) return false;
+  const targetRef = db.ref(path);
+  try {
+    await targetRef.child(msg.clientMessageId).set(msg);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function flushPendingQueue() {
+  if (!navigator.onLine || !username) return;
+  const queue = readPendingQueue();
+  if (!queue.length) return;
+  const rest = [];
+  for (const item of queue) {
+    if (!item || !item.path || !item.msg) continue;
+    const ok = await sendMessagePayload(item.path, item.msg);
+    if (!ok) rest.push(item);
+  }
+  writePendingQueue(rest);
+}
+
+function markCurrentChatAsRead() {
+  if (!chatRef || !username) return;
+  chatRef.limitToLast(120).once("value").then(snap => {
+    const updates = {};
+    snap.forEach(ch => {
+      const m = ch.val() || {};
+      if (m.from === username) return;
+      if (!m.delivered) updates[`${ch.key}/delivered`] = true;
+      if (!isGroupChat && !m.read) updates[`${ch.key}/read`] = true;
+    });
+    if (Object.keys(updates).length) chatRef.update(updates).catch(() => {});
+  });
+}
+
+window.addEventListener('online', () => {
+  flushPendingQueue();
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    markCurrentChatAsRead();
+    flushPendingQueue();
+  }
+});
+
 async function sendMessage() {
-  if (!checkConnection()) return;
   const ti = document.getElementById("text");
   const txt = ti.value.trim();
   if (!txt || !currentChatId || !chatRef || !username) { showError("Введите сообщение или выберите чат!"); return; }
+  if (!canSendNow()) { showError("Слишком часто. Подождите пару секунд."); return; }
   const btn = document.getElementById("sendBtn");
   const orig = btn.innerHTML;
   btn.innerHTML = "⏳"; btn.style.animation = "rotate 1s linear infinite";
@@ -942,12 +1241,16 @@ async function sendMessage() {
       return;
     }
     const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
-    const msg = { from: username, text: txt, time: Date.now(), sent: true, delivered: false, read: false, status: 'sent' };
+    const msg = { from: username, text: txt, time: Date.now(), sent: true, delivered: false, read: false, status: 'sent', clientMessageId: createClientMessageId() };
     if (expiresAt) msg.expiresAt = expiresAt;
     if (replyToMessage) {
       msg.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
     }
-    await chatRef.push(msg);
+    const sent = navigator.onLine ? await sendMessagePayload(currentChatPath, msg) : false;
+    if (!sent) {
+      enqueuePendingMessage(currentChatPath, msg);
+      showNotification("Сеть", "Сообщение в очереди и отправится при подключении");
+    }
     ti.value = ""; updateSendButton();
     clearReply();
     
@@ -958,6 +1261,7 @@ async function sendMessage() {
     
     btn.innerHTML = orig; btn.style.animation = "";
     if (currentChatPartner && !isGroupChat) sendTypingStatus(false);
+    flushPendingQueue();
   } catch (e) {
     console.error(e);
     showError("Не удалось отправить сообщение", () => sendMessage());
@@ -1170,6 +1474,127 @@ async function unblockUser(fn) {
     hideLoading();
   }
 }
+
+/* ==========================================================
+   11. МЕДИАТЕКА ЧАТА
+   ========================================================== */
+function openMediaLibrary() {
+  if (!currentChatId) { showError('Сначала откройте чат'); return; }
+  const overlay = document.getElementById('mediaLibraryOverlay');
+  if (!overlay) return;
+  overlay.classList.add('active');
+  setMediaTab(mediaLibraryTab || 'photos');
+  if (mediaLibraryChatId !== currentChatId) {
+    mediaLibraryChatId = currentChatId;
+    loadMediaLibrary();
+  } else {
+    renderMediaLibrary();
+  }
+}
+
+function closeMediaLibrary() {
+  const overlay = document.getElementById('mediaLibraryOverlay');
+  if (overlay) overlay.classList.remove('active');
+}
+
+function setMediaTab(tab) {
+  mediaLibraryTab = tab;
+  document.querySelectorAll('.media-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  renderMediaLibrary();
+}
+
+function loadMediaLibrary() {
+  const grid = document.getElementById('mediaGrid');
+  const empty = document.getElementById('mediaEmpty');
+  if (grid) {
+    grid.className = 'media-grid';
+    grid.innerHTML = `<div class="media-loading">Загрузка...</div>`;
+  }
+  if (empty) empty.style.display = 'none';
+  if (!currentChatId) return;
+
+  const basePath = isGroupChat ? 'groupChats' : 'privateChats';
+  db.ref(`${basePath}/${currentChatId}`).limitToLast(500).once('value')
+    .then(snap => {
+      const media = { photos: [], videos: [], files: [] };
+      snap.forEach(child => {
+        const m = child.val() || {};
+        const time = m.time || 0;
+        const photoUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.photo)) ? m.photo : null;
+        const videoUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.video)) ? m.video : null;
+        const audioUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.audio)) ? m.audio : null;
+        const docUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.document)) ? m.document : null;
+
+        if (photoUrl) media.photos.push({ url: photoUrl, time });
+        if (videoUrl) media.videos.push({ url: videoUrl, time, isVideoMessage: m.type === 'video_message' });
+        if (audioUrl) media.files.push({ url: audioUrl, time, kind: 'audio', filename: m.filename || 'Аудио', size: m.filesize || 0 });
+        if (docUrl) media.files.push({ url: docUrl, time, kind: 'file', filename: m.filename || 'Файл', size: m.filesize || 0 });
+      });
+      const sortDesc = (a, b) => (b.time || 0) - (a.time || 0);
+      media.photos.sort(sortDesc);
+      media.videos.sort(sortDesc);
+      media.files.sort(sortDesc);
+      mediaLibraryCache = media;
+      renderMediaLibrary();
+    })
+    .catch(() => {
+      if (grid) grid.innerHTML = `<div class="media-empty">Ошибка загрузки</div>`;
+    });
+}
+
+function renderMediaLibrary() {
+  const grid = document.getElementById('mediaGrid');
+  const empty = document.getElementById('mediaEmpty');
+  if (!grid) return;
+  const items = mediaLibraryCache[mediaLibraryTab] || [];
+  grid.className = mediaLibraryTab === 'files' ? 'media-list' : 'media-grid';
+  grid.innerHTML = '';
+  if (!items.length) {
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  if (mediaLibraryTab === 'files') {
+    items.forEach(item => {
+      const fs = typeof formatFileSize === 'function' ? formatFileSize(item.size || 0) : '';
+      const name = escapeHtml(normalizeText(item.filename || 'Файл'));
+      const meta = [item.kind === 'audio' ? 'Аудио' : 'Файл', fs].filter(Boolean).join(' • ');
+      const a = document.createElement('a');
+      a.className = 'media-file';
+      a.href = item.url;
+      a.target = '_blank';
+      a.download = item.filename || '';
+      a.innerHTML = `
+        <div class="file-icon">${item.kind === 'audio' ? '🎵' : '📄'}</div>
+        <div>
+          <div class="file-name">${name}</div>
+          <div class="file-meta">${meta}</div>
+        </div>`;
+      grid.appendChild(a);
+    });
+    return;
+  }
+
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'media-item';
+    if (mediaLibraryTab === 'photos') {
+      div.innerHTML = `<img src="${item.url}" alt="Фото">`;
+    } else {
+      div.innerHTML = `<video src="${item.url}" muted preload="metadata"></video><div class="media-play">▶</div>`;
+    }
+    div.onclick = () => openMedia(item.url);
+    grid.appendChild(div);
+  });
+}
+
+window.sendMessagePayload = sendMessagePayload;
+window.enqueuePendingMessage = enqueuePendingMessage;
+window.flushPendingQueue = flushPendingQueue;
+window.createClientMessageId = createClientMessageId;
 
 
 

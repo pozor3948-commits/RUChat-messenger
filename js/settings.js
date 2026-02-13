@@ -161,6 +161,12 @@ function showSettingsMenu() {
                         <textarea id="profileAbout" placeholder="О себе" rows="3" style="
                             padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
                             background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none; resize: vertical;"></textarea>
+                        <select id="profileLastSeen" style="
+                            padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+                            background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none;">
+                            <option value="everyone">Показывать статус всем друзьям</option>
+                            <option value="nobody">Скрыть статус от всех</option>
+                        </select>
                         <button onclick="saveProfileSettings()" style="
                             padding: 10px 14px; border-radius: 12px; border: none;
                             background: linear-gradient(45deg, #0088cc, #00b4ff);
@@ -273,9 +279,14 @@ function showSettingsMenu() {
             const displayInput = document.getElementById('profileDisplayName');
             const avatarInput = document.getElementById('profileAvatar');
             const aboutInput = document.getElementById('profileAbout');
+            const lastSeenInput = document.getElementById('profileLastSeen');
             if (displayInput) displayInput.value = dn;
             if (avatarInput) avatarInput.value = data.avatar || '';
             if (aboutInput) aboutInput.value = about;
+            if (lastSeenInput) {
+                const privacy = data.privacy || {};
+                lastSeenInput.value = privacy.showLastSeen || 'everyone';
+            }
         } catch (e) {
             // ignore
         }
@@ -289,9 +300,11 @@ function showSettingsMenu() {
         const displayInput = document.getElementById('profileDisplayName');
         const avatarInput = document.getElementById('profileAvatar');
         const aboutInput = document.getElementById('profileAbout');
+        const lastSeenInput = document.getElementById('profileLastSeen');
         const displayName = displayInput ? displayInput.value.trim() : '';
         const avatar = avatarInput ? avatarInput.value.trim() : '';
         const about = aboutInput ? aboutInput.value.trim() : '';
+        const lastSeen = lastSeenInput ? lastSeenInput.value : 'everyone';
         const finalName = displayName.length ? displayName : user;
         if (finalName.length < 2) { showError('Имя должно быть минимум 2 символа'); return; }
         if (avatar && (typeof isValidMediaUrl === 'function') && !isValidMediaUrl(avatar)) { showError('Неверный URL аватарки'); return; }
@@ -300,7 +313,10 @@ function showSettingsMenu() {
             await database.ref("accounts/" + user).update({
                 displayName: finalName,
                 about: about,
-                avatar: avatar
+                avatar: avatar,
+                privacy: {
+                    showLastSeen: lastSeen === 'nobody' ? 'nobody' : 'everyone'
+                }
             });
             showNotification('Профиль', 'Профиль обновлен', 'success');
             closeSettings();

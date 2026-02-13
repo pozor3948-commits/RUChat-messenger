@@ -337,7 +337,7 @@ function cancelVideoRecording() {
 }
 
 async function sendVideoMessage(videoData) {
-    if (!checkConnection() || !currentChatId || !chatRef) {
+    if (!currentChatId || !chatRef) {
         showError('Невозможно отправить сообщение');
         return;
     }
@@ -354,6 +354,7 @@ async function sendVideoMessage(videoData) {
             delivered: false,
             read: false,
             status: 'sent',
+            clientMessageId: (typeof createClientMessageId === 'function') ? createClientMessageId() : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
             type: 'video_message',
             duration: Math.floor((Date.now() - recordingStartTime) / 1000)
         };
@@ -363,8 +364,16 @@ async function sendVideoMessage(videoData) {
             message.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
         }
         
-        await chatRef.push(message);
-        showNotification('Успешно', 'Видеосообщение отправлено!');
+        const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
+        const sent = (typeof sendMessagePayload === 'function')
+            ? await sendMessagePayload(path, message)
+            : await chatRef.push(message).then(() => true).catch(() => false);
+        if (!sent && typeof enqueuePendingMessage === 'function') {
+            enqueuePendingMessage(path, message);
+            showNotification('Сеть', 'Видеосообщение в очереди отправки');
+        } else {
+            showNotification('Успешно', 'Видеосообщение отправлено!');
+        }
         if (typeof clearReply === 'function') clearReply();
         
         if (typeof playSendSound === 'function') {

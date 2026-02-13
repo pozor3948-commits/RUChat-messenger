@@ -14,6 +14,41 @@ let voiceRecordLocked = false;
 let voiceRecordCancelled = false;
 let voiceHoldActive = false;
 
+function fileToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
+        reader.readAsDataURL(file);
+    });
+}
+
+function compressImageDataUrl(dataUrl, maxSide = 1600, quality = 0.82) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            let { width, height } = img;
+            if (Math.max(width, height) > maxSide) {
+                const scale = maxSide / Math.max(width, height);
+                width = Math.max(1, Math.round(width * scale));
+                height = Math.max(1, Math.round(height * scale));
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                resolve(dataUrl);
+                return;
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+    });
+}
+
 // Функция запуска записи голосового сообщения
 async function startVoiceRecord() {
     if (voiceRecorder && voiceRecorder.state === 'recording') {
@@ -407,7 +442,7 @@ function cleanupVoiceRecording() {
 
 // Отправка голосового сообщения
 async function sendVoiceMessage(audioData, isTest = false) {
-    if (!checkConnection() || !currentChatId || !chatRef || !username) {
+    if (!currentChatId || !chatRef || !username) {
         showError('Невозможно отправить сообщение');
         return;
     }
@@ -428,6 +463,7 @@ async function sendVoiceMessage(audioData, isTest = false) {
             delivered: false,
             read: false,
             status: 'sent',
+            clientMessageId: (typeof createClientMessageId === 'function') ? createClientMessageId() : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
             type: 'voice_message',
             duration: voiceRecordingTime || 5,
             isTest: isTest || false
@@ -438,7 +474,14 @@ async function sendVoiceMessage(audioData, isTest = false) {
             message.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
         }
         
-        await chatRef.push(message);
+        const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
+        const sent = (typeof sendMessagePayload === 'function')
+            ? await sendMessagePayload(path, message)
+            : await chatRef.push(message).then(() => true).catch(() => false);
+        if (!sent && typeof enqueuePendingMessage === 'function') {
+            enqueuePendingMessage(path, message);
+            showNotification('Сеть', 'Голосовое в очереди отправки');
+        }
         
         if (isTest) {
             showNotification('Демо', 'Тестовое голосовое сообщение отправлено!');
@@ -489,13 +532,16 @@ function attachPhoto() {
         const files = Array.from(e.target.files);
         if (!files.length) return;
         showLoading();
-        for (const file of files) {
-            const reader = new FileReader();
-            reader.onload = async ev => await sendMediaMessage('photo', ev.target.result, file.name);
-            reader.readAsDataURL(file);
+        try {
+            for (const file of files) {
+                const raw = await fileToDataUrl(file);
+                const compressed = await compressImageDataUrl(raw);
+                await sendMediaMessage('photo', compressed, file.name);
+            }
+        } finally {
+            hideLoading();
+            document.getElementById("attachmentMenu").classList.remove("active");
         }
-        hideLoading();
-        document.getElementById("attachmentMenu").classList.remove("active");
     };
     inp.click();
 }
@@ -507,11 +553,13 @@ function attachVideo() {
         const file = e.target.files[0];
         if (!file) return;
         showLoading();
-        const reader = new FileReader();
-        reader.onload = async ev => await sendMediaMessage('video', ev.target.result, file.name);
-        reader.readAsDataURL(file);
-        hideLoading();
-        document.getElementById("attachmentMenu").classList.remove("active");
+        try {
+            const raw = await fileToDataUrl(file);
+            await sendMediaMessage('video', raw, file.name);
+        } finally {
+            hideLoading();
+            document.getElementById("attachmentMenu").classList.remove("active");
+        }
     };
     inp.click();
 }
@@ -523,11 +571,13 @@ function attachDocument() {
         const file = e.target.files[0];
         if (!file) return;
         showLoading();
-        const reader = new FileReader();
-        reader.onload = async ev => await sendMediaMessage('document', ev.target.result, file.name, file.size);
-        reader.readAsDataURL(file);
-        hideLoading();
-        document.getElementById("attachmentMenu").classList.remove("active");
+        try {
+            const raw = await fileToDataUrl(file);
+            await sendMediaMessage('document', raw, file.name, file.size);
+        } finally {
+            hideLoading();
+            document.getElementById("attachmentMenu").classList.remove("active");
+        }
     };
     inp.click();
 }
@@ -539,17 +589,18 @@ function attachAudio() {
         const file = e.target.files[0];
         if (!file) return;
         showLoading();
-        const reader = new FileReader();
-        reader.onload = async ev => await sendMediaMessage('audio', ev.target.result, file.name);
-        reader.readAsDataURL(file);
-        hideLoading();
-        document.getElementById("attachmentMenu").classList.remove("active");
+        try {
+            const raw = await fileToDataUrl(file);
+            await sendMediaMessage('audio', raw, file.name);
+        } finally {
+            hideLoading();
+            document.getElementById("attachmentMenu").classList.remove("active");
+        }
     };
     inp.click();
 }
 
 async function sendMediaMessage(type, data, filename, filesize) {
-    if (!checkConnection()) return;
     if (!currentChatId || !chatRef || !username) { 
         showError("Выберите чат для отправки!"); 
         return; 
@@ -564,7 +615,8 @@ async function sendMediaMessage(type, data, filename, filesize) {
             sent: true, 
             delivered: false, 
             read: false, 
-            status: 'sent' 
+            status: 'sent',
+            clientMessageId: (typeof createClientMessageId === 'function') ? createClientMessageId() : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
         };
         const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
         if (expiresAt) msg.expiresAt = expiresAt;
@@ -593,8 +645,16 @@ async function sendMediaMessage(type, data, filename, filesize) {
                 break;
         }
         
-        await chatRef.push(msg);
-        showNotification("Успешно", "Файл отправлен!");
+        const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
+        const sent = (typeof sendMessagePayload === 'function')
+            ? await sendMessagePayload(path, msg)
+            : await chatRef.push(msg).then(() => true).catch(() => false);
+        if (!sent && typeof enqueuePendingMessage === 'function') {
+            enqueuePendingMessage(path, msg);
+            showNotification("Сеть", "Файл в очереди отправки");
+        } else {
+            showNotification("Успешно", "Файл отправлен!");
+        }
         if (typeof clearReply === 'function') clearReply();
         
     } catch (e) {

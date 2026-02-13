@@ -134,6 +134,7 @@ async function sendSticker(stickerId) {
     delivered: false,
     read: false,
     status: 'sent',
+    clientMessageId: (typeof createClientMessageId === 'function') ? createClientMessageId() : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
     sticker: st.url,
     stickerEmoji: st.emoji || ''
   };
@@ -141,7 +142,14 @@ async function sendSticker(stickerId) {
   if (expiresAt) msg.expiresAt = expiresAt;
   const reply = typeof getReplyToMessage === 'function' ? getReplyToMessage() : null;
   if (reply) msg.replyTo = { id: reply.id, from: reply.from, text: reply.text };
-  await chatRef.push(msg);
+  const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
+  const sent = (typeof sendMessagePayload === 'function')
+    ? await sendMessagePayload(path, msg)
+    : await chatRef.push(msg).then(() => true).catch(() => false);
+  if (!sent && typeof enqueuePendingMessage === 'function') {
+    enqueuePendingMessage(path, msg);
+    showNotification('Сеть', 'Стикер в очереди отправки');
+  }
   if (reply && typeof clearReply === 'function') clearReply();
 }
 

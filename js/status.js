@@ -19,15 +19,28 @@ function getOnlineDotClass(st) {
     return "online-dot recently";
 }
 
+function canShowLastSeen(friendName) {
+    const cache = window.friendPrivacyCache || {};
+    const rule = cache[friendName] || 'everyone';
+    if (rule === 'nobody') return false;
+    return true;
+}
+
 function updateFriendStatusInList(friendName, statusData) {
     // Используем глобальную переменную userStatuses из utils.js
     userStatuses[friendName] = statusData;
     const onlineDot = document.getElementById(`online_${friendName}`);
     const lastSeenElement = document.getElementById(`lastSeen_${friendName}`);
+    const visible = canShowLastSeen(friendName);
     if (onlineDot) onlineDot.className = getOnlineDotClass(statusData);
     if (lastSeenElement) {
-        lastSeenElement.textContent = getFriendStatusText(statusData);
-        lastSeenElement.className = `last-seen ${getFriendStatusClass(statusData)}`;
+        if (visible) {
+            lastSeenElement.textContent = getFriendStatusText(statusData);
+            lastSeenElement.className = `last-seen ${getFriendStatusClass(statusData)}`;
+        } else {
+            lastSeenElement.textContent = "Скрыт(а)";
+            lastSeenElement.className = "last-seen recently";
+        }
     }
     if (currentChatPartner === friendName && !isGroupChat) updateChatStatus(friendName, statusData);
 }
@@ -36,7 +49,7 @@ function updateChatStatus(friendName, statusData) {
     const chatMembersElement = document.getElementById("chatMembers");
     const mobileChatStatus = document.getElementById("mobileChatStatus");
     if (chatMembersElement && mobileChatStatus) {
-        const statusText = getFriendStatusText(statusData);
+        const statusText = canShowLastSeen(friendName) ? getFriendStatusText(statusData) : "Скрыт(а)";
         const statusClass = getFriendStatusClass(statusData);
         chatMembersElement.textContent = statusText;
         chatMembersElement.className = `chat-members ${statusClass}`;
