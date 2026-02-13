@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById("text").addEventListener("input", updateSendButton);
     updateSendButton();
     checkMobile();
+    if (typeof setupMobileInputFixes === 'function') setupMobileInputFixes();
 
     if (isMobile && currentChatId) {
         if (typeof openChatCommon === 'function') {

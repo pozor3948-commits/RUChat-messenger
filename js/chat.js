@@ -17,6 +17,7 @@ let blockedCache = {};
 const friendPrivacyCache = {};
 window.friendPrivacyCache = friendPrivacyCache;
 const groupValueListeners = {};
+const unreadListenerByFriend = {};
 
 const lastMessageKeyByChat = {};
 const reactionOptions = ['👍','❤️','😂','😮','😢','😡'];
@@ -99,6 +100,52 @@ function upsertChatCacheMessage(path, message) {
   writeChatCache(path, list);
 }
 
+function clearUnreadListener(friendName) {
+  const listener = unreadListenerByFriend[friendName];
+  if (!listener) return;
+  try {
+    listener.query.off("value", listener.handler);
+  } catch {
+    // ignore
+  }
+  delete unreadListenerByFriend[friendName];
+}
+
+function setUnreadIndicator(friendName, count) {
+  const safeCount = Number.isFinite(count) ? Math.max(0, count) : 0;
+  const hasUnread = safeCount > 0;
+  const dot = document.getElementById(`unreadDot_${friendName}`);
+  const badge = document.getElementById(`unread_${friendName}`);
+  const item = document.getElementById(`contact_${friendName}`);
+
+  if (dot) dot.style.display = hasUnread ? "block" : "none";
+  if (badge) {
+    badge.style.display = hasUnread ? "inline-flex" : "none";
+    badge.textContent = safeCount > 99 ? "99+" : String(safeCount);
+  }
+  if (item) item.classList.toggle('has-unread', hasUnread);
+}
+
+function subscribeUnreadForFriend(friendName) {
+  if (!username || !friendName) return;
+  clearUnreadListener(friendName);
+  const chatId = [username, friendName].sort().join("_");
+  const query = db.ref(`privateChats/${chatId}`).limitToLast(120);
+  const handler = (snap) => {
+    let unreadCount = 0;
+    if (snap.exists()) {
+      snap.forEach(ch => {
+        const m = ch.val() || {};
+        if (m.from !== username && m.read !== true) unreadCount += 1;
+      });
+    }
+    if (currentChatId === chatId && !isGroupChat) unreadCount = 0;
+    setUnreadIndicator(friendName, unreadCount);
+  };
+  query.on("value", handler);
+  unreadListenerByFriend[friendName] = { query, handler };
+}
+
 /* ==========================================================
    6. ЗАГРУЗКА ДАННЫХ
    ========================================================== */
@@ -122,6 +169,9 @@ function renderFriends() {
   friendList.innerHTML = "";
   const friendKeys = Object.keys(friendsCache || {});
   const visibleKeys = friendKeys.filter(fn => !blockedCache[fn]);
+  Object.keys(unreadListenerByFriend).forEach(fn => {
+    if (!visibleKeys.includes(fn)) clearUnreadListener(fn);
+  });
   if (!visibleKeys.length) {
     friendList.innerHTML = `
       <div class="empty-state">
@@ -194,6 +244,7 @@ function createFriendItem(fn) {
     <div style="position:relative;">
       <img class="contact-avatar" id="avatar_${fn}" alt="${displayName}" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=48'">
       <span class="online-dot recently" id="online_${fn}"></span>
+      <span class="chat-unread-dot" id="unreadDot_${fn}" style="display:none;"></span>
     </div>
     <div class="contact-info">
       <div class="contact-name" id="contactName_${fn}">${displayName}</div>
@@ -232,6 +283,7 @@ function createFriendItem(fn) {
       updateFriendStatusInList(fn, userStatuses[fn] || null);
     }
   });
+  subscribeUnreadForFriend(fn);
   loadLastMessage(fn);
 }
 
@@ -426,6 +478,7 @@ function openPrivateChat(fn) {
   isGroupChat = false;
   currentChatId = [username, fn].sort().join("_");
   currentChatPartner = fn;
+  setUnreadIndicator(fn, 0);
   currentGroupRole = 'member';
   currentGroupName = '';
   if (typeof clearMessageSearch === 'function') clearMessageSearch();

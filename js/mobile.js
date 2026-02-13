@@ -10,6 +10,61 @@ function checkMobile() {
     else document.getElementById('mobileBackBtn').classList.remove('active');
 }
 
+let mobileInputFixInitialized = false;
+function setupMobileInputFixes() {
+    if (mobileInputFixInitialized) return;
+    const textInput = document.getElementById('text');
+    if (!textInput) return;
+    mobileInputFixInitialized = true;
+
+    const syncInputPaint = () => {
+        if (!isMobile) return;
+        const isLight = document.body.classList.contains('light');
+        textInput.style.color = isLight ? '#0f172a' : '#f8fafc';
+        textInput.style.webkitTextFillColor = isLight ? '#0f172a' : '#f8fafc';
+        textInput.style.caretColor = '#00a3ff';
+    };
+
+    textInput.addEventListener('focus', () => {
+        if (!isMobile) return;
+        document.body.classList.add('keyboard-open');
+        syncInputPaint();
+        requestAnimationFrame(() => {
+            const messages = document.getElementById('messages');
+            if (messages) messages.scrollTop = messages.scrollHeight;
+        });
+    });
+
+    textInput.addEventListener('blur', () => {
+        document.body.classList.remove('keyboard-open');
+    });
+
+    textInput.addEventListener('input', syncInputPaint);
+    textInput.addEventListener('compositionend', syncInputPaint);
+    const inputContainer = document.querySelector('.message-input-container');
+    if (inputContainer) {
+        inputContainer.addEventListener('click', (event) => {
+            if (!isMobile) return;
+            if (event.target.closest('button')) return;
+            if (document.activeElement !== textInput) textInput.focus();
+        });
+    }
+
+    if (window.visualViewport) {
+        const onViewportResize = () => {
+            if (!isMobile) return;
+            const keyboardHeight = window.innerHeight - window.visualViewport.height;
+            const keyboardOpen = keyboardHeight > 140;
+            if (document.activeElement === textInput) {
+                document.body.classList.toggle('keyboard-open', keyboardOpen);
+            }
+        };
+        window.visualViewport.addEventListener('resize', onViewportResize);
+    }
+
+    syncInputPaint();
+}
+
 function updateCallButtonVisibility() {
     const callBtn = document.getElementById('callButton');
     const mobileCallBtn = document.getElementById('mobileCallBtn');
@@ -110,6 +165,7 @@ function handleMobileMenuButton() {
 }
 
 window.handleMobileMenuButton = handleMobileMenuButton;
+window.setupMobileInputFixes = setupMobileInputFixes;
 
 // Переопределяем существующие функции открытия чата
 const originalOpenPrivateChat = openPrivateChat;

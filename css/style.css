@@ -76,6 +76,20 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
 .online-dot.offline { background:linear-gradient(45deg,#6b7280,#4b5563); animation:none; }
 .online-dot.idle { background:linear-gradient(45deg,#f59e0b,#d97706); animation:pulse 2s infinite; }
 .online-dot.recently { background:linear-gradient(45deg,#f59e0b,#d97706); animation:pulse 2s infinite; }
+.chat-unread-dot {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #00a3ff, #38bdf8);
+    border: 2px solid #1e2736;
+    box-shadow: 0 0 0 2px rgba(0, 163, 255, 0.2);
+}
+.contact-item.has-unread {
+    border: 1px solid rgba(0, 163, 255, 0.35);
+}
 .contact-info { flex:1; }
 .contact-name { font-weight:500; font-size:16px; margin-bottom:4px; background:linear-gradient(45deg,#fff,#cbd5e1); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
 .last-message { font-size:14px; color:#8a8f98; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2696,6 +2710,7 @@ body.light .media-library-title { color: #0f172a; }
 body.light .media-tab { color: #0f172a; background: #f1f5f9; border-color: rgba(15,23,42,0.12); }
 body.light .media-file { color: #0f172a; background: #f8fafc; border-color: rgba(15,23,42,0.12); }
 body.light .media-file:hover { background: #eef2f7; }
+body.light .chat-unread-dot { border-color: #ffffff; }
 
 @media (max-width: 768px) {
     .chat-bg-grid { grid-template-columns: repeat(3, 1fr); }
@@ -2843,6 +2858,24 @@ body.light .media-file:hover { background: #eef2f7; }
     .chat-settings-menu {
         top: calc(64px + var(--safe-top));
         left: 10px;
+    }
+    .message-input {
+        color: #f8fafc !important;
+        -webkit-text-fill-color: #f8fafc !important;
+        caret-color: #00a3ff !important;
+        opacity: 1 !important;
+        text-shadow: none !important;
+    }
+    body.light .message-input {
+        color: #0f172a !important;
+        -webkit-text-fill-color: #0f172a !important;
+    }
+    body.keyboard-open .message-input-container {
+        position: sticky !important;
+        bottom: 0 !important;
+    }
+    body.keyboard-open .messages-container {
+        padding-bottom: calc(130px + var(--safe-bottom)) !important;
     }
 }
 
