@@ -118,6 +118,42 @@ const firebaseConfig = {
 };
 ```
 
+### Серверное усиление (Rules + Cloud Functions)
+
+В проект добавлены:
+- `database.rules.json` — строгая валидация структуры данных.
+- `functions/index.js` — серверная модерация сообщений, rate limit и синхронизация `usersGroups`.
+- `firebase.json` — конфиг деплоя правил и функций.
+
+Быстрый запуск:
+
+```bash
+cd rugram-enhanced
+npm i -g firebase-tools
+firebase login
+firebase use <YOUR_FIREBASE_PROJECT_ID>
+
+# Functions
+cd functions
+npm install
+cd ..
+
+# Деплой правил + функций
+firebase deploy --only database,functions
+```
+
+Опционально можно создать `.firebaserc` из шаблона `.firebaserc.example`.
+
+Локальный тест:
+
+```bash
+firebase emulators:start --only database,functions
+```
+
+Важно:
+- Без Firebase Auth это не zero-trust модель.  
+- Текущие rules и функции уже закрывают: базовую валидацию payload, антиспам, anti-flood на заявки в друзья, серверную нормализацию сообщений и индекс `usersGroups`.
+
 ## 🎨 Функции Интерфейса
 
 ### Десктоп

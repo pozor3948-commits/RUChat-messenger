@@ -41,7 +41,7 @@ async function createGroup() {
   roles[username] = 'owner';
   try {
     const ref = db.ref("groups").push();
-    await ref.set({
+    const groupPayload = {
       name: n,
       avatar: avatarUrl,
       members: members,
@@ -53,7 +53,13 @@ async function createGroup() {
       },
       createdBy: username,
       createdAt: Date.now()
+    };
+    const updates = {};
+    updates[`groups/${ref.key}`] = groupPayload;
+    Object.keys(members).forEach(memberName => {
+      updates[`usersGroups/${memberName}/${ref.key}`] = true;
     });
+    await db.ref().update(updates);
     showNotification("Успешно", `Группа "${n}" создана!`);
     closeGroupModal();
     document.getElementById("groupNameInput").value = "";

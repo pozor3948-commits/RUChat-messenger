@@ -1,0 +1,180 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": false,
+    "accounts": {
+      "$user": {
+        ".write": true,
+        "password": {
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 128"
+        },
+        "displayName": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64)"
+        },
+        "about": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)"
+        },
+        "avatar": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 15000000)"
+        },
+        "online": {
+          ".validate": "!newData.exists() || newData.isBoolean()"
+        },
+        "lastSeen": {
+          ".validate": "!newData.exists() || newData.isNumber()"
+        },
+        "privacy": {
+          "showLastSeen": {
+            ".validate": "!newData.exists() || (newData.isString() && (newData.val() === 'everyone' || newData.val() === 'nobody'))"
+          }
+        },
+        "friends": {
+          "$friend": {
+            ".validate": "newData.val() === true || newData.val() === null"
+          }
+        },
+        "blocked": {
+          "$blockedUser": {
+            ".validate": "newData.val() === true || newData.val() === null"
+          }
+        },
+        "friendRequests": {
+          "incoming": {
+            "$from": {
+              ".validate": "newData.val() === true || newData.val() === null"
+            }
+          },
+          "outgoing": {
+            "$to": {
+              ".validate": "newData.val() === true || newData.val() === null"
+            }
+          }
+        },
+        "devices": {
+          "$deviceToken": {
+            ".validate": "newData.hasChildren(['createdAt']) && newData.child('createdAt').isNumber()"
+          }
+        },
+        "stickers": {
+          "$stickerId": {
+            ".validate": "newData.hasChildren(['url', 'createdAt']) && newData.child('url').isString() && newData.child('url').val().length <= 15000000 && newData.child('createdAt').isNumber() && (!newData.child('emoji').exists() || (newData.child('emoji').isString() && newData.child('emoji').val().length <= 12))"
+          }
+        },
+        "stories": {
+          "$storyId": {
+            ".validate": "newData.hasChildren(['author', 'createdAt']) && newData.child('author').isString() && newData.child('createdAt').isNumber() && (!newData.child('text').exists() || (newData.child('text').isString() && newData.child('text').val().length <= 500)) && (!newData.child('photo').exists() || (newData.child('photo').isString() && newData.child('photo').val().length <= 15000000)) && (!newData.child('video').exists() || (newData.child('video').isString() && newData.child('video').val().length <= 15000000))"
+          }
+        }
+      }
+    },
+    "userStatus": {
+      "$user": {
+        ".write": true,
+        ".validate": "newData.hasChildren(['online', 'idle', 'lastSeen', 'username']) && newData.child('online').isBoolean() && newData.child('idle').isBoolean() && newData.child('lastSeen').isNumber() && newData.child('username').isString()"
+      }
+    },
+    "privateChats": {
+      "$chatId": {
+        ".write": true,
+        ".indexOn": ["time", "from", "clientMessageId"],
+        "$messageId": {
+          ".validate": "newData.hasChildren(['from', 'time']) && newData.child('from').isString() && newData.child('from').val().length > 0 && newData.child('from').val().length <= 64 && newData.child('time').isNumber() && (!newData.child('clientMessageId').exists() || (newData.child('clientMessageId').isString() && newData.child('clientMessageId').val().length <= 120)) && (!newData.child('text').exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000)) && (!newData.child('status').exists() || (newData.child('status').isString() && (newData.child('status').val() === 'sent' || newData.child('status').val() === 'read' || newData.child('status').val() === 'error'))) && (!newData.child('sent').exists() || newData.child('sent').isBoolean()) && (!newData.child('delivered').exists() || newData.child('delivered').isBoolean()) && (!newData.child('read').exists() || newData.child('read').isBoolean()) && (!newData.child('edited').exists() || newData.child('edited').isBoolean()) && (!newData.child('editedAt').exists() || newData.child('editedAt').isNumber()) && (!newData.child('photo').exists() || (newData.child('photo').isString() && newData.child('photo').val().length <= 15000000)) && (!newData.child('video').exists() || (newData.child('video').isString() && newData.child('video').val().length <= 15000000)) && (!newData.child('audio').exists() || (newData.child('audio').isString() && newData.child('audio').val().length <= 15000000)) && (!newData.child('document').exists() || (newData.child('document').isString() && newData.child('document').val().length <= 15000000)) && (!newData.child('filename').exists() || (newData.child('filename').isString() && newData.child('filename').val().length <= 256)) && (!newData.child('filesize').exists() || (newData.child('filesize').isNumber() && newData.child('filesize').val() >= 0 && newData.child('filesize').val() <= 52428800)) && (!newData.child('type').exists() || (newData.child('type').isString() && newData.child('type').val().length <= 40)) && (!newData.child('duration').exists() || (newData.child('duration').isNumber() && newData.child('duration').val() >= 0 && newData.child('duration').val() <= 3600)) && (!newData.child('replyTo').exists() || (newData.child('replyTo').hasChildren(['id', 'from', 'text']) && newData.child('replyTo/id').isString() && newData.child('replyTo/from').isString() && newData.child('replyTo/text').isString())) && (!newData.child('reactions').exists() || newData.child('reactions').isObject()) && (!data.exists() || newData.child('from').val() === data.child('from').val()) && (!data.exists() || newData.child('time').val() === data.child('time').val())",
+          "reactions": {
+            "$emoji": {
+              "$user": {
+                ".validate": "newData.val() === true || newData.val() === null"
+              }
+            }
+          }
+        }
+      }
+    },
+    "groupChats": {
+      "$groupId": {
+        ".write": true,
+        ".indexOn": ["time", "from", "clientMessageId"],
+        "$messageId": {
+          ".validate": "newData.hasChildren(['from', 'time']) && newData.child('from').isString() && newData.child('from').val().length > 0 && newData.child('from').val().length <= 64 && newData.child('time').isNumber() && (!newData.child('clientMessageId').exists() || (newData.child('clientMessageId').isString() && newData.child('clientMessageId').val().length <= 120)) && (!newData.child('text').exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000)) && (!newData.child('status').exists() || (newData.child('status').isString() && (newData.child('status').val() === 'sent' || newData.child('status').val() === 'read' || newData.child('status').val() === 'error'))) && (!newData.child('sent').exists() || newData.child('sent').isBoolean()) && (!newData.child('delivered').exists() || newData.child('delivered').isBoolean()) && (!newData.child('read').exists() || newData.child('read').isBoolean()) && (!newData.child('edited').exists() || newData.child('edited').isBoolean()) && (!newData.child('editedAt').exists() || newData.child('editedAt').isNumber()) && (!newData.child('photo').exists() || (newData.child('photo').isString() && newData.child('photo').val().length <= 15000000)) && (!newData.child('video').exists() || (newData.child('video').isString() && newData.child('video').val().length <= 15000000)) && (!newData.child('audio').exists() || (newData.child('audio').isString() && newData.child('audio').val().length <= 15000000)) && (!newData.child('document').exists() || (newData.child('document').isString() && newData.child('document').val().length <= 15000000)) && (!newData.child('filename').exists() || (newData.child('filename').isString() && newData.child('filename').val().length <= 256)) && (!newData.child('filesize').exists() || (newData.child('filesize').isNumber() && newData.child('filesize').val() >= 0 && newData.child('filesize').val() <= 52428800)) && (!newData.child('type').exists() || (newData.child('type').isString() && newData.child('type').val().length <= 40)) && (!newData.child('duration').exists() || (newData.child('duration').isNumber() && newData.child('duration').val() >= 0 && newData.child('duration').val() <= 3600)) && (!newData.child('replyTo').exists() || (newData.child('replyTo').hasChildren(['id', 'from', 'text']) && newData.child('replyTo/id').isString() && newData.child('replyTo/from').isString() && newData.child('replyTo/text').isString())) && (!newData.child('reactions').exists() || newData.child('reactions').isObject()) && (!data.exists() || newData.child('from').val() === data.child('from').val()) && (!data.exists() || newData.child('time').val() === data.child('time').val())",
+          "reactions": {
+            "$emoji": {
+              "$user": {
+                ".validate": "newData.val() === true || newData.val() === null"
+              }
+            }
+          }
+        }
+      }
+    },
+    "groups": {
+      "$groupId": {
+        ".write": true,
+        ".indexOn": ["createdBy", "createdAt"],
+        ".validate": "newData.hasChildren(['name', 'members', 'createdBy', 'createdAt']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 80 && newData.child('members').isObject() && newData.child('createdBy').isString() && newData.child('createdBy').val().length >= 1 && newData.child('createdBy').val().length <= 64 && newData.child('createdAt').isNumber() && (!newData.child('avatar').exists() || (newData.child('avatar').isString() && newData.child('avatar').val().length <= 15000000))",
+        "members": {
+          "$user": {
+            ".validate": "newData.val() === true || newData.val() === null"
+          }
+        },
+        "roles": {
+          "$user": {
+            ".validate": "newData.val() === 'owner' || newData.val() === 'admin' || newData.val() === 'member' || newData.val() === null"
+          }
+        },
+        "permissions": {
+          "$permission": {
+            ".validate": "newData.val() === 'owner_admin' || newData.val() === 'members' || newData.val() === null"
+          }
+        }
+      }
+    },
+    "usersGroups": {
+      "$user": {
+        ".write": true,
+        "$groupId": {
+          ".validate": "newData.val() === true || newData.val() === null"
+        }
+      }
+    },
+    "typing": {
+      "$chatId": {
+        ".write": true,
+        "$user": {
+          ".validate": "newData.isBoolean() || newData.val() === null"
+        }
+      }
+    },
+    "calls": {
+      "$chatId": {
+        ".write": true,
+        ".indexOn": ["status", "timestamp", "from", "to"],
+        "from": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64)"
+        },
+        "to": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64)"
+        },
+        "status": {
+          ".validate": "!newData.exists() || (newData.isString() && (newData.val() === 'calling' || newData.val() === 'answered' || newData.val() === 'rejected' || newData.val() === 'ended' || newData.val() === 'failed'))"
+        },
+        "timestamp": {
+          ".validate": "!newData.exists() || newData.isNumber()"
+        },
+        "offer": {
+          ".validate": "!newData.exists() || (newData.hasChildren(['type', 'sdp']) && newData.child('type').isString() && newData.child('sdp').isString())"
+        },
+        "answer": {
+          ".validate": "!newData.exists() || (newData.hasChildren(['type', 'sdp']) && newData.child('type').isString() && newData.child('sdp').isString())"
+        },
+        "candidates": {
+          "$candidateId": {
+            ".validate": "newData.hasChildren(['candidate', 'from']) && newData.child('from').isString() && newData.child('from').val().length <= 64"
+          }
+        }
+      }
+    },
+    "rateLimits": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

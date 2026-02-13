@@ -16,6 +16,7 @@ let friendsCache = {};
 let blockedCache = {};
 const friendPrivacyCache = {};
 window.friendPrivacyCache = friendPrivacyCache;
+const groupValueListeners = {};
 
 const lastMessageKeyByChat = {};
 const reactionOptions = ['👍','❤️','😂','😮','😢','😡'];
@@ -267,22 +268,60 @@ function loadLastMessage(fn) {
 
 function loadGroups() {
   const gl = document.getElementById("groupList");
-  db.ref("groups").orderByChild("members/" + username).equalTo(true).on("value", snap => {
+  const clearGroupRefs = () => {
+    Object.keys(groupValueListeners).forEach(gid => {
+      db.ref(`groups/${gid}`).off("value", groupValueListeners[gid]);
+      delete groupValueListeners[gid];
+    });
+  };
+  const renderEmpty = () => {
+    gl.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">👥</div>
+        <div class="title">У вас пока нет групп</div>
+        <div class="description">Создайте группу или вас пригласят</div>
+      </div>`;
+  };
+
+  db.ref(`usersGroups/${username}`).on("value", snap => {
+    clearGroupRefs();
     gl.innerHTML = "";
+
     if (!snap.exists()) {
-      gl.innerHTML = `
-        <div class="empty-state">
-          <div class="icon">👥</div>
-          <div class="title">У вас пока нет групп</div>
-          <div class="description">Создайте группу или вас пригласят</div>
-        </div>`;
+      // Fallback для старых данных, пока индекс не собран функциями
+      db.ref("groups").orderByChild("members/" + username).equalTo(true).once("value").then(oldSnap => {
+        gl.innerHTML = "";
+        if (!oldSnap.exists()) { renderEmpty(); return; }
+        const delayStep = isMobile ? 0 : 50;
+        let idx = 0;
+        oldSnap.forEach(ch => {
+          const g = ch.val(), gid = ch.key;
+          setTimeout(() => createGroupItem(g, gid), idx * delayStep);
+          idx++;
+        });
+      });
       return;
     }
+
+    const groupIds = Object.keys(snap.val() || {});
+    if (!groupIds.length) { renderEmpty(); return; }
     const delayStep = isMobile ? 0 : 50;
     let idx = 0;
-    snap.forEach(ch => {
-      const g = ch.val(), gid = ch.key;
-      setTimeout(() => createGroupItem(g, gid), idx * delayStep);
+    groupIds.forEach(gid => {
+      const scheduledDelay = idx * delayStep;
+      const handler = gs => {
+        if (!gs.exists()) {
+          const item = document.getElementById(`group_${gid}`);
+          if (item) item.remove();
+          return;
+        }
+        createGroupItem(gs.val() || {}, gid);
+      };
+      const listener = gs => {
+        setTimeout(() => handler(gs), scheduledDelay);
+      };
+      groupValueListeners[gid] = listener;
+      db.ref(`groups/${gid}`).on("value", listener);
       idx++;
     });
   });
@@ -293,10 +332,14 @@ function createGroupItem(g, gid) {
   const myRole = (g.roles && g.roles[username]) ? g.roles[username] : 'member';
   const roleLabel = myRole === 'owner' ? 'Владелец' : (myRole === 'admin' ? 'Админ' : 'Участник');
   const gl = document.getElementById("groupList");
-  const item = document.createElement("div");
-  item.className = "group-item";
-  item.id = `group_${gid}`;
-  item.style.animation = isMobile ? "none" : "slideUp .3s ease-out";
+  let item = document.getElementById(`group_${gid}`);
+  if (!item) {
+    item = document.createElement("div");
+    item.className = "group-item";
+    item.id = `group_${gid}`;
+    item.style.animation = isMobile ? "none" : "slideUp .3s ease-out";
+    gl.appendChild(item);
+  }
   item.onclick = () => {
     openGroupChat(g, gid);
     if (isMobile) document.getElementById('sidebar').classList.remove('active');
@@ -310,7 +353,6 @@ function createGroupItem(g, gid) {
       <div class="last-message" id="group_lastMsg_${gid}">${Object.keys(g.members || {}).length} участников</div>
       <div class="last-seen online">Группа • ${roleLabel}</div>
     </div>`;
-  gl.appendChild(item);
   if (g.avatar && (typeof isValidMediaUrl !== 'function' || isValidMediaUrl(g.avatar))) {
     document.getElementById(`group_avatar_${gid}`).src = g.avatar;
   }
