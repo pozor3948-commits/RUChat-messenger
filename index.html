@@ -29,7 +29,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260212a">
+    <link rel="stylesheet" href="css/style.css?v=20260212b">
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -219,10 +219,28 @@
 
 <!-- ===== МЕНЮ НАСТРОЕК ЧАТА ===== -->
 <div class="chat-settings-menu" id="chatSettingsMenu">
+    <button class="chat-settings-item" id="groupManageMenuItem" onclick="openGroupAdminPanel()" style="display:none;">Управление группой</button>
     <button class="chat-settings-item" onclick="openChatBackground()">Поменять фон чата</button>
     <button class="chat-settings-item" onclick="openMediaLibrary()">Медиа чата</button>
     <button class="chat-settings-item" onclick="clearCurrentChat()">Очистить чат</button>
     <button class="chat-settings-item" onclick="toggleMessageSearch()">Поиск в чате</button>
+</div>
+
+<!-- ===== УПРАВЛЕНИЕ ГРУППОЙ ===== -->
+<div class="group-admin-overlay" id="groupAdminOverlay" onclick="closeGroupAdminPanel()">
+    <div class="group-admin-modal" onclick="event.stopPropagation()">
+        <div class="group-admin-header">
+            <div>
+                <h2 class="group-admin-title" id="groupAdminTitle">Управление группой</h2>
+                <div class="group-admin-subtitle" id="groupAdminSubtitle">Загрузка...</div>
+            </div>
+            <button class="icon-btn" onclick="closeGroupAdminPanel()" title="Закрыть">✕</button>
+        </div>
+        <div class="group-admin-list" id="groupAdminList"></div>
+        <div class="group-admin-actions">
+            <button class="chat-bg-btn secondary" id="leaveGroupBtn" onclick="leaveCurrentGroup()" style="display:none;">Выйти из группы</button>
+        </div>
+    </div>
 </div>
 
 <!-- ===== ПАНЕЛЬ СТИКЕРОВ ===== -->
@@ -461,22 +479,22 @@
 </div>
 
 <!-- Скрипты -->
-<script src="js/firebase-config.js?v=20260212a"></script>
-<script src="js/utils.js?v=20260212a"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
-<script src="js/main.js?v=20260212a"></script>
-<script src="js/ui.js?v=20260212a"></script>
-<script src="js/sounds.js?v=20260212a"></script>
-<script src="js/auth.js?v=20260212a"></script>
-<script src="js/status.js?v=20260212a"></script>
-<script src="js/chat.js?v=20260212a"></script>
-<script src="js/media.js?v=20260212a"></script>
-<script src="js/emoji.js?v=20260212a"></script>
-<script src="js/stickers.js?v=20260212a"></script>
-<script src="js/groups.js?v=20260212a"></script>
-<script src="js/mobile.js?v=20260212a"></script>
-<script src="js/video-messages.js?v=20260212a"></script>
-<script src="js/audio-call.js?v=20260212a"></script>
-<script src="js/settings.js?v=20260212a"></script>
+<script src="js/firebase-config.js?v=20260212b"></script>
+<script src="js/utils.js?v=20260212b"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/main.js?v=20260212b"></script>
+<script src="js/ui.js?v=20260212b"></script>
+<script src="js/sounds.js?v=20260212b"></script>
+<script src="js/auth.js?v=20260212b"></script>
+<script src="js/status.js?v=20260212b"></script>
+<script src="js/chat.js?v=20260212b"></script>
+<script src="js/media.js?v=20260212b"></script>
+<script src="js/emoji.js?v=20260212b"></script>
+<script src="js/stickers.js?v=20260212b"></script>
+<script src="js/groups.js?v=20260212b"></script>
+<script src="js/mobile.js?v=20260212b"></script>
+<script src="js/video-messages.js?v=20260212b"></script>
+<script src="js/audio-call.js?v=20260212b"></script>
+<script src="js/settings.js?v=20260212b"></script>
 
 <script>
     // Функция для проверки локального запуска
@@ -522,7 +540,7 @@
         if (retry) window.retryAction = retry;
     };
     
-    console.log('Build 2026-02-12a');
+    console.log('Build 2026-02-12b');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {

@@ -2374,6 +2374,121 @@ body.light .sticker-preview-wrap { background:#f8fafc; border-color: rgba(15,23,
 body.light .chat-settings-menu { background:#ffffff; border-color: rgba(15,23,42,0.12); }
 body.light .chat-settings-item { color:#0f172a; }
 
+/* --- group admin modal --- */
+.group-admin-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(7, 12, 20, 0.68);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2100;
+    backdrop-filter: blur(8px);
+}
+.group-admin-overlay.active { display: flex; }
+.group-admin-modal {
+    width: min(620px, 92vw);
+    max-height: 86vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.96);
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 24px 48px rgba(0,0,0,0.42);
+}
+.group-admin-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+.group-admin-title {
+    margin: 0 0 4px;
+    color: #e2e8f0;
+    font-size: 20px;
+    font-weight: 800;
+}
+.group-admin-subtitle {
+    color: #94a3b8;
+    font-size: 13px;
+}
+.group-admin-list {
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 4px;
+}
+.group-admin-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+.group-admin-user {
+    min-width: 0;
+}
+.group-admin-name {
+    color: #e2e8f0;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.group-admin-role {
+    color: #94a3b8;
+    font-size: 12px;
+}
+.group-admin-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.group-role-btn {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+}
+.group-role-btn.promote { background: linear-gradient(45deg, #38bdf8, #0ea5e9); color: #082f49; }
+.group-role-btn.demote { background: linear-gradient(45deg, #f59e0b, #f97316); color: #1f1300; }
+.group-role-btn.remove { background: linear-gradient(45deg, #ef4444, #dc2626); color: #fff; }
+.group-role-badge {
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+    background: #e2e8f0;
+}
+.group-admin-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+.group-admin-empty {
+    text-align: center;
+    color: #94a3b8;
+    padding: 18px 8px;
+}
+
+body.light .group-admin-modal { background: #ffffff; border-color: rgba(15,23,42,0.12); }
+body.light .group-admin-title { color: #0f172a; }
+body.light .group-admin-subtitle { color: #475569; }
+body.light .group-admin-item { background: #f8fafc; border-color: rgba(15,23,42,0.12); }
+body.light .group-admin-name { color: #0f172a; }
+body.light .group-admin-role { color: #64748b; }
+
 /* --- chat background modal --- */
 .chat-bg-overlay {
     position: fixed;
@@ -2587,6 +2702,19 @@ body.light .media-file:hover { background: #eef2f7; }
     .chat-bg-modal { padding: 16px; }
     .media-library-modal { width: 94vw; max-height: 90vh; }
     .media-grid { grid-template-columns: repeat(3, 1fr); }
+    .group-admin-modal {
+        width: 95vw;
+        max-height: 90vh;
+        padding: 14px;
+    }
+    .group-admin-item {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .group-admin-controls {
+        width: 100%;
+        justify-content: flex-start;
+    }
 }
 
 /* ===== Mobile Performance Tune ===== */

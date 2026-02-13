@@ -85,6 +85,7 @@ function closeChatMobile() {
     }
     const chatSettingsMenu = document.getElementById('chatSettingsMenu');
     if (chatSettingsMenu) chatSettingsMenu.classList.remove('active');
+    if (typeof updateGroupManageMenuVisibility === 'function') updateGroupManageMenuVisibility();
     updateMobileMenuButton();
 }
 

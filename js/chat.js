@@ -29,6 +29,8 @@ let editingOriginalText = '';
 let mediaLibraryTab = 'photos';
 let mediaLibraryCache = { photos: [], videos: [], files: [] };
 let mediaLibraryChatId = null;
+let currentGroupRole = 'member';
+let currentGroupName = '';
 const renderedClientMessageIds = new Set();
 let currentChatPath = '';
 let oldestLoadedKey = null;
@@ -406,6 +408,16 @@ function checkEmptyStories() {
     </div>`;
 }
 
+function updateGroupManageMenuVisibility() {
+  const item = document.getElementById('groupManageMenuItem');
+  if (!item) return;
+  if (!isGroupChat || !currentChatId) {
+    item.style.display = 'none';
+    return;
+  }
+  item.style.display = 'block';
+}
+
 /* ==========================================================
    7. ЧАТЫ / СООБЩЕНИЯ
    ========================================================== */
@@ -414,6 +426,8 @@ function openPrivateChat(fn) {
   isGroupChat = false;
   currentChatId = [username, fn].sort().join("_");
   currentChatPartner = fn;
+  currentGroupRole = 'member';
+  currentGroupName = '';
   if (typeof clearMessageSearch === 'function') clearMessageSearch();
   if (typeof clearReply === 'function') clearReply();
   if (typeof clearEdit === 'function') clearEdit();
@@ -435,6 +449,7 @@ function openPrivateChat(fn) {
   loadChat("privateChats/" + currentChatId);
   setupTypingIndicator();
   if (typeof updateCallButtonVisibility === 'function') updateCallButtonVisibility();
+  updateGroupManageMenuVisibility();
   flushPendingQueue();
 }
 
@@ -447,6 +462,8 @@ function openGroupChat(g, gid) {
   if (typeof clearReply === 'function') clearReply();
   if (typeof clearEdit === 'function') clearEdit();
   const groupName = normalizeText(g.name);
+  currentGroupRole = (g.roles && g.roles[username]) ? g.roles[username] : 'member';
+  currentGroupName = groupName;
   document.getElementById("chatWith").textContent = groupName;
   document.getElementById("mobileChatTitle").textContent = groupName;
   if (isMobile) document.getElementById('mobileBackBtn').classList.add('active');
@@ -464,6 +481,7 @@ function openGroupChat(g, gid) {
   if (typeof applyChatBackground === 'function') applyChatBackground(currentChatId);
   loadChat("groupChats/" + currentChatId);
   if (typeof updateCallButtonVisibility === 'function') updateCallButtonVisibility();
+  updateGroupManageMenuVisibility();
   flushPendingQueue();
 }
 
@@ -1121,6 +1139,252 @@ function saveChatBackground() {
   closeChatBackground();
 }
 
+function getRoleLabel(role) {
+  if (role === 'owner') return 'Владелец';
+  if (role === 'admin') return 'Админ';
+  return 'Участник';
+}
+
+function roleSortValue(role) {
+  if (role === 'owner') return 0;
+  if (role === 'admin') return 1;
+  return 2;
+}
+
+function closeGroupAdminPanel() {
+  const overlay = document.getElementById('groupAdminOverlay');
+  if (overlay) overlay.classList.remove('active');
+}
+
+function renderGroupAdminList(groupData) {
+  const list = document.getElementById('groupAdminList');
+  const subtitle = document.getElementById('groupAdminSubtitle');
+  const leaveBtn = document.getElementById('leaveGroupBtn');
+  if (!list) return;
+
+  const membersMap = groupData.members || {};
+  const roles = groupData.roles || {};
+  const members = Object.keys(membersMap).filter(name => membersMap[name] === true);
+  const myRole = roles[username] || 'member';
+  currentGroupRole = myRole;
+  currentGroupName = normalizeText(groupData.name || currentGroupName || 'Группа');
+
+  if (subtitle) {
+    subtitle.textContent = `${members.length} участников • Ваша роль: ${getRoleLabel(myRole)}`;
+  }
+  if (leaveBtn) {
+    leaveBtn.style.display = 'inline-block';
+  }
+
+  const sorted = members.sort((a, b) => {
+    const roleCmp = roleSortValue(roles[a] || 'member') - roleSortValue(roles[b] || 'member');
+    if (roleCmp !== 0) return roleCmp;
+    return String(a).localeCompare(String(b));
+  });
+
+  if (!sorted.length) {
+    list.innerHTML = `<div class="group-admin-empty">В группе нет участников</div>`;
+    return;
+  }
+
+  const canManageRoles = myRole === 'owner';
+  const canKickAsAdmin = myRole === 'admin';
+  const ownerName = groupData.createdBy || sorted.find(n => (roles[n] || '') === 'owner') || '';
+
+  list.innerHTML = sorted.map(memberName => {
+    const role = roles[memberName] || (memberName === ownerName ? 'owner' : 'member');
+    const displayName = escapeHtml(displayNameCache[memberName] || normalizeText(memberName));
+    const isMe = memberName === username;
+    const roleBadge = `<span class="group-role-badge">${getRoleLabel(role)}${isMe ? ' • Вы' : ''}</span>`;
+    const controls = [];
+
+    if (canManageRoles && !isMe && memberName !== ownerName && role === 'member') {
+      controls.push(`<button class="group-role-btn promote" onclick="setGroupRole('${memberName}','admin')">Сделать админом</button>`);
+    }
+    if (canManageRoles && !isMe && memberName !== ownerName && role === 'admin') {
+      controls.push(`<button class="group-role-btn demote" onclick="setGroupRole('${memberName}','member')">Снять админа</button>`);
+    }
+    if (canManageRoles && !isMe && memberName !== ownerName) {
+      controls.push(`<button class="group-role-btn remove" onclick="removeGroupMember('${memberName}')">Удалить</button>`);
+    }
+    if (canKickAsAdmin && !isMe && role === 'member') {
+      controls.push(`<button class="group-role-btn remove" onclick="removeGroupMember('${memberName}')">Удалить</button>`);
+    }
+
+    return `
+      <div class="group-admin-item">
+        <div class="group-admin-user">
+          <div class="group-admin-name">${displayName}</div>
+          <div class="group-admin-role">@${escapeHtml(memberName)}</div>
+        </div>
+        <div class="group-admin-controls">
+          ${roleBadge}
+          ${controls.join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function openGroupAdminPanel() {
+  if (!isGroupChat || !currentChatId) {
+    showError('Откройте группу');
+    return;
+  }
+  const overlay = document.getElementById('groupAdminOverlay');
+  const title = document.getElementById('groupAdminTitle');
+  const list = document.getElementById('groupAdminList');
+  const settingsMenu = document.getElementById('chatSettingsMenu');
+  if (!overlay || !list) return;
+  if (settingsMenu) settingsMenu.classList.remove('active');
+
+  overlay.classList.add('active');
+  list.innerHTML = `<div class="group-admin-empty">Загрузка...</div>`;
+  if (title) title.textContent = currentGroupName ? `Управление: ${currentGroupName}` : 'Управление группой';
+
+  try {
+    const snap = await db.ref(`groups/${currentChatId}`).get();
+    if (!snap.exists()) {
+      showError('Группа не найдена');
+      closeGroupAdminPanel();
+      return;
+    }
+    const groupData = snap.val() || {};
+    const groupName = normalizeText(groupData.name || 'Группа');
+    currentGroupRole = (groupData.roles && groupData.roles[username]) ? groupData.roles[username] : 'member';
+    currentGroupName = groupName;
+    if (title) title.textContent = `Управление: ${groupName}`;
+    renderGroupAdminList(groupData);
+  } catch (error) {
+    showError('Не удалось загрузить участников');
+    closeGroupAdminPanel();
+  }
+}
+
+async function setGroupRole(memberName, role) {
+  if (!isGroupChat || !currentChatId) return;
+  if (role !== 'admin' && role !== 'member') return;
+  try {
+    const snap = await db.ref(`groups/${currentChatId}`).get();
+    if (!snap.exists()) { showError('Группа не найдена'); return; }
+    const g = snap.val() || {};
+    const roles = g.roles || {};
+    const myRole = roles[username] || 'member';
+    const ownerName = g.createdBy || Object.keys(roles).find(n => roles[n] === 'owner');
+    if (myRole !== 'owner') { showError('Только владелец может менять админов'); return; }
+    if (memberName === ownerName) { showError('Нельзя менять роль владельца'); return; }
+    if (!g.members || g.members[memberName] !== true) { showError('Участник не найден'); return; }
+    await db.ref(`groups/${currentChatId}/roles/${memberName}`).set(role);
+    showNotification('Группа', role === 'admin' ? 'Пользователь назначен админом' : 'Права админа сняты');
+    openGroupAdminPanel();
+  } catch (error) {
+    showError('Не удалось изменить роль');
+  }
+}
+
+async function removeGroupMember(memberName) {
+  if (!isGroupChat || !currentChatId) return;
+  try {
+    const snap = await db.ref(`groups/${currentChatId}`).get();
+    if (!snap.exists()) { showError('Группа не найдена'); return; }
+    const g = snap.val() || {};
+    const roles = g.roles || {};
+    const myRole = roles[username] || 'member';
+    const targetRole = roles[memberName] || 'member';
+    const ownerName = g.createdBy || Object.keys(roles).find(n => roles[n] === 'owner');
+
+    if (memberName === username) {
+      await leaveCurrentGroup();
+      return;
+    }
+    if (memberName === ownerName || targetRole === 'owner') {
+      showError('Нельзя удалить владельца');
+      return;
+    }
+    if (myRole === 'admin' && targetRole !== 'member') {
+      showError('Админ может удалять только участников');
+      return;
+    }
+    if (myRole !== 'owner' && myRole !== 'admin') {
+      showError('Недостаточно прав');
+      return;
+    }
+    if (!confirm(`Удалить ${memberName} из группы?`)) return;
+    const updates = {};
+    updates[`groups/${currentChatId}/members/${memberName}`] = null;
+    updates[`groups/${currentChatId}/roles/${memberName}`] = null;
+    updates[`usersGroups/${memberName}/${currentChatId}`] = null;
+    await db.ref().update(updates);
+    showNotification('Группа', 'Участник удален');
+    openGroupAdminPanel();
+  } catch (error) {
+    showError('Не удалось удалить участника');
+  }
+}
+
+function resetCurrentChatAfterLeave() {
+  if (chatRef) {
+    chatRef.off();
+    chatRef = null;
+  }
+  currentChatId = null;
+  currentChatPartner = null;
+  isGroupChat = false;
+  currentGroupRole = 'member';
+  currentGroupName = '';
+  const messages = document.getElementById('messages');
+  if (messages) messages.innerHTML = '';
+  const chatWith = document.getElementById('chatWith');
+  if (chatWith) chatWith.textContent = 'Выберите чат';
+  const chatMembers = document.getElementById('chatMembers');
+  if (chatMembers) chatMembers.textContent = '';
+  const mobileStatus = document.getElementById('mobileChatStatus');
+  if (mobileStatus) mobileStatus.textContent = 'Выберите чат';
+  updateGroupManageMenuVisibility();
+  if (typeof updateCallButtonVisibility === 'function') updateCallButtonVisibility();
+}
+
+async function leaveCurrentGroup() {
+  if (!isGroupChat || !currentChatId) { showError('Откройте группу'); return; }
+  try {
+    const snap = await db.ref(`groups/${currentChatId}`).get();
+    if (!snap.exists()) { resetCurrentChatAfterLeave(); closeGroupAdminPanel(); return; }
+    const g = snap.val() || {};
+    const members = g.members || {};
+    const roles = g.roles || {};
+    const ownerName = g.createdBy || Object.keys(roles).find(n => roles[n] === 'owner');
+    const memberNames = Object.keys(members).filter(n => members[n] === true);
+
+    if (username === ownerName && memberNames.length > 1) {
+      showError('Владелец не может выйти, пока есть другие участники');
+      return;
+    }
+
+    if (!confirm('Выйти из группы?')) return;
+
+    if (username === ownerName && memberNames.length <= 1) {
+      const updates = {};
+      updates[`groups/${currentChatId}`] = null;
+      updates[`groupChats/${currentChatId}`] = null;
+      updates[`usersGroups/${username}/${currentChatId}`] = null;
+      await db.ref().update(updates);
+      showNotification('Группа', 'Группа удалена');
+    } else {
+      const updates = {};
+      updates[`groups/${currentChatId}/members/${username}`] = null;
+      updates[`groups/${currentChatId}/roles/${username}`] = null;
+      updates[`usersGroups/${username}/${currentChatId}`] = null;
+      await db.ref().update(updates);
+      showNotification('Группа', 'Вы вышли из группы');
+    }
+
+    closeGroupAdminPanel();
+    resetCurrentChatAfterLeave();
+  } catch (error) {
+    showError('Не удалось выйти из группы');
+  }
+}
+
 async function clearCurrentChat() {
   if (!chatRef || !currentChatId) return;
   if (!confirm('Очистить весь чат?')) return;
@@ -1140,6 +1404,12 @@ window.closeChatBackground = closeChatBackground;
 window.selectChatBackground = selectChatBackground;
 window.handleChatBgFileChange = handleChatBgFileChange;
 window.saveChatBackground = saveChatBackground;
+window.openGroupAdminPanel = openGroupAdminPanel;
+window.closeGroupAdminPanel = closeGroupAdminPanel;
+window.setGroupRole = setGroupRole;
+window.removeGroupMember = removeGroupMember;
+window.leaveCurrentGroup = leaveCurrentGroup;
+window.updateGroupManageMenuVisibility = updateGroupManageMenuVisibility;
 
 document.addEventListener('click', (e) => {
   const reactionBtn = e.target.closest('.reaction-btn');

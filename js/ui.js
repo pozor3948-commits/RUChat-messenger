@@ -25,6 +25,7 @@ function closeChat() {
         chatRef.off(); 
         chatRef = null; 
     }
+    if (typeof updateGroupManageMenuVisibility === 'function') updateGroupManageMenuVisibility();
     clearMessageSearch();
 }
 
@@ -68,6 +69,7 @@ function toggleMessageSearch() {
 function toggleChatSettingsMenu() {
     const menu = document.getElementById('chatSettingsMenu');
     if (!menu) return;
+    if (typeof updateGroupManageMenuVisibility === 'function') updateGroupManageMenuVisibility();
     const isActive = menu.classList.contains('active');
     if (isActive) menu.classList.remove('active');
     else menu.classList.add('active');
