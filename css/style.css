@@ -2549,6 +2549,49 @@ body.light .chat-bg-preview-box { background: #f8fafc; border-color: rgba(15,23,
     }
 }
 
+/* ===== Layout polish ===== */
+:root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (max-width: 768px) {
+    .main-container,
+    .chat-container,
+    .sidebar {
+        height: 100dvh;
+    }
+    .mobile-header {
+        padding-top: calc(8px + var(--safe-top));
+        padding-bottom: 8px;
+    }
+    .mobile-header .chat-info {
+        min-width: 0;
+        flex: 1;
+    }
+    .chat-title,
+    .chat-members {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+    .mobile-actions,
+    .mobile-menu-btn {
+        flex-shrink: 0;
+    }
+    .messages-container {
+        padding-bottom: calc(100px + var(--safe-bottom));
+    }
+    .message-input-container {
+        padding-bottom: calc(12px + var(--safe-bottom));
+    }
+    .chat-settings-menu {
+        top: calc(64px + var(--safe-top));
+        left: 10px;
+    }
+}
+
 
 
 
