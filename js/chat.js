@@ -47,6 +47,21 @@ const SEND_RATE_WINDOW_MS = 3000;
 const SEND_RATE_MAX_MESSAGES = 8;
 let sendRateTimestamps = [];
 
+function sleepMs(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function renderMessagesBatched(list, options, batchSize = 12) {
+  const items = Array.isArray(list) ? list : [];
+  if (!items.length) return;
+  for (let i = 0; i < items.length; i += batchSize) {
+    const slice = items.slice(i, i + batchSize);
+    for (const m of slice) addMessageToChat(m, options);
+    // даем браузеру отрисовать ввод/скролл на слабых мобилках
+    await new Promise(requestAnimationFrame);
+  }
+}
+
 // ===== Per-chat notification settings (mute / silent send) =====
 function chatSettingsKey(chatId, isGroup) {
   const safe = String(chatId || '').replace(/[^\w-]/g, '_');
@@ -744,10 +759,13 @@ function loadChat(path) {
   const expectedPath = path;
   const cachedMessages = readChatCache(path);
   if (cachedMessages.length) {
-    cachedMessages.forEach(m => addMessageToChat(m, { autoScroll: false, animate: false, notify: false }));
+    // Рендерим пачками, чтобы не лагал ввод на слабых телефонах
+    renderMessagesBatched(cachedMessages, { autoScroll: false, animate: false, notify: false }, isMobile ? 10 : 18)
+      .then(() => {
+        if (currentChatPath === expectedPath) md.scrollTop = md.scrollHeight;
+      });
     oldestLoadedKey = cachedMessages[0].id || null;
     newestLoadedKey = cachedMessages[cachedMessages.length - 1].id || null;
-    md.scrollTop = md.scrollHeight;
   }
 
   chatRef.orderByKey().limitToLast(CHAT_INITIAL_PAGE_SIZE).once("value").then(snap => {
@@ -760,14 +778,17 @@ function loadChat(path) {
       if (m.text === undefined || m.text === null) m.text = "";
       items.push(m);
     });
-    items.forEach(m => addMessageToChat(m, { autoScroll: false, animate: false, notify: false }));
+    (async () => {
+      await renderMessagesBatched(items, { autoScroll: false, animate: false, notify: false }, isMobile ? 10 : 18);
+      if (currentChatPath !== expectedPath) return;
+      md.scrollTop = md.scrollHeight;
+      writeChatCache(path, items);
+      markCurrentChatAsRead();
+      setupAddedMessagesListener();
+    })();
     oldestLoadedKey = items.length ? items[0].id : null;
     newestLoadedKey = items.length ? items[items.length - 1].id : null;
     hasMoreHistory = items.length === CHAT_INITIAL_PAGE_SIZE;
-    md.scrollTop = md.scrollHeight;
-    writeChatCache(path, items);
-    markCurrentChatAsRead();
-    setupAddedMessagesListener();
   });
 
   chatRef.on("child_changed", snap => {
@@ -825,7 +846,7 @@ function loadOlderMessages() {
   const prevHeight = md.scrollHeight;
   const prevTop = md.scrollTop;
   chatRef.orderByKey().endAt(oldestLoadedKey).limitToLast(CHAT_HISTORY_PAGE_SIZE + 1).once("value")
-    .then(snap => {
+    .then(async snap => {
       if (currentChatPath !== expectedPath) return;
       const items = [];
       snap.forEach(ch => {
@@ -840,7 +861,9 @@ function loadOlderMessages() {
         return;
       }
       const older = items.slice(0, -1);
-      older.forEach(m => addMessageToChat(m, { prepend: true, autoScroll: false, animate: false, notify: false }));
+      // prepend вставляет в начало, поэтому рендерим в обратном порядке, чтобы не переворачивать историю
+      const reversed = older.slice().reverse();
+      await renderMessagesBatched(reversed, { prepend: true, autoScroll: false, animate: false, notify: false }, isMobile ? 10 : 18);
       oldestLoadedKey = older[0].id;
       hasMoreHistory = older.length === CHAT_HISTORY_PAGE_SIZE;
       md.scrollTop = (md.scrollHeight - prevHeight) + prevTop;
@@ -1348,21 +1371,28 @@ async function togglePinMessage(messageId, e) {
   const metaMsg = {
     from: username,
     time: Date.now(),
+    sent: true,
+    delivered: false,
+    read: false,
+    status: 'sent',
     meta: true,
     type: 'meta_pin',
-    pin: { id: messageId, preview }
+    pin: { id: messageId, preview },
+    clientMessageId: createClientMessageId()
   };
 
-  const sent = navigator.onLine
-    ? (typeof sendMessagePayload === 'function' ? await sendMessagePayload(currentChatPath, metaMsg) : await chatRef.push(metaMsg).then(() => true).catch(() => false))
-    : false;
-
-  if (!sent) {
-    showError('Не удалось закрепить (нет сети)');
-    return;
-  }
   setPinnedState(currentChatId, isGroupChat, { id: messageId, preview, at: metaMsg.time });
-  showNotification('Закреп', 'Сообщение закреплено', 'success');
+
+  const sent = (typeof sendMessagePayload === 'function')
+    ? await sendMessagePayload(currentChatPath, metaMsg)
+    : await chatRef.push(metaMsg).then(() => true).catch(() => false);
+
+  if (!sent && typeof enqueuePendingMessage === 'function') {
+    enqueuePendingMessage(currentChatPath, metaMsg);
+    showNotification('Сеть', 'Закреп в очереди (отправится при подключении)', 'warning');
+  } else {
+    showNotification('Закреп', 'Сообщение закреплено', 'success');
+  }
 }
 
 async function unpinCurrentChatMessage() {
@@ -1376,20 +1406,27 @@ async function unpinCurrentChatMessage() {
   const metaMsg = {
     from: username,
     time: Date.now(),
+    sent: true,
+    delivered: false,
+    read: false,
+    status: 'sent',
     meta: true,
-    type: 'meta_unpin'
+    type: 'meta_unpin',
+    clientMessageId: createClientMessageId()
   };
 
-  const sent = navigator.onLine
-    ? (typeof sendMessagePayload === 'function' ? await sendMessagePayload(currentChatPath, metaMsg) : await chatRef.push(metaMsg).then(() => true).catch(() => false))
-    : false;
-
-  if (!sent) {
-    showError('Не удалось открепить (нет сети)');
-    return;
-  }
   setPinnedState(currentChatId, isGroupChat, null);
-  showNotification('Закреп', 'Сообщение откреплено', 'info');
+
+  const sent = (typeof sendMessagePayload === 'function')
+    ? await sendMessagePayload(currentChatPath, metaMsg)
+    : await chatRef.push(metaMsg).then(() => true).catch(() => false);
+
+  if (!sent && typeof enqueuePendingMessage === 'function') {
+    enqueuePendingMessage(currentChatPath, metaMsg);
+    showNotification('Сеть', 'Откреп в очереди (отправится при подключении)', 'warning');
+  } else {
+    showNotification('Закреп', 'Сообщение откреплено', 'info');
+  }
 }
 
 function jumpToPinnedMessage() {
@@ -1996,6 +2033,15 @@ document.addEventListener('click', (e) => {
 });
 
 function createClientMessageId() {
+  // Prefer Firebase-like push keys so key ordering stays compatible with existing history.
+  try {
+    if (typeof db !== 'undefined' && db && typeof db.ref === 'function') {
+      const k = db.ref('privateChats').push().key;
+      if (k) return k;
+    }
+  } catch {
+    // ignore
+  }
   return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
@@ -2054,7 +2100,7 @@ async function sendMessagePayload(path, msg) {
 }
 
 async function flushPendingQueue() {
-  if (!navigator.onLine || !username) return;
+  if (!username) return;
   const queue = readPendingQueue();
   if (!queue.length) return;
   const rest = [];
@@ -2118,11 +2164,24 @@ async function sendMessage() {
     if (replyToMessage) {
       msg.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
     }
-    const sent = navigator.onLine ? await sendMessagePayload(currentChatPath, msg) : false;
-    if (!sent) {
-      enqueuePendingMessage(currentChatPath, msg);
-      showNotification("Сеть", "Сообщение в очереди и отправится при подключении");
-    }
+
+    // Оптимистичный UI: показываем сообщение сразу (как в Telegram)
+    const localMsg = { ...msg, id: msg.clientMessageId };
+    addMessageToChat(localMsg, { notify: false });
+    upsertChatCacheMessage(currentChatPath, localMsg);
+    newestLoadedKey = localMsg.id;
+
+    // Отправку делаем в фоне, чтобы ввод не "подвисал" на слабых мобилках
+    const pathToSend = currentChatPath;
+    // navigator.onLine на Android/WebView иногда врет, поэтому всегда пробуем отправить.
+    const doSend = sendMessagePayload(pathToSend, msg);
+    doSend.then((sent) => {
+      if (!sent) {
+        enqueuePendingMessage(pathToSend, msg);
+        showNotification("Сеть", "Сообщение в очереди и отправится при подключении");
+      }
+    });
+
     ti.value = ""; updateSendButton();
     clearReply();
     
@@ -2467,4 +2526,3 @@ window.sendMessagePayload = sendMessagePayload;
 window.enqueuePendingMessage = enqueuePendingMessage;
 window.flushPendingQueue = flushPendingQueue;
 window.createClientMessageId = createClientMessageId;
-

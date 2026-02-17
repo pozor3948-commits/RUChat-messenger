@@ -103,11 +103,45 @@ function setupUserStatusMonitoring() {
 }
 
 function setupNetworkMonitoring() {
-    window.addEventListener('online', () => {
-        isOnline = true; updateMyStatus(true, false); showNotification("Сеть", "Соединение восстановлено");
-    });
-    window.addEventListener('offline', () => {
-        isOnline = false; updateMyStatus(false, false); showError("Нет соединения с интернетом");
-    });
-}
+    // navigator.onLine / offline-events часто "врут" в Android WebView.
+    // Для чата важнее реальное соединение с Firebase RTDB: /.info/connected
+    let last = null;
+    let offlineTimer = null;
 
+    const setConnected = (connected) => {
+        const next = !!connected;
+        if (last === next) return;
+        last = next;
+
+        if (offlineTimer) {
+            clearTimeout(offlineTimer);
+            offlineTimer = null;
+        }
+
+        if (next) {
+            isOnline = true;
+            updateMyStatus(true, false);
+            showNotification("Сеть", "Соединение восстановлено", "success");
+            if (typeof flushPendingQueue === 'function') flushPendingQueue();
+            return;
+        }
+
+        // Небольшая задержка, чтобы не показывать "Нет сети" из‑за кратких просадок.
+        offlineTimer = setTimeout(() => {
+            isOnline = false;
+            updateMyStatus(false, false);
+            showNotification("Сеть", "Нет соединения. Отправка будет в очереди", "warning");
+        }, 1200);
+    };
+
+    try {
+        if (typeof db !== 'undefined' && db && typeof db.ref === 'function') {
+            db.ref(".info/connected").on("value", s => setConnected(s.val() === true));
+        }
+    } catch {
+        // ignore
+    }
+
+    window.addEventListener('online', () => setConnected(true));
+    window.addEventListener('offline', () => setConnected(false));
+}

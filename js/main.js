@@ -28,7 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
     isMobile = window.innerWidth <= 768;
     
     setupNetworkMonitoring();
-    if (!navigator.onLine) showError('РќРµС‚ СЃРѕРµРґРёРЅРµРЅРёСЏ СЃ РёРЅС‚РµСЂРЅРµС‚РѕРј');
     document.getElementById('callButton').classList.remove('active');
     document.getElementById("text").addEventListener("input", updateSendButton);
     updateSendButton();

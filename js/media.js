@@ -486,6 +486,17 @@ async function sendVoiceMessage(audioData, isTest = false) {
         }
         
         const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
+
+        // Оптимистичный UI: сразу добавляем в чат
+        try {
+            const localMsg = { ...message, id: message.clientMessageId };
+            if (typeof addMessageToChat === 'function') addMessageToChat(localMsg, { notify: false });
+            if (typeof upsertChatCacheMessage === 'function') upsertChatCacheMessage(path, localMsg);
+            if (typeof newestLoadedKey !== 'undefined') newestLoadedKey = localMsg.id;
+        } catch (e) {
+            // ignore
+        }
+
         const sent = (typeof sendMessagePayload === 'function')
             ? await sendMessagePayload(path, message)
             : await chatRef.push(message).then(() => true).catch(() => false);
@@ -663,6 +674,17 @@ async function sendMediaMessage(type, data, filename, filesize) {
         }
         
         const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
+
+        // Оптимистичный UI: показываем медиа сразу
+        try {
+            const localMsg = { ...msg, id: msg.clientMessageId };
+            if (typeof addMessageToChat === 'function') addMessageToChat(localMsg, { notify: false });
+            if (typeof upsertChatCacheMessage === 'function') upsertChatCacheMessage(path, localMsg);
+            if (typeof newestLoadedKey !== 'undefined') newestLoadedKey = localMsg.id;
+        } catch (e) {
+            // ignore
+        }
+
         const sent = (typeof sendMessagePayload === 'function')
             ? await sendMessagePayload(path, msg)
             : await chatRef.push(msg).then(() => true).catch(() => false);

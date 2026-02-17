@@ -3029,7 +3029,28 @@ body.light .chat-unread-dot { border-color: #ffffff; }
     body.keyboard-open .messages-container {
         padding-bottom: calc(130px + var(--safe-bottom)) !important;
     }
+    /* Производительность: убираем тяжелые эффекты во время ввода */
+    body.keyboard-open .chat-container::before {
+        animation: none !important;
+    }
+    body.keyboard-open .chat-header,
+    body.keyboard-open .stories-container,
+    body.keyboard-open .messages-container,
+    body.keyboard-open .message-input-container {
+        backdrop-filter: none !important;
+    }
+    body.keyboard-open .message-input {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        transition: none !important;
+        transform: none !important;
+    }
+    body.keyboard-open .message-input:focus {
+        animation: none !important;
+        transform: none !important;
+    }
+    body.keyboard-open .send-btn.active {
+        animation: none !important;
+    }
 }
-
-
 

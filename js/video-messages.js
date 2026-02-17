@@ -391,6 +391,17 @@ async function sendVideoMessage(videoData) {
         }
         
         const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
+
+        // Оптимистичный UI: сразу добавляем в чат
+        try {
+            const localMsg = { ...message, id: message.clientMessageId };
+            if (typeof addMessageToChat === 'function') addMessageToChat(localMsg, { notify: false });
+            if (typeof upsertChatCacheMessage === 'function') upsertChatCacheMessage(path, localMsg);
+            if (typeof newestLoadedKey !== 'undefined') newestLoadedKey = localMsg.id;
+        } catch (e) {
+            // ignore
+        }
+
         const sent = (typeof sendMessagePayload === 'function')
             ? await sendMessagePayload(path, message)
             : await chatRef.push(message).then(() => true).catch(() => false);
@@ -462,5 +473,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
 
