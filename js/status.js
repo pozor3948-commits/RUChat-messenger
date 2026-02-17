@@ -96,10 +96,10 @@ function setupActivityTracking() {
 }
 
 function setupUserStatusMonitoring() {
-    db.ref("userStatus").on("value", s => {
-        if (!s.exists()) return;
-        s.forEach(ch => updateFriendStatusInList(ch.key, ch.val()));
-    });
+    // Важно: не слушаем "userStatus" целиком — это может быть огромная ветка,
+    // и на мобилках/в WebView даёт фризы и задержки ввода.
+    // Статусы друзей подписываются точечно в chat.js (renderFriends).
+    return;
 }
 
 function setupNetworkMonitoring() {

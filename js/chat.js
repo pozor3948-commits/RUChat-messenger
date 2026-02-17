@@ -142,13 +142,27 @@ function setPinnedState(chatId, isGroup, data) {
 function updatePinnedBarUI(state) {
   const bar = document.getElementById('pinnedBar');
   const preview = document.getElementById('pinnedPreview');
+  const title = document.getElementById('pinnedTitle') || (bar ? bar.querySelector('.pinned-title') : null);
   if (!bar || !preview) return;
   if (!state || !state.id) {
     bar.style.display = 'none';
     preview.textContent = '';
+    if (title) title.textContent = 'Закреплено';
     return;
   }
-  preview.textContent = normalizeText(String(state.preview || 'Сообщение'));
+  const fromRaw = state.from ? String(state.from) : '';
+  const fromName = fromRaw
+    ? normalizeText(String((typeof displayNameCache !== 'undefined' && displayNameCache && displayNameCache[fromRaw]) ? displayNameCache[fromRaw] : fromRaw))
+    : '';
+  if (title) {
+    // В TG в группах обычно видно, кто автор закрепа/сообщения.
+    // Для личных чатов тоже полезно (особенно если закрепил ты сам).
+    title.textContent = fromName ? `Закреплено • ${fromName}` : 'Закреплено';
+  }
+
+  const text = normalizeText(String(state.preview || 'Сообщение'));
+  preview.textContent = text;
+  preview.title = text;
   bar.style.display = 'flex';
 }
 
@@ -161,7 +175,7 @@ async function syncPinnedFromDb() {
     snap.forEach(ch => { last = { id: ch.key, ...(ch.val() || {}) }; });
     if (!last) return;
     if (String(last.type) === 'meta_pin' && last.pin && last.pin.id) {
-      setPinnedState(currentChatId, isGroupChat, { id: last.pin.id, preview: last.pin.preview || 'Сообщение', at: last.time || Date.now() });
+      setPinnedState(currentChatId, isGroupChat, { id: last.pin.id, preview: last.pin.preview || 'Сообщение', at: last.time || Date.now(), from: last.pin.from || '' });
     } else if (String(last.type) === 'meta_unpin') {
       setPinnedState(currentChatId, isGroupChat, null);
     }
@@ -757,7 +771,10 @@ function loadChat(path) {
   md.style.opacity = 1;
   md.onscroll = handleMessagesScroll;
   const expectedPath = path;
-  const cachedMessages = readChatCache(path);
+  let cachedMessages = readChatCache(path);
+  // Чтобы "свои" сообщения не пропадали при перезагрузке/переключении (если они ещё в очереди отправки)
+  const pendingLocal = getPendingMessagesForPath(path);
+  if (pendingLocal.length) cachedMessages = mergeUniqueMessages(cachedMessages, pendingLocal);
   if (cachedMessages.length) {
     // Рендерим пачками, чтобы не лагал ввод на слабых телефонах
     renderMessagesBatched(cachedMessages, { autoScroll: false, animate: false, notify: false }, isMobile ? 10 : 18)
@@ -782,7 +799,8 @@ function loadChat(path) {
       await renderMessagesBatched(items, { autoScroll: false, animate: false, notify: false }, isMobile ? 10 : 18);
       if (currentChatPath !== expectedPath) return;
       md.scrollTop = md.scrollHeight;
-      writeChatCache(path, items);
+      // Не затираем очередь отправки в кэше (иначе кажется, что сообщения "удалились")
+      writeChatCache(path, mergeUniqueMessages(items, getPendingMessagesForPath(path)));
       markCurrentChatAsRead();
       setupAddedMessagesListener();
     })();
@@ -895,7 +913,7 @@ function addMessageToChat(m, options = {}) {
   // meta-сообщения (закреп/откреп) не рендерим как обычные
   if (isMetaMessage(m)) {
     if (String(m.type) === 'meta_pin' && m.pin && m.pin.id) {
-      setPinnedState(currentChatId, isGroupChat, { id: m.pin.id, preview: m.pin.preview || 'Сообщение', at: m.time || Date.now() });
+      setPinnedState(currentChatId, isGroupChat, { id: m.pin.id, preview: m.pin.preview || 'Сообщение', at: m.time || Date.now(), from: m.pin.from || '' });
     } else if (String(m.type) === 'meta_unpin') {
       setPinnedState(currentChatId, isGroupChat, null);
     }
@@ -1355,16 +1373,37 @@ async function togglePinMessage(messageId, e) {
 
   // пробуем взять превью из кэша/DOM
   let preview = '';
+  let pinnedFrom = '';
   try {
     const cached = readChatCache(currentChatPath);
     const cm = cached.find(x => x && x.id === messageId);
-    if (cm) preview = cm.text ? cm.text : getMessagePreview(cm);
+    if (cm) {
+      preview = cm.text ? cm.text : getMessagePreview(cm);
+      pinnedFrom = cm.from || '';
+    }
   } catch {
     // ignore
+  }
+  if (!pinnedFrom) {
+    const wrap = document.getElementById(`message_${messageId}`);
+    pinnedFrom = wrap ? (wrap.dataset.from || '') : '';
   }
   if (!preview) {
     const el = document.querySelector(`#message_${messageId} .message-text`);
     preview = el ? (el.textContent || '') : 'Сообщение';
+  }
+  // Если чего-то не нашли (редкий кейс) — попробуем дочитать из БД
+  if ((!preview || !pinnedFrom) && chatRef) {
+    try {
+      const s = await chatRef.child(messageId).get();
+      if (s.exists()) {
+        const m = s.val() || {};
+        if (!pinnedFrom) pinnedFrom = m.from || '';
+        if (!preview) preview = m.text ? m.text : getMessagePreview({ ...m, id: messageId });
+      }
+    } catch {
+      // ignore
+    }
   }
   preview = normalizeText(String(preview || 'Сообщение')).slice(0, 140);
 
@@ -1377,11 +1416,11 @@ async function togglePinMessage(messageId, e) {
     status: 'sent',
     meta: true,
     type: 'meta_pin',
-    pin: { id: messageId, preview },
+    pin: { id: messageId, preview, from: pinnedFrom || '' },
     clientMessageId: createClientMessageId()
   };
 
-  setPinnedState(currentChatId, isGroupChat, { id: messageId, preview, at: metaMsg.time });
+  setPinnedState(currentChatId, isGroupChat, { id: messageId, preview, at: metaMsg.time, from: pinnedFrom || '' });
 
   const sent = (typeof sendMessagePayload === 'function')
     ? await sendMessagePayload(currentChatPath, metaMsg)
@@ -2068,6 +2107,48 @@ function readPendingQueue() {
   } catch {
     return [];
   }
+}
+
+function getPendingMessagesForPath(path) {
+  if (!path) return [];
+  try {
+    const queue = readPendingQueue();
+    const out = [];
+    for (const item of queue) {
+      if (!item || item.path !== path || !item.msg) continue;
+      const msg = item.msg;
+      const id = msg.clientMessageId || msg.id;
+      if (!id) continue;
+      out.push({ ...msg, id });
+    }
+    // sort by key (compatible with our orderByKey queries)
+    out.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    // de-dup by id
+    const seen = new Set();
+    return out.filter(m => {
+      if (!m || !m.id) return false;
+      if (seen.has(m.id)) return false;
+      seen.add(m.id);
+      return true;
+    });
+  } catch {
+    return [];
+  }
+}
+
+function mergeUniqueMessages(base, extra) {
+  const byId = new Map();
+  for (const m of (base || [])) {
+    if (!m || !m.id) continue;
+    byId.set(m.id, m);
+  }
+  for (const m of (extra || [])) {
+    if (!m || !m.id) continue;
+    if (!byId.has(m.id)) byId.set(m.id, m);
+  }
+  const merged = Array.from(byId.values());
+  merged.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  return merged;
 }
 
 function writePendingQueue(items) {
