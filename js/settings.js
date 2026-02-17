@@ -131,6 +131,91 @@ function showSettingsMenu() {
                         ">Переключить</button>
                     </div>
                 </div>
+
+                <div style="
+                    background: rgba(255,255,255,0.05);
+                    border-radius: 15px;
+                    padding: 20px;
+                    margin-bottom: 25px;
+                    border: 1px solid rgba(255,255,255,0.1);
+                ">
+                    <div style="color: #a5b4fc; font-size: 14px; margin-bottom: 10px; font-weight: 600;">Медиа</div>
+                    <div style="color: #cbd5e1; font-size: 13px; line-height: 1.6; margin-bottom: 12px;">
+                        Автозагрузка в веб-версии управляет автопоказом (тяжелые медиа не будут сразу отображаться).
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap: 10px;">
+                        <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+                            <span style="color:#e2e8f0; font-size:14px;">Фото</span>
+                            <select id="mediaAutoPhotos" style="
+                                padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+                                background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none;">
+                                <option value="always">Всегда</option>
+                                <option value="wifi">Только Wi‑Fi</option>
+                                <option value="never">Никогда</option>
+                            </select>
+                        </div>
+
+                        <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+                            <span style="color:#e2e8f0; font-size:14px;">Видео</span>
+                            <select id="mediaAutoVideos" style="
+                                padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+                                background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none;">
+                                <option value="always">Всегда</option>
+                                <option value="wifi">Только Wi‑Fi</option>
+                                <option value="never">Никогда</option>
+                            </select>
+                        </div>
+
+                        <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+                            <span style="color:#e2e8f0; font-size:14px;">Файлы</span>
+                            <select id="mediaAutoFiles" style="
+                                padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+                                background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none;">
+                                <option value="always">Всегда</option>
+                                <option value="wifi">Только Wi‑Fi</option>
+                                <option value="never">Никогда</option>
+                            </select>
+                        </div>
+
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <input id="mediaLimitMobileMb" type="number" min="0" step="1" placeholder="Лимит моб. (MB)" style="
+                                flex:1; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+                                background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none;">
+                            <input id="mediaLimitWifiMb" type="number" min="0" step="1" placeholder="Лимит Wi‑Fi (MB)" style="
+                                flex:1; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+                                background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none;">
+                        </div>
+
+                        <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+                            <span style="color:#e2e8f0; font-size:14px;">Качество фото</span>
+                            <select id="mediaPhotoQuality" style="
+                                padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+                                background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none;">
+                                <option value="high">Высокое</option>
+                                <option value="medium">Среднее</option>
+                                <option value="low">Экономия</option>
+                            </select>
+                        </div>
+
+                        <div style="display:flex; gap:10px; align-items:center; justify-content:space-between;">
+                            <span style="color:#e2e8f0; font-size:14px;">Качество видео</span>
+                            <select id="mediaVideoQuality" style="
+                                padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+                                background: rgba(255,255,255,0.08); color: #e2e8f0; outline: none;">
+                                <option value="high">Высокое</option>
+                                <option value="medium">Среднее</option>
+                                <option value="low">Экономия</option>
+                            </select>
+                        </div>
+
+                        <button onclick="saveMediaSettings()" style="
+                            padding: 10px 14px; border-radius: 12px; border: none;
+                            background: linear-gradient(45deg, #0088cc, #00b4ff);
+                            color: white; font-weight: 700; cursor: pointer;">
+                            Сохранить медиа
+                        </button>
+                    </div>
+                </div>
                 
                 <div style="
                     background: rgba(255,255,255,0.05);
@@ -292,6 +377,24 @@ function showSettingsMenu() {
         }
     };
 
+    window.loadMediaSettings = function() {
+        const setVal = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.value = value;
+        };
+        const setNum = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.value = String(value);
+        };
+        setVal('mediaAutoPhotos', localStorage.getItem('ruchat_media_auto_photos') || 'always');
+        setVal('mediaAutoVideos', localStorage.getItem('ruchat_media_auto_videos') || 'wifi');
+        setVal('mediaAutoFiles', localStorage.getItem('ruchat_media_auto_files') || 'wifi');
+        setNum('mediaLimitMobileMb', localStorage.getItem('ruchat_media_limit_mobile_mb') || 10);
+        setNum('mediaLimitWifiMb', localStorage.getItem('ruchat_media_limit_wifi_mb') || 25);
+        setVal('mediaPhotoQuality', localStorage.getItem('ruchat_media_photo_quality') || 'medium');
+        setVal('mediaVideoQuality', localStorage.getItem('ruchat_media_video_quality') || 'medium');
+    };
+
     window.saveProfileSettings = async function() {
         const user = (typeof username !== 'undefined' && username) ? username : (window.username || '');
         if (!user) { showError('Пользователь не найден'); return; }
@@ -406,6 +509,35 @@ function showSettingsMenu() {
         }
         closeSettings();
     };
+
+    window.saveMediaSettings = function() {
+        const readVal = (id, def) => {
+            const el = document.getElementById(id);
+            const v = el ? String(el.value || '') : '';
+            return v || def;
+        };
+        const readNum = (id, def) => {
+            const el = document.getElementById(id);
+            const v = el ? Number(el.value) : Number(def);
+            if (!Number.isFinite(v)) return def;
+            return Math.max(0, Math.floor(v));
+        };
+
+        localStorage.setItem('ruchat_media_auto_photos', readVal('mediaAutoPhotos', 'always'));
+        localStorage.setItem('ruchat_media_auto_videos', readVal('mediaAutoVideos', 'wifi'));
+        localStorage.setItem('ruchat_media_auto_files', readVal('mediaAutoFiles', 'wifi'));
+        localStorage.setItem('ruchat_media_limit_mobile_mb', String(readNum('mediaLimitMobileMb', 10)));
+        localStorage.setItem('ruchat_media_limit_wifi_mb', String(readNum('mediaLimitWifiMb', 25)));
+        localStorage.setItem('ruchat_media_photo_quality', readVal('mediaPhotoQuality', 'medium'));
+        localStorage.setItem('ruchat_media_video_quality', readVal('mediaVideoQuality', 'medium'));
+
+        if (typeof applyVideoQualityFromSettings === 'function') {
+            applyVideoQualityFromSettings();
+        }
+
+        showNotification('Медиа', 'Настройки сохранены', 'success');
+        closeSettings();
+    };
     
     window.logoutFromSettings = function() {
         if (confirm('Вы уверены, что хотите выйти из аккаунта?')) {
@@ -439,5 +571,8 @@ function showSettingsMenu() {
 
     if (typeof window.loadProfileSettings === 'function') {
         window.loadProfileSettings();
+    }
+    if (typeof window.loadMediaSettings === 'function') {
+        window.loadMediaSettings();
     }
 }

@@ -266,7 +266,7 @@ function maybeShowSystemNotification(title, body, options = {}) {
             tag: options.tag || undefined,
             silent: options.silent || false
         });
-        if (typeof navigator !== 'undefined' && navigator.vibrate && isMobile) {
+        if (!options.silent && typeof navigator !== 'undefined' && navigator.vibrate && isMobile) {
             navigator.vibrate(150);
         }
         return n;
@@ -306,7 +306,6 @@ function showNextNotification() {
         setTimeout(() => { n.style.display = 'none'; setTimeout(showNextNotification, 300); }, 3000);
     }
 }
-
 
 
 

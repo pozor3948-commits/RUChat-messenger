@@ -49,6 +49,13 @@ function compressImageDataUrl(dataUrl, maxSide = 1600, quality = 0.82) {
     });
 }
 
+function getPhotoCompressionSettings() {
+    const mode = localStorage.getItem('ruchat_media_photo_quality') || 'medium';
+    if (mode === 'high') return { maxSide: 2200, quality: 0.90 };
+    if (mode === 'low') return { maxSide: 1200, quality: 0.72 };
+    return { maxSide: 1600, quality: 0.82 };
+}
+
 // Функция запуска записи голосового сообщения
 async function startVoiceRecord() {
     if (voiceRecorder && voiceRecorder.state === 'recording') {
@@ -468,6 +475,10 @@ async function sendVoiceMessage(audioData, isTest = false) {
             duration: voiceRecordingTime || 5,
             isTest: isTest || false
         };
+        // Отправка без звука (настраивается для каждого чата отдельно)
+        if (typeof getSilentSend === 'function' && getSilentSend(currentChatId, isGroupChat)) {
+            message.silent = true;
+        }
         const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
         if (expiresAt) message.expiresAt = expiresAt;
         if (typeof replyToMessage !== 'undefined' && replyToMessage) {
@@ -491,7 +502,8 @@ async function sendVoiceMessage(audioData, isTest = false) {
         if (typeof clearReply === 'function') clearReply();
         
         // Воспроизводим звук отправки
-        if (typeof playSendSound === 'function') {
+        const soundsOn = (typeof areSoundsEnabled === 'function') ? areSoundsEnabled() : (localStorage.getItem('soundsEnabled') !== 'false');
+        if (soundsOn && typeof playSendSound === 'function') {
             playSendSound();
         }
         
@@ -535,7 +547,8 @@ function attachPhoto() {
         try {
             for (const file of files) {
                 const raw = await fileToDataUrl(file);
-                const compressed = await compressImageDataUrl(raw);
+                const qs = getPhotoCompressionSettings();
+                const compressed = await compressImageDataUrl(raw, qs.maxSide, qs.quality);
                 await sendMediaMessage('photo', compressed, file.name);
             }
         } finally {
@@ -618,6 +631,10 @@ async function sendMediaMessage(type, data, filename, filesize) {
             status: 'sent',
             clientMessageId: (typeof createClientMessageId === 'function') ? createClientMessageId() : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
         };
+        // Отправка без звука (настраивается для каждого чата отдельно)
+        if (typeof getSilentSend === 'function' && getSilentSend(currentChatId, isGroupChat)) {
+            msg.silent = true;
+        }
         const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
         if (expiresAt) msg.expiresAt = expiresAt;
         if (typeof replyToMessage !== 'undefined' && replyToMessage) {
@@ -676,5 +693,3 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function openMedia(url) { window.open(url, '_blank'); }
-
-

@@ -33,6 +33,7 @@ let mediaLibraryChatId = null;
 let currentGroupRole = 'member';
 let currentGroupName = '';
 const renderedClientMessageIds = new Set();
+const deferredMediaByMessageId = new Map();
 let currentChatPath = '';
 let oldestLoadedKey = null;
 let newestLoadedKey = null;
@@ -45,6 +46,170 @@ const CHAT_HISTORY_PAGE_SIZE = 60;
 const SEND_RATE_WINDOW_MS = 3000;
 const SEND_RATE_MAX_MESSAGES = 8;
 let sendRateTimestamps = [];
+
+// ===== Per-chat notification settings (mute / silent send) =====
+function chatSettingsKey(chatId, isGroup) {
+  const safe = String(chatId || '').replace(/[^\w-]/g, '_');
+  return `${isGroup ? 'g' : 'p'}_${safe}`;
+}
+
+function getMuteUntil(chatId, isGroup) {
+  const key = `ruchat_muteUntil_${chatSettingsKey(chatId, isGroup)}`;
+  const raw = Number(localStorage.getItem(key) || 0);
+  return Number.isFinite(raw) ? raw : 0;
+}
+
+function setMuteUntil(chatId, isGroup, untilTs) {
+  const key = `ruchat_muteUntil_${chatSettingsKey(chatId, isGroup)}`;
+  const ts = Number(untilTs || 0);
+  if (!ts) localStorage.removeItem(key);
+  else localStorage.setItem(key, String(ts));
+}
+
+function isChatMuted(chatId, isGroup) {
+  const until = getMuteUntil(chatId, isGroup);
+  if (!until) return false;
+  if (until <= Date.now()) {
+    // авто-очистка истекшего мута
+    setMuteUntil(chatId, isGroup, 0);
+    return false;
+  }
+  return true;
+}
+
+function getSilentSend(chatId, isGroup) {
+  const key = `ruchat_silentSend_${chatSettingsKey(chatId, isGroup)}`;
+  return localStorage.getItem(key) === 'true';
+}
+
+function setSilentSend(chatId, isGroup, enabled) {
+  const key = `ruchat_silentSend_${chatSettingsKey(chatId, isGroup)}`;
+  localStorage.setItem(key, enabled ? 'true' : 'false');
+}
+
+function areSoundsEnabled() {
+  return localStorage.getItem('soundsEnabled') !== 'false';
+}
+
+function isMetaMessage(m) {
+  if (!m) return false;
+  const t = String(m.type || '');
+  return m.meta === true || t.startsWith('meta_');
+}
+
+// ===== Pinned message (meta events + localStorage) =====
+function pinnedKey(chatId, isGroup) {
+  return `ruchat_pinned_${chatSettingsKey(chatId, isGroup)}`;
+}
+
+function getPinnedState(chatId, isGroup) {
+  try {
+    const raw = localStorage.getItem(pinnedKey(chatId, isGroup));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function setPinnedState(chatId, isGroup, data) {
+  try {
+    if (!data) localStorage.removeItem(pinnedKey(chatId, isGroup));
+    else localStorage.setItem(pinnedKey(chatId, isGroup), JSON.stringify(data));
+  } catch {
+    // ignore
+  }
+  // если открываем этот чат — сразу обновим UI
+  if (chatId === currentChatId && !!isGroup === !!isGroupChat) {
+    updatePinnedBarUI(data);
+  }
+}
+
+function updatePinnedBarUI(state) {
+  const bar = document.getElementById('pinnedBar');
+  const preview = document.getElementById('pinnedPreview');
+  if (!bar || !preview) return;
+  if (!state || !state.id) {
+    bar.style.display = 'none';
+    preview.textContent = '';
+    return;
+  }
+  preview.textContent = normalizeText(String(state.preview || 'Сообщение'));
+  bar.style.display = 'flex';
+}
+
+async function syncPinnedFromDb() {
+  if (!chatRef || !currentChatId) return;
+  try {
+    const snap = await chatRef.orderByChild('meta').equalTo(true).limitToLast(1).once('value');
+    if (!snap.exists()) return;
+    let last = null;
+    snap.forEach(ch => { last = { id: ch.key, ...(ch.val() || {}) }; });
+    if (!last) return;
+    if (String(last.type) === 'meta_pin' && last.pin && last.pin.id) {
+      setPinnedState(currentChatId, isGroupChat, { id: last.pin.id, preview: last.pin.preview || 'Сообщение', at: last.time || Date.now() });
+    } else if (String(last.type) === 'meta_unpin') {
+      setPinnedState(currentChatId, isGroupChat, null);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+// ===== Media settings (auto-render) =====
+function getNetworkClass() {
+  const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (c && c.type) {
+    if (c.type === 'cellular') return 'cellular';
+    if (c.type === 'wifi' || c.type === 'ethernet') return 'wifi';
+  }
+  if (c && c.saveData) return 'cellular';
+  return 'unknown';
+}
+
+function getMediaSettings() {
+  const get = (k, def) => {
+    const v = localStorage.getItem(k);
+    return v === null || v === undefined || v === '' ? def : v;
+  };
+  const num = (k, def) => {
+    const v = Number(get(k, def));
+    return Number.isFinite(v) ? v : def;
+  };
+  return {
+    autoPhotos: get('ruchat_media_auto_photos', 'always'),   // always | wifi | never
+    autoVideos: get('ruchat_media_auto_videos', 'wifi'),    // always | wifi | never
+    autoFiles: get('ruchat_media_auto_files', 'wifi'),      // always | wifi | never
+    limitMobileMb: num('ruchat_media_limit_mobile_mb', 10),
+    limitWifiMb: num('ruchat_media_limit_wifi_mb', 25),
+  };
+}
+
+function estimateDataUrlBytes(url) {
+  if (!url || typeof url !== 'string') return null;
+  if (!url.startsWith('data:')) return null;
+  const comma = url.indexOf(',');
+  if (comma < 0) return null;
+  const b64 = url.slice(comma + 1);
+  // base64 -> bytes (rough)
+  return Math.floor((b64.length * 3) / 4);
+}
+
+function shouldAutoRenderMedia(kind, url, explicitBytes) {
+  const s = getMediaSettings();
+  const net = getNetworkClass();
+  const onCell = net === 'cellular';
+  const mode = kind === 'photo' ? s.autoPhotos : kind === 'video' ? s.autoVideos : s.autoFiles;
+  if (mode === 'never') return false;
+  if (mode === 'wifi' && onCell) return false;
+
+  const bytes = Number.isFinite(explicitBytes) ? explicitBytes : estimateDataUrlBytes(url);
+  if (!bytes) return true;
+  const limitMb = onCell ? s.limitMobileMb : s.limitWifiMb;
+  const limitBytes = Math.max(0, limitMb) * 1024 * 1024;
+  if (!limitBytes) return false;
+  return bytes <= limitBytes;
+}
+
 
 function chatCacheKey(path) {
   return `ruchat_chat_cache_${path.replace(/[^\w]/g, '_')}`;
@@ -136,6 +301,7 @@ function subscribeUnreadForFriend(friendName) {
     if (snap.exists()) {
       snap.forEach(ch => {
         const m = ch.val() || {};
+        if (isMetaMessage(m)) return;
         if (m.from !== username && m.read !== true) unreadCount += 1;
       });
     }
@@ -289,34 +455,47 @@ function createFriendItem(fn) {
 
 function loadLastMessage(fn) {
   const chatId = [username, fn].sort().join("_");
-  db.ref("privateChats/" + chatId).limitToLast(1).on("value", snap => {
-    if (snap.exists()) snap.forEach(ch => {
-      const m = ch.val();
-      const lm = document.getElementById(`lastMsg_${fn}`);
-      if (lm && m && m.text) {
-        const t = normalizeText(m.text);
-        lm.textContent = t.length > 30 ? t.substring(0, 30) + "..." : t;
-      }
+  db.ref("privateChats/" + chatId).limitToLast(8).on("value", snap => {
+    if (!snap.exists()) return;
 
-      const lastKey = lastMessageKeyByChat[chatId];
-      if (!lastKey) {
-        lastMessageKeyByChat[chatId] = ch.key;
-        return;
-      }
-      if (ch.key !== lastKey) {
-        lastMessageKeyByChat[chatId] = ch.key;
-        const isCurrentChat = currentChatId === chatId;
-        if (m && m.from !== username && !isCurrentChat) {
-          const preview = m.text ? normalizeText(m.text) : 'Новое сообщение';
-          showNotification(fn, preview);
-          if (typeof maybeShowSystemNotification === 'function') {
-            const title = displayNameCache[fn] || fn;
-            const body = m.text ? normalizeText(m.text) : getMessagePreview(m);
-            maybeShowSystemNotification(title, body, { tag: `chat_${chatId}` });
-          }
+    let lastMsg = null;
+    let lastKey = null;
+    snap.forEach(ch => {
+      const m = ch.val() || {};
+      if (isMetaMessage(m)) return;
+      lastMsg = m;
+      lastKey = ch.key;
+    });
+
+    if (!lastMsg || !lastKey) return;
+
+    const lm = document.getElementById(`lastMsg_${fn}`);
+    if (lm) {
+      const previewText = lastMsg.text ? normalizeText(lastMsg.text) : getMessagePreview(lastMsg);
+      const t = normalizeText(previewText);
+      lm.textContent = t.length > 30 ? t.substring(0, 30) + "..." : t;
+    }
+
+    const prevKey = lastMessageKeyByChat[chatId];
+    if (!prevKey) {
+      lastMessageKeyByChat[chatId] = lastKey;
+      return;
+    }
+
+    if (lastKey !== prevKey) {
+      lastMessageKeyByChat[chatId] = lastKey;
+      const isCurrentChat = currentChatId === chatId;
+      const muted = isChatMuted(chatId, false);
+      if (lastMsg.from !== username && !isCurrentChat && !muted) {
+        const preview = lastMsg.text ? normalizeText(lastMsg.text) : getMessagePreview(lastMsg);
+        showNotification(fn, preview);
+        if (typeof maybeShowSystemNotification === 'function') {
+          const title = displayNameCache[fn] || fn;
+          const body = lastMsg.text ? normalizeText(lastMsg.text) : getMessagePreview(lastMsg);
+          maybeShowSystemNotification(title, body, { tag: `chat_${chatId}`, silent: lastMsg.silent === true });
         }
       }
-    });
+    }
   });
 }
 
@@ -548,6 +727,10 @@ function loadChat(path) {
   clearEphemeralWatch();
   currentChatPath = path;
   chatRef = db.ref(path);
+  // скрываем/показываем закреп сразу (из localStorage), затем синхронизируем с БД
+  updatePinnedBarUI(getPinnedState(currentChatId, isGroupChat));
+  syncPinnedFromDb();
+  closeChatNotifySettings();
   oldestLoadedKey = null;
   newestLoadedKey = null;
   hasMoreHistory = true;
@@ -561,7 +744,7 @@ function loadChat(path) {
   const expectedPath = path;
   const cachedMessages = readChatCache(path);
   if (cachedMessages.length) {
-    cachedMessages.forEach(m => addMessageToChat(m, { autoScroll: false, animate: false }));
+    cachedMessages.forEach(m => addMessageToChat(m, { autoScroll: false, animate: false, notify: false }));
     oldestLoadedKey = cachedMessages[0].id || null;
     newestLoadedKey = cachedMessages[cachedMessages.length - 1].id || null;
     md.scrollTop = md.scrollHeight;
@@ -577,7 +760,7 @@ function loadChat(path) {
       if (m.text === undefined || m.text === null) m.text = "";
       items.push(m);
     });
-    items.forEach(m => addMessageToChat(m, { autoScroll: false, animate: false }));
+    items.forEach(m => addMessageToChat(m, { autoScroll: false, animate: false, notify: false }));
     oldestLoadedKey = items.length ? items[0].id : null;
     newestLoadedKey = items.length ? items[items.length - 1].id : null;
     hasMoreHistory = items.length === CHAT_INITIAL_PAGE_SIZE;
@@ -657,7 +840,7 @@ function loadOlderMessages() {
         return;
       }
       const older = items.slice(0, -1);
-      older.forEach(m => addMessageToChat(m, { prepend: true, autoScroll: false, animate: false }));
+      older.forEach(m => addMessageToChat(m, { prepend: true, autoScroll: false, animate: false, notify: false }));
       oldestLoadedKey = older[0].id;
       hasMoreHistory = older.length === CHAT_HISTORY_PAGE_SIZE;
       md.scrollTop = (md.scrollHeight - prevHeight) + prevTop;
@@ -679,23 +862,37 @@ function addMessageToChat(m, options = {}) {
     prepend: false,
     autoScroll: true,
     animate: !isMobile,
+    notify: true,
     ...options
   };
   const md = document.getElementById("messages");
   if (document.getElementById(`message_${m.id}`)) return;
   if (m.clientMessageId && renderedClientMessageIds.has(m.clientMessageId)) return;
   
-  if (m.from !== username && typeof playReceiveSound === 'function') {
+  // meta-сообщения (закреп/откреп) не рендерим как обычные
+  if (isMetaMessage(m)) {
+    if (String(m.type) === 'meta_pin' && m.pin && m.pin.id) {
+      setPinnedState(currentChatId, isGroupChat, { id: m.pin.id, preview: m.pin.preview || 'Сообщение', at: m.time || Date.now() });
+    } else if (String(m.type) === 'meta_unpin') {
+      setPinnedState(currentChatId, isGroupChat, null);
+    }
+    return;
+  }
+
+  const muted = isChatMuted(currentChatId, isGroupChat);
+  const silentIncoming = m.silent === true;
+
+  if (opts.notify && m.from !== username && !muted && !silentIncoming && areSoundsEnabled() && typeof playReceiveSound === 'function') {
     playReceiveSound();
   }
-  if (m.from !== username && typeof maybeShowSystemNotification === 'function') {
+  if (opts.notify && m.from !== username && !muted && typeof maybeShowSystemNotification === 'function') {
     const chatTitle = document.getElementById('chatWith');
     const senderTitle = isGroupChat ? `${normalizeText(m.from || '')} • ${chatTitle ? chatTitle.textContent : 'Чат'}` : (displayNameCache[m.from] || m.from);
     const body = m.text ? normalizeText(m.text) : getMessagePreview(m);
-    maybeShowSystemNotification(senderTitle, body, { tag: `chat_${currentChatId}` });
+    maybeShowSystemNotification(senderTitle, body, { tag: `chat_${currentChatId}`, silent: silentIncoming });
   }
 
-  if (m.from !== username && chatRef) {
+  if (opts.notify && m.from !== username && chatRef) {
     const updates = { delivered: true };
     if (!isGroupChat) updates.read = true;
     chatRef.child(m.id).update(updates).catch(() => {});
@@ -728,6 +925,7 @@ function addMessageToChat(m, options = {}) {
     <button class="reaction-btn" data-message-id="${m.id}" title="Реакции">😊</button>
     <button class="reaction-btn" onclick="startReply('${m.id}')" title="Ответить">↩</button>
     <button class="reaction-btn" onclick="forwardMessage('${m.id}')" title="Переслать">↗</button>
+    <button class="reaction-btn" onclick="togglePinMessage('${m.id}')" title="Закрепить">📌</button>
     ${m.from === username && m.text ? `<button class="reaction-btn" onclick="startEdit('${m.id}')" title="Редактировать">✎</button>` : ""}
     ${m.from === username ? `<button class="reaction-btn" onclick="deleteMessage('${m.id}')" title="Удалить">🗑</button>` : ""}
   </div>`;
@@ -748,45 +946,106 @@ function addMessageToChat(m, options = {}) {
       </div>
     `;
   } else if (photoUrl) {
-    content = `
-      ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
-      <a href="${photoUrl}" target="_blank" download>
-        <img src="${photoUrl}" class="message-media" onclick="openMedia('${photoUrl}')" alt="Фото">
-      </a>
-      <div class="message-media-actions">
-        <a href="${photoUrl}" target="_blank" download>Скачать</a>
-      </div>
-    `;
-  } else if (videoUrl) {
-    // ВИДЕОСООБЩЕНИЯ - НОВАЯ ЛОГИКА
-    if (m.type === 'video_message') {
+    const allow = shouldAutoRenderMedia('photo', photoUrl);
+    if (!allow) {
+      deferredMediaByMessageId.set(m.id, { kind: 'photo', url: photoUrl });
       content = `
-        ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
-        <div class="message-video" onclick="playVideoMessage('${videoUrl}')">
-          <video src="${videoUrl}" preload="metadata"></video>
+        ${forwardedHtml}${replyHtml}${m.text ? `<div class="message-text">${escapeHtml(m.text)}</div>` : ''}
+        <div class="message-deferred" id="deferred_${m.id}">
+          <button class="deferred-btn" onclick="revealDeferredMedia('${m.id}')">Показать фото</button>
+          <div class="deferred-sub">Автозагрузка отключена или действует лимит (Настройки → Медиа)</div>
         </div>
-        ${m.duration ? `<div class="video-duration">${m.duration} сек</div>` : ''}
         <div class="message-media-actions">
-          <a href="${videoUrl}" target="_blank" download>Скачать</a>
+          <a href="${photoUrl}" target="_blank" download>Скачать</a>
         </div>
       `;
     } else {
       content = `
         ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
-        <video src="${videoUrl}" class="message-media" controls onclick="openMedia('${videoUrl}')"></video>
+        <a href="${photoUrl}" target="_blank" download>
+          <img src="${photoUrl}" class="message-media" onclick="openMedia('${photoUrl}')" alt="Фото">
+        </a>
         <div class="message-media-actions">
-          <a href="${videoUrl}" target="_blank" download>Скачать</a>
+          <a href="${photoUrl}" target="_blank" download>Скачать</a>
         </div>
       `;
     }
+  } else if (videoUrl) {
+    // ВИДЕОСООБЩЕНИЯ - НОВАЯ ЛОГИКА
+    if (m.type === 'video_message') {
+      const allow = shouldAutoRenderMedia('video', videoUrl);
+      if (!allow) {
+        deferredMediaByMessageId.set(m.id, { kind: 'video_message', url: videoUrl });
+        content = `
+          ${forwardedHtml}${replyHtml}${m.text ? `<div class="message-text">${escapeHtml(m.text)}</div>` : ''}
+          <div class="message-deferred" id="deferred_${m.id}">
+            <button class="deferred-btn" onclick="revealDeferredMedia('${m.id}')">Показать видео</button>
+            <div class="deferred-sub">Автозагрузка отключена или действует лимит (Настройки → Медиа)</div>
+          </div>
+          ${m.duration ? `<div class="video-duration">${m.duration} сек</div>` : ''}
+          <div class="message-media-actions">
+            <a href="${videoUrl}" target="_blank" download>Скачать</a>
+          </div>
+        `;
+      } else {
+        content = `
+          ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
+          <div class="message-video" onclick="playVideoMessage('${videoUrl}')">
+            <video src="${videoUrl}" preload="metadata"></video>
+          </div>
+          ${m.duration ? `<div class="video-duration">${m.duration} сек</div>` : ''}
+          <div class="message-media-actions">
+            <a href="${videoUrl}" target="_blank" download>Скачать</a>
+          </div>
+        `;
+      }
+    } else {
+      const allow = shouldAutoRenderMedia('video', videoUrl);
+      if (!allow) {
+        deferredMediaByMessageId.set(m.id, { kind: 'video', url: videoUrl });
+        content = `
+          ${forwardedHtml}${replyHtml}${m.text ? `<div class="message-text">${escapeHtml(m.text)}</div>` : ''}
+          <div class="message-deferred" id="deferred_${m.id}">
+            <button class="deferred-btn" onclick="revealDeferredMedia('${m.id}')">Показать видео</button>
+            <div class="deferred-sub">Автозагрузка отключена или действует лимит (Настройки → Медиа)</div>
+          </div>
+          <div class="message-media-actions">
+            <a href="${videoUrl}" target="_blank" download>Скачать</a>
+          </div>
+        `;
+      } else {
+        content = `
+          ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
+          <video src="${videoUrl}" class="message-media" controls onclick="openMedia('${videoUrl}')"></video>
+          <div class="message-media-actions">
+            <a href="${videoUrl}" target="_blank" download>Скачать</a>
+          </div>
+        `;
+      }
+    }
   } else if (audioUrl) {
-    content = `
-      ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
-      <audio src="${audioUrl}" class="message-audio" controls></audio>
-      <div class="message-media-actions">
-        <a href="${audioUrl}" target="_blank" download>Скачать</a>
-      </div>
-    `;
+    const allow = shouldAutoRenderMedia('file', audioUrl);
+    if (!allow) {
+      deferredMediaByMessageId.set(m.id, { kind: 'audio', url: audioUrl });
+      content = `
+        ${forwardedHtml}${replyHtml}${m.text ? `<div class="message-text">${escapeHtml(m.text)}</div>` : ''}
+        <div class="message-deferred" id="deferred_${m.id}">
+          <button class="deferred-btn" onclick="revealDeferredMedia('${m.id}')">Показать аудио</button>
+          <div class="deferred-sub">Автозагрузка отключена или действует лимит (Настройки → Медиа)</div>
+        </div>
+        <div class="message-media-actions">
+          <a href="${audioUrl}" target="_blank" download>Скачать</a>
+        </div>
+      `;
+    } else {
+      content = `
+        ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
+        <audio src="${audioUrl}" class="message-audio" controls></audio>
+        <div class="message-media-actions">
+          <a href="${audioUrl}" target="_blank" download>Скачать</a>
+        </div>
+      `;
+    }
   } else if (docUrl) {
     const fs = formatFileSize(m.filesize);
     content = `${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div><a href="${docUrl}" download="${m.filename}" class="message-doc"><div class="doc-icon">📄</div><div class="doc-info"><div class="doc-name">${escapeHtml(m.filename)}</div><div class="doc-size">${fs}</div></div></a>`;
@@ -823,6 +1082,85 @@ function addMessageToChat(m, options = {}) {
   }
   // авто-удаление отключено
 }
+
+// Показ отложенного медиа (когда автозагрузка выключена/ограничена настройками)
+function revealDeferredMedia(messageId) {
+  const host = document.getElementById(`deferred_${messageId}`);
+  if (!host) return;
+  const entry = deferredMediaByMessageId.get(messageId);
+  if (!entry) return;
+  const kind = entry.kind;
+  const url = String(entry.url || '');
+  if (!url) return;
+  deferredMediaByMessageId.delete(messageId);
+
+  host.innerHTML = '';
+
+  try {
+    if (kind === 'photo') {
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.download = '';
+      const img = document.createElement('img');
+      img.src = url;
+      img.className = 'message-media';
+      img.alt = 'Фото';
+      img.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof openMedia === 'function') openMedia(url);
+        else window.open(url, '_blank');
+      });
+      a.appendChild(img);
+      host.appendChild(a);
+      return;
+    }
+
+    if (kind === 'video_message') {
+      const wrap = document.createElement('div');
+      wrap.className = 'message-video';
+      wrap.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof playVideoMessage === 'function') playVideoMessage(url);
+        else if (typeof openMedia === 'function') openMedia(url);
+        else window.open(url, '_blank');
+      });
+      const v = document.createElement('video');
+      v.src = url;
+      v.preload = 'metadata';
+      wrap.appendChild(v);
+      host.appendChild(wrap);
+      return;
+    }
+
+    if (kind === 'video') {
+      const v = document.createElement('video');
+      v.src = url;
+      v.className = 'message-media';
+      v.controls = true;
+      host.appendChild(v);
+      return;
+    }
+
+    if (kind === 'audio') {
+      const a = document.createElement('audio');
+      a.src = url;
+      a.className = 'message-audio';
+      a.controls = true;
+      host.appendChild(a);
+      return;
+    }
+
+    // fallback
+    if (typeof openMedia === 'function') openMedia(url);
+    else window.open(url, '_blank');
+  } catch {
+    // ignore
+  }
+}
+window.revealDeferredMedia = revealDeferredMedia;
 
 function renderReactions(messageId, reactions) {
   const items = [];
@@ -978,6 +1316,94 @@ async function forwardMessage(messageId, e) {
   } else {
     showNotification('Переслано', 'Сообщение переслано');
   }
+}
+
+async function togglePinMessage(messageId, e) {
+  if (e) e.stopPropagation();
+  if (!chatRef || !messageId || !currentChatId) {
+    showError('Откройте чат');
+    return;
+  }
+  const currentPinned = getPinnedState(currentChatId, isGroupChat);
+  if (currentPinned && currentPinned.id === messageId) {
+    await unpinCurrentChatMessage();
+    return;
+  }
+
+  // пробуем взять превью из кэша/DOM
+  let preview = '';
+  try {
+    const cached = readChatCache(currentChatPath);
+    const cm = cached.find(x => x && x.id === messageId);
+    if (cm) preview = cm.text ? cm.text : getMessagePreview(cm);
+  } catch {
+    // ignore
+  }
+  if (!preview) {
+    const el = document.querySelector(`#message_${messageId} .message-text`);
+    preview = el ? (el.textContent || '') : 'Сообщение';
+  }
+  preview = normalizeText(String(preview || 'Сообщение')).slice(0, 140);
+
+  const metaMsg = {
+    from: username,
+    time: Date.now(),
+    meta: true,
+    type: 'meta_pin',
+    pin: { id: messageId, preview }
+  };
+
+  const sent = navigator.onLine
+    ? (typeof sendMessagePayload === 'function' ? await sendMessagePayload(currentChatPath, metaMsg) : await chatRef.push(metaMsg).then(() => true).catch(() => false))
+    : false;
+
+  if (!sent) {
+    showError('Не удалось закрепить (нет сети)');
+    return;
+  }
+  setPinnedState(currentChatId, isGroupChat, { id: messageId, preview, at: metaMsg.time });
+  showNotification('Закреп', 'Сообщение закреплено', 'success');
+}
+
+async function unpinCurrentChatMessage() {
+  if (!chatRef || !currentChatId) return;
+  const state = getPinnedState(currentChatId, isGroupChat);
+  if (!state) {
+    updatePinnedBarUI(null);
+    return;
+  }
+
+  const metaMsg = {
+    from: username,
+    time: Date.now(),
+    meta: true,
+    type: 'meta_unpin'
+  };
+
+  const sent = navigator.onLine
+    ? (typeof sendMessagePayload === 'function' ? await sendMessagePayload(currentChatPath, metaMsg) : await chatRef.push(metaMsg).then(() => true).catch(() => false))
+    : false;
+
+  if (!sent) {
+    showError('Не удалось открепить (нет сети)');
+    return;
+  }
+  setPinnedState(currentChatId, isGroupChat, null);
+  showNotification('Закреп', 'Сообщение откреплено', 'info');
+}
+
+function jumpToPinnedMessage() {
+  if (!currentChatId) return;
+  const state = getPinnedState(currentChatId, isGroupChat);
+  if (!state || !state.id) return;
+  const target = document.getElementById(`message_${state.id}`);
+  if (!target) {
+    showNotification('Закреп', 'Сообщение не загружено. Пролистайте историю вверх.', 'info');
+    return;
+  }
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  target.classList.add('message-highlight');
+  setTimeout(() => target.classList.remove('message-highlight'), 1200);
 }
 
 function updateMessageInChat(m) {
@@ -1140,6 +1566,86 @@ function openChatBackground() {
 function closeChatBackground() {
   const overlay = document.getElementById('chatBgOverlay');
   if (overlay) overlay.classList.remove('active');
+}
+
+// ===== Per-chat notifications UI (mute / silent send) =====
+function openChatNotifySettings() {
+  if (!currentChatId) { showError('Сначала откройте чат'); return; }
+  const overlay = document.getElementById('chatNotifyOverlay');
+  if (!overlay) return;
+  const settingsMenu = document.getElementById('chatSettingsMenu');
+  if (settingsMenu) settingsMenu.classList.remove('active');
+
+  const subtitle = document.getElementById('chatNotifySubtitle');
+  let chatTitle = '';
+  try {
+    if (isGroupChat) chatTitle = currentGroupName || (document.getElementById('chatWith') ? document.getElementById('chatWith').textContent : '') || currentChatId;
+    else chatTitle = displayNameCache[currentChatPartner] || currentChatPartner || currentChatId;
+  } catch {
+    chatTitle = currentChatId;
+  }
+  if (subtitle) subtitle.textContent = chatTitle ? `Чат: ${chatTitle}` : 'Чат';
+
+  overlay.classList.add('active');
+  updateChatNotifyUI();
+}
+
+function closeChatNotifySettings() {
+  const overlay = document.getElementById('chatNotifyOverlay');
+  if (overlay) overlay.classList.remove('active');
+}
+
+function updateChatNotifyUI() {
+  if (!currentChatId) return;
+  const hint = document.getElementById('chatMuteHint');
+  const until = getMuteUntil(currentChatId, isGroupChat);
+  if (hint) {
+    if (!until || until <= Date.now()) {
+      hint.textContent = 'Уведомления включены';
+    } else {
+      const d = new Date(until);
+      hint.textContent = `Чат замьючен до ${d.toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
+    }
+  }
+
+  const btn = document.getElementById('silentSendBtn');
+  if (btn) {
+    const enabled = getSilentSend(currentChatId, isGroupChat);
+    btn.textContent = enabled ? 'Без звука: вкл' : 'Без звука: выкл';
+  }
+}
+
+function setChatMuteMinutes(minutes) {
+  if (!currentChatId) return;
+  const mins = Math.max(0, Number(minutes || 0));
+  const until = mins <= 0 ? 0 : (Date.now() + mins * 60 * 1000);
+  setMuteUntil(currentChatId, isGroupChat, until);
+  updateChatNotifyUI();
+
+  if (!until) {
+    showNotification('Уведомления', 'Мьют выключен', 'info');
+    return;
+  }
+  if (mins >= 2880) showNotification('Мьют', 'Чат замьючен на 2 дня', 'warning');
+  else if (mins >= 480) showNotification('Мьют', 'Чат замьючен на 8 часов', 'warning');
+  else if (mins >= 60) showNotification('Мьют', 'Чат замьючен на 1 час', 'warning');
+  else showNotification('Мьют', `Чат замьючен на ${mins} мин`, 'warning');
+}
+
+function setChatMuteForever() {
+  if (!currentChatId) return;
+  const twentyYears = Date.now() + 1000 * 60 * 60 * 24 * 365 * 20;
+  setMuteUntil(currentChatId, isGroupChat, twentyYears);
+  updateChatNotifyUI();
+  showNotification('Мьют', 'Чат замьючен навсегда', 'warning');
+}
+
+function toggleSilentSendForChat() {
+  if (!currentChatId) return;
+  const enabled = !getSilentSend(currentChatId, isGroupChat);
+  setSilentSend(currentChatId, isGroupChat, enabled);
+  updateChatNotifyUI();
+  showNotification('Без звука', enabled ? 'Включено' : 'Выключено', 'info');
 }
 
 function selectChatBackground(btn) {
@@ -1607,6 +2113,7 @@ async function sendMessage() {
     }
     const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
     const msg = { from: username, text: txt, time: Date.now(), sent: true, delivered: false, read: false, status: 'sent', clientMessageId: createClientMessageId() };
+    if (getSilentSend(currentChatId, isGroupChat)) msg.silent = true;
     if (expiresAt) msg.expiresAt = expiresAt;
     if (replyToMessage) {
       msg.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
@@ -1620,7 +2127,7 @@ async function sendMessage() {
     clearReply();
     
     // ВОСПРОИЗВОДИМ ЗВУК ОТПРАВКИ
-    if (typeof playSendSound === 'function') {
+    if (areSoundsEnabled() && typeof playSendSound === 'function') {
       playSendSound();
     }
     
@@ -1960,20 +2467,4 @@ window.sendMessagePayload = sendMessagePayload;
 window.enqueuePendingMessage = enqueuePendingMessage;
 window.flushPendingQueue = flushPendingQueue;
 window.createClientMessageId = createClientMessageId;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

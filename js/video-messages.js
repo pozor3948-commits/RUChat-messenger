@@ -23,8 +23,27 @@ const videoConfig = {
         width: 480, 
         height: 480, 
         frameRate: 30 
-    }
+    },
+    videoBitsPerSecond: 2500000
 };
+
+function applyVideoQualityFromSettings() {
+    const mode = localStorage.getItem('ruchat_media_video_quality') || 'medium';
+    if (mode === 'high') {
+        videoConfig.quality = { width: 720, height: 720, frameRate: 30 };
+        videoConfig.videoBitsPerSecond = 4000000;
+        return;
+    }
+    if (mode === 'low') {
+        videoConfig.quality = { width: 360, height: 360, frameRate: 24 };
+        videoConfig.videoBitsPerSecond = 1200000;
+        return;
+    }
+    videoConfig.quality = { width: 480, height: 480, frameRate: 30 };
+    videoConfig.videoBitsPerSecond = 2500000;
+}
+window.applyVideoQualityFromSettings = applyVideoQualityFromSettings;
+applyVideoQualityFromSettings();
 
 function initVideoMessages() {
     if (!window.MediaRecorder) {
@@ -55,6 +74,7 @@ async function checkCameraPermissions() {
 }
 
 async function startVideoRecording() {
+    applyVideoQualityFromSettings();
     if (!window.isSecureContext) {
         showError('Для записи нужен HTTPS (безопасный контекст). Откройте сайт по HTTPS.');
         return;
@@ -92,7 +112,7 @@ async function startVideoRecording() {
         const options = {
             mimeType: 'video/webm;codecs=vp9,opus',
             audioBitsPerSecond: 128000,
-            videoBitsPerSecond: 2500000
+            videoBitsPerSecond: videoConfig.videoBitsPerSecond || 2500000
         };
         
         try {
@@ -270,6 +290,8 @@ async function toggleCamera() {
         return;
     }
 
+    applyVideoQualityFromSettings();
+
     currentCamera = currentCamera === 'user' ? 'environment' : 'user';
 
     if (!videoStream) return;
@@ -358,6 +380,10 @@ async function sendVideoMessage(videoData) {
             type: 'video_message',
             duration: Math.floor((Date.now() - recordingStartTime) / 1000)
         };
+        // Отправка без звука (настраивается для каждого чата отдельно)
+        if (typeof getSilentSend === 'function' && getSilentSend(currentChatId, isGroupChat)) {
+            message.silent = true;
+        }
         const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
         if (expiresAt) message.expiresAt = expiresAt;
         if (typeof replyToMessage !== 'undefined' && replyToMessage) {
@@ -376,7 +402,8 @@ async function sendVideoMessage(videoData) {
         }
         if (typeof clearReply === 'function') clearReply();
         
-        if (typeof playSendSound === 'function') {
+        const soundsOn = (typeof areSoundsEnabled === 'function') ? areSoundsEnabled() : (localStorage.getItem('soundsEnabled') !== 'false');
+        if (soundsOn && typeof playSendSound === 'function') {
             playSendSound();
         }
         
@@ -435,7 +462,5 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
-
 
 
