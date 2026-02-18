@@ -1615,6 +1615,7 @@ function applyChatBackground(chatId) {
 
 function openChatBackground() {
   if (!currentChatId) { showError('Сначала откройте чат'); return; }
+  if (typeof closeTransientMenus === 'function') closeTransientMenus();
   const overlay = document.getElementById('chatBgOverlay');
   if (!overlay) return;
   const key = `ruchat_chat_bg_${currentChatId}`;
@@ -1647,6 +1648,7 @@ function closeChatBackground() {
 // ===== Per-chat notifications UI (mute / silent send) =====
 function openChatNotifySettings() {
   if (!currentChatId) { showError('Сначала откройте чат'); return; }
+  if (typeof closeTransientMenus === 'function') closeTransientMenus();
   const overlay = document.getElementById('chatNotifyOverlay');
   if (!overlay) return;
   const settingsMenu = document.getElementById('chatSettingsMenu');
@@ -2490,8 +2492,18 @@ async function unblockUser(fn) {
 /* ==========================================================
    11. МЕДИАТЕКА ЧАТА
    ========================================================== */
+function closeTransientMenus() {
+  // Эти элементы иногда остаются открытыми и могут перекрывать оверлеи на мобильных
+  ['attachmentMenu', 'recordTypeMenu', 'emojiPicker', 'stickerPanel', 'chatSettingsMenu'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('active');
+  });
+}
+
 function openMediaLibrary() {
   if (!currentChatId) { showError('Сначала откройте чат'); return; }
+  closeTransientMenus();
   const overlay = document.getElementById('mediaLibraryOverlay');
   if (!overlay) return;
   overlay.classList.add('active');

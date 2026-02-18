@@ -29,7 +29,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260218a">
+    <link rel="stylesheet" href="css/style.css?v=20260218b">
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -54,7 +54,8 @@
             .emoji-picker {
                 position: fixed !important;
                 bottom: 80px !important;
-                z-index: 9999 !important;
+                /* Ниже модальных окон (чтобы не перекрывать "посты/медиа" и прочие оверлеи) */
+                z-index: 1300 !important;
                 max-height: 60vh;
                 overflow-y: auto;
             }
@@ -195,7 +196,7 @@
         <div class="pinned-bar" id="pinnedBar" style="display:none;" onclick="jumpToPinnedMessage()">
             <div class="pinned-icon">📌</div>
             <div class="pinned-text">
-                <div class="pinned-title" id="pinnedTitle">Закреплено</div>
+                <div class="pinned-title">Закреплено</div>
                 <div class="pinned-preview" id="pinnedPreview"></div>
             </div>
             <button class="pinned-close" onclick="event.stopPropagation(); unpinCurrentChatMessage()" title="Открепить">✕</button>
@@ -533,22 +534,22 @@
 </div>
 
 <!-- Скрипты -->
-<script src="js/firebase-config.js?v=20260218a"></script>
-<script src="js/utils.js?v=20260218a"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
-<script src="js/main.js?v=20260218a"></script>
-<script src="js/ui.js?v=20260218a"></script>
-<script src="js/sounds.js?v=20260218a"></script>
-<script src="js/auth.js?v=20260218a"></script>
-<script src="js/status.js?v=20260218a"></script>
-<script src="js/chat.js?v=20260218a"></script>
-<script src="js/media.js?v=20260218a"></script>
-<script src="js/emoji.js?v=20260218a"></script>
-<script src="js/stickers.js?v=20260218a"></script>
-<script src="js/groups.js?v=20260218a"></script>
-<script src="js/mobile.js?v=20260218a"></script>
-<script src="js/video-messages.js?v=20260218a"></script>
-<script src="js/audio-call.js?v=20260218a"></script>
-<script src="js/settings.js?v=20260218a"></script>
+<script src="js/firebase-config.js?v=20260218b"></script>
+<script src="js/utils.js?v=20260218b"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/main.js?v=20260218b"></script>
+<script src="js/ui.js?v=20260218b"></script>
+<script src="js/sounds.js?v=20260218b"></script>
+<script src="js/auth.js?v=20260218b"></script>
+<script src="js/status.js?v=20260218b"></script>
+<script src="js/chat.js?v=20260218b"></script>
+<script src="js/media.js?v=20260218b"></script>
+<script src="js/emoji.js?v=20260218b"></script>
+<script src="js/stickers.js?v=20260218b"></script>
+<script src="js/groups.js?v=20260218b"></script>
+<script src="js/mobile.js?v=20260218b"></script>
+<script src="js/video-messages.js?v=20260218b"></script>
+<script src="js/audio-call.js?v=20260218b"></script>
+<script src="js/settings.js?v=20260218b"></script>
 
 <script>
     // Функция для проверки локального запуска
@@ -594,7 +595,7 @@
         if (retry) window.retryAction = retry;
     };
     
-    console.log('Build 2026-02-18a');
+    console.log('Build 2026-02-18b');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {
@@ -648,6 +649,11 @@
 
 </body>
 </html>
+
+
+
+
+
 
 
 

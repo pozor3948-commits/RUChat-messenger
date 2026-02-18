@@ -1,5 +1,6 @@
 const { initializeApp } = require("firebase-admin/app");
 const { getDatabase } = require("firebase-admin/database");
+const { getMessaging } = require("firebase-admin/messaging");
 const { onValueCreated, onValueWritten } = require("firebase-functions/v2/database");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
@@ -14,6 +15,7 @@ const FRIEND_REQUEST_RATE_LIMIT_MAX = Number.parseInt(process.env.FRIEND_REQUEST
 const FRIEND_REQUEST_RATE_LIMIT_WINDOW_MS = Number.parseInt(process.env.FRIEND_REQUEST_RATE_LIMIT_WINDOW_MS || "60000", 10);
 const MEDIA_FIELD_MAX_LENGTH = Number.parseInt(process.env.MEDIA_FIELD_MAX_LENGTH || "15000000", 10);
 const TEXT_MAX_LENGTH = Number.parseInt(process.env.TEXT_MAX_LENGTH || "4000", 10);
+const PUSH_ENABLED = (process.env.PUSH_ENABLED || "true") !== "false";
 
 function isString(value, maxLen) {
   return typeof value === "string" && value.length > 0 && value.length <= maxLen;
@@ -90,6 +92,77 @@ function normalizeMessage(raw, messageId) {
   );
 
   return normalized;
+}
+
+function messagePreview(msg) {
+  const text = sanitizeOptionalText(msg.text, 160);
+  if (text) return text;
+  if (isValidMediaValue(msg.photo)) return "[Фото]";
+  if (isValidMediaValue(msg.video)) return "[Видео]";
+  if (isValidMediaValue(msg.audio)) return "[Голосовое]";
+  if (isValidMediaValue(msg.document)) return "[Файл]";
+  if (isValidMediaValue(msg.sticker)) return "[Стикер]";
+  return "Сообщение";
+}
+
+async function sendPushToUser(toUser, notification, data) {
+  if (!PUSH_ENABLED) return;
+  if (!isString(toUser, 64)) return;
+
+  // Only notify when the user is not online (prevents spam while chat is open).
+  try {
+    const statusSnap = await db.ref(`userStatus/${toUser}`).get();
+    const status = statusSnap.exists() ? (statusSnap.val() || {}) : {};
+    if (status.online === true) return;
+  } catch (_) {
+    // If status cannot be read, continue best-effort.
+  }
+
+  const devicesSnap = await db.ref(`accounts/${toUser}/devices`).get();
+  if (!devicesSnap.exists()) return;
+
+  const tokens = [];
+  const tokenToDevice = {};
+  devicesSnap.forEach((child) => {
+    const v = child.val() || {};
+    const t = typeof v.fcmToken === "string" ? v.fcmToken.trim() : "";
+    if (!t) return;
+    tokens.push(t);
+    tokenToDevice[t] = child.key;
+  });
+
+  if (!tokens.length) return;
+
+  try {
+    const resp = await getMessaging().sendEachForMulticast({
+      tokens,
+      notification,
+      data,
+      android: { priority: "high" }
+    });
+
+    const cleanup = {};
+    resp.responses.forEach((r, idx) => {
+      if (r.success) return;
+      const token = tokens[idx];
+      const code = r.error && r.error.code ? String(r.error.code) : "";
+      const deviceKey = tokenToDevice[token];
+      if (!deviceKey) return;
+      // Remove dead tokens to keep DB clean.
+      if (
+        code.includes("registration-token-not-registered") ||
+        code.includes("invalid-argument") ||
+        code.includes("invalid-registration-token")
+      ) {
+        cleanup[`accounts/${toUser}/devices/${deviceKey}/fcmToken`] = null;
+      }
+    });
+    if (Object.keys(cleanup).length) {
+      await db.ref().update(cleanup);
+    }
+  } catch (e) {
+    logger.warn("Push send failed", { toUser, error: e && e.message ? e.message : String(e) });
+  }
 }
 
 function isPrivateChatParticipant(chatId, username) {
@@ -181,6 +254,34 @@ exports.onPrivateMessageCreated = onValueCreated(
   },
   async (event) => {
     await moderateMessageCreate(event, false);
+
+    const snap = await event.data.ref.get();
+    if (!snap.exists()) return;
+    const msg = snap.val() || {};
+    if (msg.isTest === true) return;
+    const type = typeof msg.type === "string" ? msg.type : "";
+    if (type.startsWith("meta_")) return;
+
+    const from = sanitizeOptionalText(msg.from, 64);
+    if (!from) return;
+
+    const chatId = event.params.chatId;
+    const parts = isString(chatId, 200) ? chatId.split("_") : [];
+    const toUser = parts.find((p) => p && p !== from);
+    if (!toUser) return;
+
+    const notification = {
+      title: `RuChat • ${from}`,
+      body: messagePreview(msg)
+    };
+    const data = {
+      kind: "private_message",
+      chatId: String(chatId),
+      from,
+      messageId: String(event.params.messageId || "")
+    };
+
+    await sendPushToUser(toUser, notification, data);
   }
 );
 
@@ -191,6 +292,41 @@ exports.onGroupMessageCreated = onValueCreated(
   },
   async (event) => {
     await moderateMessageCreate(event, true);
+
+    const snap = await event.data.ref.get();
+    if (!snap.exists()) return;
+    const msg = snap.val() || {};
+    if (msg.isTest === true) return;
+    const type = typeof msg.type === "string" ? msg.type : "";
+    if (type.startsWith("meta_")) return;
+
+    const from = sanitizeOptionalText(msg.from, 64);
+    if (!from) return;
+
+    const groupId = event.params.groupId;
+    if (!isString(groupId, 200)) return;
+    const membersSnap = await db.ref(`groups/${groupId}/members`).get();
+    if (!membersSnap.exists()) return;
+
+    const notification = {
+      title: `RuChat • ${from}`,
+      body: messagePreview(msg)
+    };
+    const data = {
+      kind: "group_message",
+      groupId: String(groupId),
+      from,
+      messageId: String(event.params.messageId || "")
+    };
+
+    const promises = [];
+    membersSnap.forEach((child) => {
+      const member = child.key;
+      if (!member || member === from) return;
+      if (child.val() !== true) return;
+      promises.push(sendPushToUser(member, notification, data));
+    });
+    await Promise.all(promises);
   }
 );
 
@@ -233,7 +369,17 @@ exports.onFriendRequestCreated = onValueCreated(
       await db.ref(`accounts/${fromUser}/friendRequests/outgoing/${toUser}`).remove();
       await db.ref(`accounts/${fromUser}/system/lastFriendRequestRateLimitedAt`).set(Date.now());
       logger.warn("Friend request rate limit exceeded", { fromUser, count: limit.count });
+      return;
     }
+
+    await sendPushToUser(
+      toUser,
+      {
+        title: "RuChat • Заявка в друзья",
+        body: `${fromUser} хочет добавить вас в друзья`
+      },
+      { kind: "friend_request", from: fromUser }
+    );
   }
 );
 
