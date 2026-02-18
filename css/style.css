@@ -3458,9 +3458,186 @@ body.light .chat-unread-dot { border-color: #ffffff; }
         position: sticky !important;
         bottom: 0 !important;
     }
-    body.keyboard-open .messages-container {
+body.keyboard-open .messages-container {
         padding-bottom: calc(130px + var(--safe-bottom)) !important;
     }
 }
 
+/* ==========================================================
+   AUTH SCREEN (Modern Glass Login/Register)
+   ========================================================== */
+.login-container {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: hidden;
+    background: #0b0d10;
+    z-index: 5000;
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    animation: none !important;
+}
+.login-container::before {
+    content: '';
+    position: absolute;
+    inset: -40px;
+    background-image:
+        url('https://images.unsplash.com/photo-1520975916090-3105956dac38?auto=format&fit=crop&w=2000&q=60');
+    background-size: cover;
+    background-position: center;
+    transform: scale(1.06);
+    opacity: 0.9;
+    filter: saturate(1.1) contrast(1.05);
+}
+.login-container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 15% 20%, rgba(116, 75, 162, 0.45), transparent 55%),
+        radial-gradient(circle at 85% 30%, rgba(0, 132, 255, 0.28), transparent 60%),
+        linear-gradient(180deg, rgba(10, 12, 18, 0.45), rgba(10, 12, 18, 0.85) 60%, rgba(10, 12, 18, 0.92));
+}
 
+.login-container .login-box.auth-card {
+    position: relative;
+    z-index: 1;
+    width: min(460px, 92vw);
+    padding: 40px 38px 28px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 32px 90px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    overflow: hidden;
+}
+.login-container .login-box.auth-card::before { content: none; }
+
+.login-container .auth-hero { margin-bottom: 16px; }
+.login-container .auth-logo {
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 13px;
+}
+.login-container .login-title {
+    margin: 10px 0 18px;
+    text-align: left;
+    font-size: 44px;
+    line-height: 1.05;
+    font-weight: 900;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: #ffffff;
+    background: none;
+    -webkit-text-fill-color: initial;
+    animation: none;
+}
+
+.login-container .login-label {
+    display: block;
+    margin: 14px 0 8px;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.70);
+}
+
+.login-container .login-input {
+    margin: 0;
+    width: 100%;
+    padding: 16px 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    outline: none;
+    box-shadow: none;
+    transform: none;
+    transition: box-shadow .18s ease, border-color .18s ease, background .18s ease;
+}
+.login-container .login-input::placeholder { color: rgba(255, 255, 255, 0.55); }
+.login-container .login-input:hover { transform: none; box-shadow: none; }
+.login-container .login-input:focus {
+    border-color: rgba(0, 132, 255, 0.65);
+    box-shadow: 0 0 0 4px rgba(0, 132, 255, 0.22);
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.login-container .auth-remember {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    user-select: none;
+    color: rgba(255, 255, 255, 0.82);
+    font-weight: 700;
+    font-size: 14px;
+}
+.login-container .auth-remember input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #0084ff;
+}
+
+.login-container .login-btn.auth-submit {
+    margin-top: 18px;
+    width: 100%;
+    padding: 16px 18px;
+    border-radius: 999px;
+    border: none;
+    background: linear-gradient(180deg, #1d86ff, #005eff);
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 18px 40px rgba(0, 132, 255, 0.35);
+    animation: none;
+}
+.login-container .login-btn.auth-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 22px 55px rgba(0, 132, 255, 0.45);
+}
+.login-container .login-btn.auth-submit:active { transform: translateY(0); }
+
+.login-container .auth-actions {
+    margin-top: 14px;
+    display: flex;
+    justify-content: center;
+}
+.login-container .auth-switch {
+    margin-top: 20px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 14px;
+}
+.login-container .auth-link {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.86);
+    cursor: pointer;
+    padding: 8px 6px;
+    font-weight: 800;
+    text-decoration: underline;
+}
+.login-container .auth-link:hover { color: #ffffff; }
+.login-container .auth-link.strong {
+    text-decoration: none;
+    color: #ffffff;
+}
+
+@media (max-width: 480px) {
+    .login-container { padding: 18px; }
+    .login-container .login-box.auth-card { padding: 32px 22px 22px; }
+    .login-container .login-title { font-size: 36px; }
+}

@@ -29,7 +29,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260218b">
+    <link rel="stylesheet" href="css/style.css?v=20260218f">
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -82,15 +82,33 @@
 
 <!-- ==========  ЛОГИН  ========== -->
 <div class="login-container" id="login">
-    <div class="login-box">
-        <h1 class="login-title">RuChat</h1>
-        <input type="text" id="usernameInput" class="login-input" placeholder="Имя пользователя" autocomplete="username">
-        <input type="password" id="passwordInput" class="login-input" placeholder="Пароль" autocomplete="current-password">
-        <div class="btn-group">
-            <button class="login-btn" onclick="register()">Регистрация</button>
-            <button class="login-btn secondary" onclick="login()">Войти</button>
+    <div class="login-box auth-card">
+        <div class="auth-hero">
+            <div class="auth-logo">RuChat</div>
+            <h1 class="login-title" id="authTitle">ВХОД</h1>
         </div>
-        <button class="login-btn secondary" onclick="recoverPassword()">Восстановить пароль</button>
+
+        <label class="login-label" for="usernameInput">ИМЯ ПОЛЬЗОВАТЕЛЯ</label>
+        <input type="text" id="usernameInput" class="login-input" placeholder="Введите имя пользователя" autocomplete="username">
+
+        <label class="login-label" for="passwordInput">ПАРОЛЬ</label>
+        <input type="password" id="passwordInput" class="login-input" placeholder="Введите пароль" autocomplete="current-password">
+
+        <label class="auth-remember">
+            <input type="checkbox" id="keepSignedIn">
+            <span>Запомнить меня</span>
+        </label>
+
+        <button class="login-btn auth-submit" id="authSubmitBtn" type="button" onclick="login()">ВОЙТИ</button>
+
+        <div class="auth-actions">
+            <button class="auth-link" id="authForgotBtn" type="button" onclick="recoverPassword()">Забыли пароль?</button>
+        </div>
+
+        <div class="auth-switch">
+            <span id="authSwitchText">Нет аккаунта?</span>
+            <button class="auth-link strong" id="authSwitchLink" type="button" onclick="toggleAuthMode()">Регистрация</button>
+        </div>
     </div>
 </div>
 
@@ -534,22 +552,22 @@
 </div>
 
 <!-- Скрипты -->
-<script src="js/firebase-config.js?v=20260218b"></script>
-<script src="js/utils.js?v=20260218b"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
-<script src="js/main.js?v=20260218b"></script>
-<script src="js/ui.js?v=20260218b"></script>
-<script src="js/sounds.js?v=20260218b"></script>
-<script src="js/auth.js?v=20260218b"></script>
-<script src="js/status.js?v=20260218b"></script>
-<script src="js/chat.js?v=20260218b"></script>
-<script src="js/media.js?v=20260218b"></script>
-<script src="js/emoji.js?v=20260218b"></script>
-<script src="js/stickers.js?v=20260218b"></script>
-<script src="js/groups.js?v=20260218b"></script>
-<script src="js/mobile.js?v=20260218b"></script>
-<script src="js/video-messages.js?v=20260218b"></script>
-<script src="js/audio-call.js?v=20260218b"></script>
-<script src="js/settings.js?v=20260218b"></script>
+<script src="js/firebase-config.js?v=20260218f"></script>
+<script src="js/utils.js?v=20260218f"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/main.js?v=20260218f"></script>
+<script src="js/ui.js?v=20260218f"></script>
+<script src="js/sounds.js?v=20260218f"></script>
+<script src="js/auth.js?v=20260218f"></script>
+<script src="js/status.js?v=20260218f"></script>
+<script src="js/chat.js?v=20260218f"></script>
+<script src="js/media.js?v=20260218f"></script>
+<script src="js/emoji.js?v=20260218f"></script>
+<script src="js/stickers.js?v=20260218f"></script>
+<script src="js/groups.js?v=20260218f"></script>
+<script src="js/mobile.js?v=20260218f"></script>
+<script src="js/video-messages.js?v=20260218f"></script>
+<script src="js/audio-call.js?v=20260218f"></script>
+<script src="js/settings.js?v=20260218f"></script>
 
 <script>
     // Функция для проверки локального запуска
@@ -595,7 +613,7 @@
         if (retry) window.retryAction = retry;
     };
     
-    console.log('Build 2026-02-18b');
+    console.log('Build 2026-02-18f');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {
@@ -649,12 +667,6 @@
 
 </body>
 </html>
-
-
-
-
-
-
 
 
 

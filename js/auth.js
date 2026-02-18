@@ -34,6 +34,8 @@ async function register() {
       chatThemes: {} 
     });
     showNotification("Успешно", "Регистрация прошла успешно!");
+    // Возвращаем в режим входа (чтобы сразу можно было зайти)
+    if (typeof applyAuthMode === 'function') applyAuthMode('login');
     document.getElementById("usernameInput").value = "";
     document.getElementById("passwordInput").value = "";
   } catch (e) {
@@ -115,6 +117,36 @@ async function login() {
   }
 }
 
+// ────────────────────────────────────────────────
+//  UI: Переключение режимов Вход / Регистрация (экран авторизации)
+// ────────────────────────────────────────────────
+let authMode = 'login'; // 'login' | 'register'
+
+function applyAuthMode(mode) {
+  authMode = mode === 'register' ? 'register' : 'login';
+  const title = document.getElementById('authTitle');
+  const submit = document.getElementById('authSubmitBtn');
+  const switchText = document.getElementById('authSwitchText');
+  const switchLink = document.getElementById('authSwitchLink');
+  const forgot = document.getElementById('authForgotBtn');
+
+  if (title) title.textContent = authMode === 'register' ? 'РЕГИСТРАЦИЯ' : 'ВХОД';
+  if (submit) {
+    submit.textContent = authMode === 'register' ? 'СОЗДАТЬ АККАУНТ' : 'ВОЙТИ';
+    submit.onclick = authMode === 'register' ? register : login;
+  }
+  if (switchText) switchText.textContent = authMode === 'register' ? 'Уже есть аккаунт?' : 'Нет аккаунта?';
+  if (switchLink) switchLink.textContent = authMode === 'register' ? 'Войти' : 'Регистрация';
+  if (forgot) forgot.style.display = authMode === 'register' ? 'none' : 'inline-flex';
+}
+
+function toggleAuthMode() {
+  applyAuthMode(authMode === 'login' ? 'register' : 'login');
+}
+
+window.applyAuthMode = applyAuthMode;
+window.toggleAuthMode = toggleAuthMode;
+
 // Запоминание имени для входа
 document.addEventListener('DOMContentLoaded', function() {
   const savedUser = localStorage.getItem('ruchat_last_user');
@@ -122,6 +154,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const u = document.getElementById('usernameInput');
     if (u) u.value = savedUser;
   }
+
+  // Инициализируем красивую форму авторизации
+  if (document.getElementById('authSubmitBtn')) {
+    applyAuthMode('login');
+    const keep = document.getElementById('keepSignedIn');
+    if (keep) {
+      keep.checked = localStorage.getItem('ruchat_autologin') !== 'false';
+      keep.addEventListener('change', () => {
+        localStorage.setItem('ruchat_autologin', keep.checked ? 'true' : 'false');
+      });
+    }
+    const pw = document.getElementById('passwordInput');
+    if (pw) {
+      pw.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const btn = document.getElementById('authSubmitBtn');
+        if (btn) btn.click();
+      });
+    }
+  }
+
   // Автовход на этом устройстве (если ранее входили)
   setTimeout(autoLoginFromDevice, 300);
 });
@@ -253,5 +307,3 @@ async function autoLoginFromDevice() {
     // ignore
   }
 }
-
-
