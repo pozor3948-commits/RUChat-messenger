@@ -29,7 +29,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260217b">
+    <link rel="stylesheet" href="css/style.css?v=20260218a">
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -77,7 +77,7 @@
         }
     </style>
 </head>
-<body>
+<body class="messenger-skin">
 
 <!-- ==========  ЛОГИН  ========== -->
 <div class="login-container" id="login">
@@ -98,9 +98,9 @@
 
     <!-- мобильный хедер -->
     <div class="mobile-header" id="mobileHeader">
-        <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="handleMobileMenuButton()">⚙️</button>
+        <button class="mobile-back-btn" id="mobileBackBtn" onclick="closeChat()">←</button>
         <div class="chat-info">
-            <div class="chat-title" id="mobileChatTitle">RuChat</div>
+            <div class="chat-title" id="mobileChatTitle">Чаты</div>
             <div class="mobile-chat-meta">
                 <img id="mobileChatAvatar" class="mobile-chat-avatar" alt="Chat Avatar" style="display:none">
                 <div class="chat-members" id="mobileChatStatus">Выберите чат</div>
@@ -108,25 +108,37 @@
         </div>
         <div class="mobile-actions">
             <button class="mobile-call-btn" id="mobileCallBtn" onclick="startVoiceCall()" title="Голосовой звонок">📞</button>
-            <button class="mobile-back-btn" id="mobileBackBtn" onclick="closeChat()">←</button>
+            <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="handleMobileMenuButton()">⚙️</button>
         </div>
     </div>
 
     <!-- сайдбар -->
     <div class="sidebar" id="sidebar">
-        <div class="user-header">
-            <img src="" alt="Avatar" class="user-avatar" id="userAvatar" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=User&background=0088cc&color=fff&size=44'">
-            <div class="user-info">
+        <div class="user-header messenger-topbar" id="sidebarTopbar">
+            <button class="profile-btn" onclick="showSettingsMenu()" title="Профиль">
+                <img src="" alt="Avatar" class="user-avatar small" id="userAvatarTop" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=User&background=0088cc&color=fff&size=36'">
+            </button>
+            <div class="sidebar-title">Чаты</div>
+            <div class="sidebar-actions">
+                <button class="icon-btn" onclick="showAddFriend()" title="Новый чат">✏️</button>
+                <button class="icon-btn" onclick="showCreateGroupModal()" title="Новая группа">👥</button>
+                <button class="icon-btn" onclick="showSettingsMenu()" title="Настройки">⚙️</button>
+            </div>
+            <!-- Скрытые элементы: нужны логике (аватар/имя/статус), но в "Messenger" топбаре не показываем -->
+            <img src="" alt="Avatar" class="user-avatar" id="userAvatar" style="display:none" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=User&background=0088cc&color=fff&size=44'">
+            <div class="user-info" style="display:none">
                 <div class="user-name" id="userName"></div>
                 <div class="user-status" id="userStatus">В сети</div>
             </div>
-            <button class="icon-btn" onclick="showSettingsMenu()" title="Настройки">⚙️</button>
-            <img src="" alt="Avatar" class="user-avatar small" id="userAvatarTop" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=User&background=0088cc&color=fff&size=36'">
         </div>
 
         <div class="menu-section">
             <div class="menu-title">Поиск</div>
             <input type="text" class="search-input" placeholder="Поиск чатов..." id="searchInput" oninput="searchChats(this.value)">
+        </div>
+
+        <div class="stories-container sidebar-stories" id="storiesContainer">
+            <div class="stories-list" id="storiesList"></div>
         </div>
 
         <div class="menu-section">
@@ -187,10 +199,6 @@
                 <div class="pinned-preview" id="pinnedPreview"></div>
             </div>
             <button class="pinned-close" onclick="event.stopPropagation(); unpinCurrentChatMessage()" title="Открепить">✕</button>
-        </div>
-
-        <div class="stories-container" id="storiesContainer">
-            <div class="stories-list" id="storiesList"></div>
         </div>
 
         <div class="messages-container" id="messages"></div>
@@ -525,22 +533,22 @@
 </div>
 
 <!-- Скрипты -->
-<script src="js/firebase-config.js?v=20260217b"></script>
-<script src="js/utils.js?v=20260217b"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
-<script src="js/main.js?v=20260217b"></script>
-<script src="js/ui.js?v=20260217b"></script>
-<script src="js/sounds.js?v=20260217b"></script>
-<script src="js/auth.js?v=20260217b"></script>
-<script src="js/status.js?v=20260217b"></script>
-<script src="js/chat.js?v=20260217b"></script>
-<script src="js/media.js?v=20260217b"></script>
-<script src="js/emoji.js?v=20260217b"></script>
-<script src="js/stickers.js?v=20260217b"></script>
-<script src="js/groups.js?v=20260217b"></script>
-<script src="js/mobile.js?v=20260217b"></script>
-<script src="js/video-messages.js?v=20260217b"></script>
-<script src="js/audio-call.js?v=20260217b"></script>
-<script src="js/settings.js?v=20260217b"></script>
+<script src="js/firebase-config.js?v=20260218a"></script>
+<script src="js/utils.js?v=20260218a"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/main.js?v=20260218a"></script>
+<script src="js/ui.js?v=20260218a"></script>
+<script src="js/sounds.js?v=20260218a"></script>
+<script src="js/auth.js?v=20260218a"></script>
+<script src="js/status.js?v=20260218a"></script>
+<script src="js/chat.js?v=20260218a"></script>
+<script src="js/media.js?v=20260218a"></script>
+<script src="js/emoji.js?v=20260218a"></script>
+<script src="js/stickers.js?v=20260218a"></script>
+<script src="js/groups.js?v=20260218a"></script>
+<script src="js/mobile.js?v=20260218a"></script>
+<script src="js/video-messages.js?v=20260218a"></script>
+<script src="js/audio-call.js?v=20260218a"></script>
+<script src="js/settings.js?v=20260218a"></script>
 
 <script>
     // Функция для проверки локального запуска
@@ -586,7 +594,7 @@
         if (retry) window.retryAction = retry;
     };
     
-    console.log('Build 2026-02-17b');
+    console.log('Build 2026-02-18a');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {
@@ -640,11 +648,6 @@
 
 </body>
 </html>
-
-
-
-
-
 
 
 

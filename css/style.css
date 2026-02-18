@@ -87,6 +87,438 @@ body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ub
     border: 2px solid #1e2736;
     box-shadow: 0 0 0 2px rgba(0, 163, 255, 0.2);
 }
+
+/* ==========================================================
+   Messenger-Like UI Skin (Inspired, not a 1:1 clone)
+   ========================================================== */
+body.messenger-skin {
+  --ms-accent: #0084ff;
+  --ms-bg: #0b0d10;
+  --ms-surface: #101318;
+  --ms-surface2: #151a22;
+  --ms-border: rgba(255,255,255,0.08);
+  --ms-text: #f5f7fa;
+  --ms-muted: rgba(245,247,250,0.62);
+  --ms-bubble-in: #202531;
+  --ms-bubble-out: #0084ff;
+  --ms-input: #151a22;
+  background: var(--ms-bg);
+  color: var(--ms-text);
+}
+
+body.messenger-skin.light {
+  --ms-bg: #f6f7f9;
+  --ms-surface: #ffffff;
+  --ms-surface2: #f0f2f5;
+  --ms-border: rgba(15,23,42,0.10);
+  --ms-text: #0f172a;
+  --ms-muted: rgba(15,23,42,0.60);
+  --ms-bubble-in: #e7e9ee;
+  --ms-bubble-out: #0084ff;
+  --ms-input: #f0f2f5;
+  background: var(--ms-bg);
+  color: var(--ms-text);
+}
+
+body.messenger-skin .main-container {
+  background: var(--ms-bg);
+}
+
+body.messenger-skin .sidebar {
+  background: var(--ms-bg);
+  border-right: 1px solid var(--ms-border);
+  backdrop-filter: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.messenger-skin .sidebar .user-header.messenger-topbar {
+  padding: 12px 14px;
+  background: var(--ms-bg);
+  border-bottom: 1px solid var(--ms-border);
+  gap: 12px;
+  animation: none;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+body.messenger-skin .sidebar .profile-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+body.messenger-skin .sidebar .profile-btn img {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+body.messenger-skin .sidebar-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ms-text);
+  flex: 1;
+}
+
+body.messenger-skin .sidebar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+body.messenger-skin .sidebar-actions .icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--ms-surface2);
+  border: 1px solid var(--ms-border);
+  color: var(--ms-text);
+  box-shadow: none;
+  transform: none;
+}
+
+body.messenger-skin .sidebar-actions .icon-btn:hover {
+  transform: none;
+  background: rgba(255,255,255,0.06);
+}
+
+body.messenger-skin.light .sidebar-actions .icon-btn:hover {
+  background: rgba(15,23,42,0.05);
+}
+
+body.messenger-skin .menu-section {
+  padding: 10px 14px;
+  border-bottom: none;
+  animation: none;
+}
+
+body.messenger-skin .menu-title {
+  margin: 10px 0 8px;
+  padding: 0 2px;
+  color: var(--ms-muted);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.messenger-skin .menu-title::before,
+body.messenger-skin .menu-title::after {
+  display: none;
+}
+
+/* "Search" как в Messenger — без заголовка секции */
+body.messenger-skin #sidebar .menu-section:first-of-type .menu-title {
+  display: none;
+}
+
+/* Кнопки "Создать группу / Добавить друга" прячем — есть иконки в топбаре */
+body.messenger-skin #sidebar .menu-section:last-of-type {
+  display: none;
+}
+
+body.messenger-skin .search-input {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--ms-input);
+  border: 1px solid var(--ms-border);
+  color: var(--ms-text);
+  box-shadow: none;
+  transform: none;
+}
+
+body.messenger-skin .search-input::placeholder {
+  color: var(--ms-muted);
+}
+
+body.messenger-skin .search-input:focus {
+  transform: none;
+  box-shadow: 0 0 0 4px rgba(0,132,255,0.18);
+  border-color: rgba(0,132,255,0.45);
+}
+
+body.messenger-skin .sidebar-stories {
+  padding: 8px 14px 12px;
+  background: transparent;
+  border-bottom: 1px solid var(--ms-border);
+  backdrop-filter: none;
+  animation: none;
+}
+
+body.messenger-skin .stories-list { gap: 12px; }
+body.messenger-skin .story-item { min-width: 64px; animation:none; }
+body.messenger-skin .story-avatar {
+  width: 56px;
+  height: 56px;
+  border: 2px solid var(--ms-accent);
+  padding: 2px;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.messenger-skin .story-avatar::before { content: none; }
+body.messenger-skin .story-item:hover .story-avatar { transform:none; animation:none; box-shadow:none; border-color: var(--ms-accent); }
+body.messenger-skin .story-name { color: var(--ms-muted); }
+body.messenger-skin .story-item:hover .story-name { color: var(--ms-text); transform:none; }
+
+body.messenger-skin .contacts-list,
+body.messenger-skin .groups-list,
+body.messenger-skin .requests-list,
+body.messenger-skin .blocked-list {
+  padding: 0;
+}
+
+body.messenger-skin .contact-item,
+body.messenger-skin .group-item,
+body.messenger-skin .request-item,
+body.messenger-skin .blocked-item {
+  margin: 0;
+  border-radius: 0;
+  padding: 12px 14px;
+  border: none;
+  border-bottom: 1px solid var(--ms-border);
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+  overflow: visible;
+}
+
+body.messenger-skin .contact-item:hover,
+body.messenger-skin .group-item:hover,
+body.messenger-skin .request-item:hover {
+  transform: none;
+  box-shadow: none;
+  background: rgba(255,255,255,0.04);
+}
+
+body.messenger-skin.light .contact-item:hover,
+body.messenger-skin.light .group-item:hover,
+body.messenger-skin.light .request-item:hover {
+  background: rgba(15,23,42,0.04);
+}
+
+body.messenger-skin .contact-avatar,
+body.messenger-skin .group-avatar {
+  width: 50px;
+  height: 50px;
+  border: none;
+  animation: none;
+  transform: none;
+}
+
+body.messenger-skin .contact-item:hover .contact-avatar,
+body.messenger-skin .group-item:hover .group-avatar {
+  transform: none;
+  box-shadow: none;
+  border-color: transparent;
+}
+
+body.messenger-skin .online-dot { border-color: var(--ms-bg); }
+body.messenger-skin.light .online-dot { border-color: var(--ms-surface); }
+
+body.messenger-skin .contact-name {
+  background: none;
+  -webkit-text-fill-color: initial;
+  color: var(--ms-text);
+  font-weight: 700;
+}
+
+body.messenger-skin .last-message {
+  color: var(--ms-muted);
+  font-size: 14px;
+}
+
+body.messenger-skin .last-seen { display: none; }
+
+body.messenger-skin .contact-actions { opacity: 0; pointer-events: none; transition: opacity .15s ease; }
+body.messenger-skin .contact-item:hover .contact-actions { opacity: 1; pointer-events: auto; }
+
+body.messenger-skin .unread-badge { background: var(--ms-accent); box-shadow:none; animation:none; }
+body.messenger-skin .chat-unread-dot { background: var(--ms-accent); border-color: var(--ms-bg); box-shadow:none; }
+
+body.messenger-skin .contact-item.has-unread {
+  border-left: 3px solid var(--ms-accent);
+}
+
+body.messenger-skin .chat-container {
+  background: var(--ms-bg);
+}
+
+body.messenger-skin .chat-container::before { display:none !important; }
+
+body.messenger-skin .chat-header {
+  background: var(--ms-bg);
+  border-bottom: 1px solid var(--ms-border);
+  backdrop-filter: none;
+}
+
+body.messenger-skin .chat-header .chat-title,
+body.messenger-skin .chat-header #chatWith {
+  color: var(--ms-text);
+  background: none;
+  -webkit-text-fill-color: initial;
+  font-weight: 800;
+}
+
+body.messenger-skin .chat-members { color: var(--ms-muted); }
+
+body.messenger-skin .chat-header .icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--ms-surface2);
+  border: 1px solid var(--ms-border);
+  box-shadow: none;
+  transform: none;
+}
+
+body.messenger-skin .chat-search { background: var(--ms-bg); border-bottom: 1px solid var(--ms-border); backdrop-filter:none; }
+
+body.messenger-skin .pinned-bar {
+  background: var(--ms-surface);
+  border-bottom: 1px solid var(--ms-border);
+  backdrop-filter: none;
+}
+
+body.messenger-skin .messages-container {
+  padding: 16px 14px;
+  background: var(--ms-bg);
+  backdrop-filter: none;
+}
+
+body.messenger-skin .message {
+  border: 0;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+body.messenger-skin .message:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+body.messenger-skin .message.other {
+  background: var(--ms-bubble-in);
+  color: var(--ms-text);
+  border-bottom-left-radius: 6px;
+}
+
+body.messenger-skin .message.me {
+  background: var(--ms-bubble-out);
+  color: #ffffff;
+  border-bottom-right-radius: 6px;
+}
+
+body.messenger-skin .message-time {
+  color: rgba(255,255,255,0.72);
+}
+
+body.messenger-skin.light .message-time {
+  color: rgba(15,23,42,0.55);
+}
+
+body.messenger-skin .message-input-container {
+  background: var(--ms-bg);
+  border-top: 1px solid var(--ms-border);
+  backdrop-filter: none;
+}
+
+body.messenger-skin .input-wrapper {
+  background: var(--ms-surface2);
+  border: 1px solid var(--ms-border);
+  border-radius: 999px;
+  padding: 8px 10px;
+  gap: 8px;
+}
+
+body.messenger-skin .message-input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--ms-text);
+  padding: 10px 6px;
+}
+
+body.messenger-skin .attachment-btn,
+body.messenger-skin .message-input-container .icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+body.messenger-skin .send-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--ms-surface2);
+  border: 1px solid var(--ms-border);
+  color: var(--ms-text);
+  box-shadow: none;
+}
+
+body.messenger-skin .send-btn.active {
+  background: var(--ms-accent);
+  border-color: transparent;
+  color: #ffffff;
+  opacity: 1;
+}
+
+body.messenger-skin .send-btn:not(.active) {
+  opacity: 0.6;
+}
+
+body.messenger-skin .send-btn:hover { transform:none; box-shadow:none; }
+
+@media (max-width: 768px) {
+  body.messenger-skin .contact-actions { display:none !important; }
+
+  /* На списке чатов используем топбар сайдбара; мобильный хедер — только в чате */
+  body.messenger-skin:not(.chat-open) #mobileHeader { display: none !important; }
+  body.messenger-skin.chat-open #mobileHeader { display: flex !important; }
+
+  /* Stories в сайдбаре на мобильном не прячем */
+  body.messenger-skin #sidebar .stories-container { display: block !important; }
+
+  /* Убираем двойной хедер (на мобилке используем #mobileHeader) */
+  body.messenger-skin #chatHeader { display: none !important; }
+
+  body.messenger-skin.chat-open #chatContainer {
+    top: 56px;
+    height: calc(100dvh - 56px);
+  }
+
+  body.messenger-skin #mobileHeader {
+    padding: 10px 12px;
+    background: var(--ms-bg);
+    border-bottom: 1px solid var(--ms-border);
+    backdrop-filter: none;
+  }
+
+  body.messenger-skin #mobileHeader .mobile-menu-btn,
+  body.messenger-skin #mobileHeader .mobile-back-btn,
+  body.messenger-skin #mobileHeader .mobile-call-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    background: var(--ms-surface2);
+    border: 1px solid var(--ms-border);
+  }
+
+  body.messenger-skin #mobileHeader .chat-title { font-weight: 800; }
+}
 .contact-item.has-unread {
     border: 1px solid rgba(0, 163, 255, 0.35);
 }

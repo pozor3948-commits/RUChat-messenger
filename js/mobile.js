@@ -86,6 +86,8 @@ function updateCallButtonVisibility() {
 function openChatCommon() {
     if (!isMobile) return;
 
+    document.body.classList.add('chat-open');
+
     // Прячем список чатов
     document.getElementById('sidebar').classList.add('hidden-on-mobile');
 
@@ -108,6 +110,8 @@ function openChatCommon() {
 function closeChatMobile() {
     if (!isMobile) return;
 
+    document.body.classList.remove('chat-open');
+
     // Возвращаем список чатов
     document.getElementById('sidebar').classList.remove('hidden-on-mobile');
 
@@ -118,7 +122,7 @@ function closeChatMobile() {
     document.getElementById('mobileBackBtn').classList.remove('active');
 
     // Сбрасываем заголовок
-    document.getElementById('mobileChatTitle').textContent = 'RuChat';
+    document.getElementById('mobileChatTitle').textContent = 'Чаты';
     document.getElementById('mobileChatStatus').textContent = 'Выберите чат';
 
     // Возвращаем stories
@@ -260,8 +264,6 @@ if (typeof window.toggleStickerPanel === 'function') {
         setTimeout(adjustMenuPositionForMobile, 50);
     };
 }
-
-
 
 
 
