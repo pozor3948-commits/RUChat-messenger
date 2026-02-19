@@ -111,7 +111,7 @@ function showSettingsMenu() {
                         </div>
                         <div class="settings-kv">
                             <div class="settings-k">Версия</div>
-                        <div class="settings-v">Build 2026-02-19c</div>
+                        <div class="settings-v">Build 2026-02-19d</div>
                         </div>
                         <div class="settings-kv">
                             <div class="settings-k">Соединение</div>

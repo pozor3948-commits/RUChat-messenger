@@ -3534,7 +3534,7 @@ body {
         radial-gradient(1200px 800px at 20% 20%, rgba(124, 92, 255, 0.20), transparent 55%),
         radial-gradient(900px 700px at 75% 10%, rgba(0, 163, 255, 0.15), transparent 55%),
         radial-gradient(800px 600px at 65% 85%, rgba(255, 92, 159, 0.10), transparent 60%),
-        url('../assets/bg-main.jpg');
+        url('../assets/bg-main.jpg?v=20260219d');
     background-size: auto, auto, auto, cover;
     background-position: center, center, center, center;
     background-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
@@ -3557,7 +3557,7 @@ body {
     inset: 0;
     background:
         linear-gradient(180deg, rgba(10, 13, 26, 0.62), rgba(10, 13, 26, 0.86)),
-        url('../assets/bg-auth.jpg');
+        url('../assets/bg-auth.jpg?v=20260219d');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
