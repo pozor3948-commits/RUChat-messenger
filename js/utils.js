@@ -7,6 +7,7 @@ let notificationQueue = [];
 let isNotificationShowing = false;
 let isMobile = window.innerWidth <= 768;
 let userStatuses = {};
+window._ruchatBootAt = window._ruchatBootAt || Date.now();
 
 function fixMojibakeCp1251(str) {
     if (!str) return str;
@@ -181,6 +182,19 @@ document.addEventListener('DOMContentLoaded', () => {
         currentEphemeralIndex = saved;
     }
     updateEphemeralUi();
+
+    // Мониторим реальное соединение с Firebase (важно для Android WebView,
+    // где navigator.onLine часто показывает "онлайн", даже когда RTDB не подключён).
+    try {
+        if (typeof db !== 'undefined' && db && typeof db.ref === 'function') {
+            window.firebaseConnected = null;
+            db.ref('.info/connected').on('value', s => {
+                window.firebaseConnected = (s.val() === true);
+            });
+        }
+    } catch {
+        // ignore
+    }
 });
 
 // Функция проверки соединения
@@ -189,8 +203,37 @@ function checkConnection() {
         showError('Нет соединения с интернетом'); 
         return false; 
     }
+    // Если уже известно, что Firebase не подключён — не ждём таймаутов и не "крутим" загрузку.
+    if (window.firebaseConnected === false) {
+        const sinceBoot = Date.now() - (window._ruchatBootAt || Date.now());
+        if (sinceBoot < 5000) {
+            showError('Подключаюсь к серверу… попробуйте ещё раз через пару секунд');
+        } else {
+            showError('Нет соединения с сервером (Firebase)');
+        }
+        return false;
+    }
+    // isOnline выставляется в status.js через /.info/connected
+    try {
+        if (typeof isOnline !== 'undefined' && isOnline === false) {
+            showError('Нет соединения с сервером');
+            return false;
+        }
+    } catch {
+        // ignore
+    }
     return true;
 }
+
+// Обёртка: быстро падаем по таймауту, чтобы не висеть на "загрузке" 20-60 секунд.
+function withTimeout(promise, ms, errorMessage = 'Истекло время ожидания') {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(errorMessage)), ms))
+    ]);
+}
+
+window.withTimeout = withTimeout;
 
 function escapeHtml(text) {
     const div = document.createElement('div');
@@ -306,7 +349,5 @@ function showNextNotification() {
         setTimeout(() => { n.style.display = 'none'; setTimeout(showNextNotification, 300); }, 3000);
     }
 }
-
-
 
 

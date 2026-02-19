@@ -16,10 +16,13 @@ async function register() {
     if (!u || !p) throw new Error("Введите имя и пароль!");
     if (u.length < 3) throw new Error("Имя должно быть не менее 3 символов!");
     if (p.length < 6) throw new Error("Пароль должен быть не менее 6 символов!");
-    const snap = await db.ref("accounts/" + u).get();
+    const snap = await (typeof withTimeout === 'function'
+      ? withTimeout(db.ref("accounts/" + u).get(), 12000, "Не удалось подключиться к серверу. Проверьте интернет.")
+      : db.ref("accounts/" + u).get());
     if (snap.exists()) throw new Error("Пользователь уже существует!");
     const ts = Date.now();
-    await db.ref("accounts/" + u).set({ 
+    await (typeof withTimeout === 'function'
+      ? withTimeout(db.ref("accounts/" + u).set({ 
       password: hashPassword(p), 
       friends: {}, 
       avatar: "", 
@@ -32,7 +35,21 @@ async function register() {
       lastSeen: ts, 
       createdAt: ts, 
       chatThemes: {} 
-    });
+    }), 12000, "Сервер не отвечает. Попробуйте ещё раз.")
+      : db.ref("accounts/" + u).set({ 
+      password: hashPassword(p), 
+      friends: {}, 
+      avatar: "", 
+      displayName: u,
+      about: "",
+      friendRequests: { incoming: {}, outgoing: {} },
+      blocked: {},
+      chatBg: "", 
+      stories: {}, 
+      lastSeen: ts, 
+      createdAt: ts, 
+      chatThemes: {} 
+    }));
     showNotification("Успешно", "Регистрация прошла успешно!");
     // Возвращаем в режим входа (чтобы сразу можно было зайти)
     if (typeof applyAuthMode === 'function') applyAuthMode('login');
@@ -106,7 +123,9 @@ async function login() {
     const u = document.getElementById("usernameInput").value.trim();
     const p = document.getElementById("passwordInput").value;
     if (!u || !p) throw new Error("Введите имя и пароль!");
-    const snap = await db.ref("accounts/" + u).get();
+    const snap = await (typeof withTimeout === 'function'
+      ? withTimeout(db.ref("accounts/" + u).get(), 12000, "Не удалось подключиться к серверу. Проверьте интернет.")
+      : db.ref("accounts/" + u).get());
     if (!snap.exists()) throw new Error("Пользователь не найден!");
     if (snap.val().password !== hashPassword(p)) throw new Error("Неверный пароль!");
     await doLoginAfterAuth(u, "Добро пожаловать", `Привет, ${u}!`);

@@ -59,9 +59,10 @@ function updateChatStatus(friendName, statusData) {
 
 function updateMyStatus(isOnlineStatus, isIdle = false) {
     if (!username) return;
+    if (typeof db === 'undefined' || !db || typeof db.ref !== 'function') return;
     const statusData = { online: isOnlineStatus, idle: isIdle, lastSeen: Date.now(), username: username };
-    db.ref(`userStatus/${username}`).set(statusData);
-    db.ref(`accounts/${username}`).update({ lastSeen: statusData.lastSeen, online: isOnlineStatus });
+    try { db.ref(`userStatus/${username}`).set(statusData); } catch {}
+    try { db.ref(`accounts/${username}`).update({ lastSeen: statusData.lastSeen, online: isOnlineStatus }); } catch {}
     
     // Используем глобальную переменную userStatuses
     userStatuses[username] = statusData;
