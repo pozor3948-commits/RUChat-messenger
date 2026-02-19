@@ -17,18 +17,9 @@ function setupMobileInputFixes() {
     if (!textInput) return;
     mobileInputFixInitialized = true;
 
-    const syncInputPaint = () => {
-        if (!isMobile) return;
-        const isLight = document.body.classList.contains('light');
-        textInput.style.color = isLight ? '#0f172a' : '#f8fafc';
-        textInput.style.webkitTextFillColor = isLight ? '#0f172a' : '#f8fafc';
-        textInput.style.caretColor = '#00a3ff';
-    };
-
     textInput.addEventListener('focus', () => {
         if (!isMobile) return;
         document.body.classList.add('keyboard-open');
-        syncInputPaint();
         requestAnimationFrame(() => {
             const messages = document.getElementById('messages');
             if (messages) messages.scrollTop = messages.scrollHeight;
@@ -38,9 +29,6 @@ function setupMobileInputFixes() {
     textInput.addEventListener('blur', () => {
         document.body.classList.remove('keyboard-open');
     });
-
-    textInput.addEventListener('input', syncInputPaint);
-    textInput.addEventListener('compositionend', syncInputPaint);
     const inputContainer = document.querySelector('.message-input-container');
     if (inputContainer) {
         inputContainer.addEventListener('click', (event) => {
@@ -61,8 +49,6 @@ function setupMobileInputFixes() {
         };
         window.visualViewport.addEventListener('resize', onViewportResize);
     }
-
-    syncInputPaint();
 }
 
 function updateCallButtonVisibility() {
@@ -264,7 +250,6 @@ if (typeof window.toggleStickerPanel === 'function') {
         setTimeout(adjustMenuPositionForMobile, 50);
     };
 }
-
 
 
 
