@@ -7,6 +7,19 @@ function hashPassword(p) {
   return h;
 }
 
+function sanitizeProfileText(value, fallback = '') {
+  if (value === null || value === undefined) return fallback;
+  let text = String(value);
+  if (typeof normalizeText === 'function') text = normalizeText(text);
+  if (text.includes('\uFFFD') && typeof fixMojibakeCp1251 === 'function') {
+    const fixed = fixMojibakeCp1251(text);
+    if (fixed) text = typeof normalizeText === 'function' ? normalizeText(fixed) : fixed;
+    text = text.replace(/\uFFFD+/g, '');
+  }
+  text = text.trim();
+  return text || fallback;
+}
+
 async function register() {
   if (!checkConnection()) return;
   showLoading();
@@ -79,7 +92,7 @@ async function doLoginAfterAuth(u, title, message) {
   }
   document.getElementById("login").style.display = "none";
   document.getElementById("main").style.display = "flex";
-  const safeName = typeof normalizeText === 'function' ? normalizeText(username) : username;
+  const safeName = sanitizeProfileText(username, username);
   document.getElementById("userName").textContent = safeName;
   document.getElementById("mobileChatTitle").textContent = safeName;
   document.getElementById("userStatus").textContent = "В сети";
@@ -262,7 +275,7 @@ function loadMyProfile() {
   db.ref("accounts/" + username).on("value", s => {
     if (!s.exists()) return;
     const data = s.val() || {};
-    const displayName = typeof normalizeText === 'function' ? normalizeText(data.displayName || username) : (data.displayName || username);
+    const displayName = sanitizeProfileText(data.displayName || username, username);
     const userNameEl = document.getElementById("userName");
     if (userNameEl) userNameEl.textContent = displayName;
     if (!currentChatId) {

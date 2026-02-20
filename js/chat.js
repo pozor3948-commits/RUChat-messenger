@@ -45,6 +45,7 @@ let currentPrivateStatusRef = null;
 let currentPrivateStatusHandler = null;
 let messagesScrollElement = null;
 let messagesScrollRaf = 0;
+let scrollToBottomRaf = 0;
 const CHAT_INITIAL_PAGE_SIZE = 80;
 const CHAT_HISTORY_PAGE_SIZE = 60;
 const SEND_RATE_WINDOW_MS = 3000;
@@ -64,6 +65,159 @@ async function renderMessagesBatched(list, options, batchSize = 12) {
     // даем браузеру отрисовать ввод/скролл на слабых мобилках
     await new Promise(requestAnimationFrame);
   }
+}
+
+function getMessageSortTuple(message) {
+  const t = Number(message && message.time);
+  return {
+    time: Number.isFinite(t) ? t : 0,
+    id: String((message && (message.id || message.clientMessageId)) || '')
+  };
+}
+
+function compareMessagesChronologically(a, b) {
+  const left = getMessageSortTuple(a);
+  const right = getMessageSortTuple(b);
+  if (left.time !== right.time) return left.time - right.time;
+  return left.id.localeCompare(right.id);
+}
+
+function getElementSortTuple(el) {
+  if (!el) return { time: 0, id: '' };
+  const t = Number(el.dataset.orderTime);
+  return {
+    time: Number.isFinite(t) ? t : 0,
+    id: String(el.dataset.orderId || '')
+  };
+}
+
+function insertMessageNodeSorted(container, node, message) {
+  if (!container || !node) return;
+  const messageNodes = container.querySelectorAll('.message-wrapper');
+  const target = getMessageSortTuple(message);
+
+  for (let i = messageNodes.length - 1; i >= 0; i -= 1) {
+    const current = messageNodes[i];
+    const tuple = getElementSortTuple(current);
+    const cmp = (tuple.time !== target.time)
+      ? (tuple.time - target.time)
+      : tuple.id.localeCompare(target.id);
+
+    if (cmp <= 0) {
+      if (current.nextSibling) container.insertBefore(node, current.nextSibling);
+      else container.appendChild(node);
+      return;
+    }
+  }
+
+  const firstMessage = messageNodes.length ? messageNodes[0] : null;
+  if (firstMessage) container.insertBefore(node, firstMessage);
+  else container.appendChild(node);
+}
+
+function isNearBottom(container, threshold = 160) {
+  if (!container) return true;
+  return (container.scrollHeight - container.scrollTop - container.clientHeight) <= threshold;
+}
+
+function requestScrollToBottom(container) {
+  if (!container) return;
+  if (scrollToBottomRaf) return;
+  scrollToBottomRaf = requestAnimationFrame(() => {
+    scrollToBottomRaf = 0;
+    container.scrollTop = container.scrollHeight;
+  });
+}
+
+function hasBrokenGlyphs(text) {
+  return typeof text === 'string' && text.includes('\uFFFD');
+}
+
+function looksMojibakeText(text) {
+  if (typeof text !== 'string' || !text) return false;
+  return /(Р[А-Яа-яЁё]|[ÐÑ][A-Za-zÀ-ÿ]|�{2,})/.test(text);
+}
+
+function sanitizeUiText(value, fallback = '') {
+  if (value === null || value === undefined) return fallback;
+  let text = String(value);
+  if (typeof normalizeText === 'function') text = normalizeText(text);
+
+  if ((hasBrokenGlyphs(text) || looksMojibakeText(text)) && typeof fixMojibakeCp1251 === 'function') {
+    const fixed = fixMojibakeCp1251(text);
+    if (fixed && fixed !== text) text = (typeof normalizeText === 'function') ? normalizeText(fixed) : fixed;
+  }
+
+  // убираем неотображаемые control-символы, кроме перевода строки/таба
+  text = text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+
+  if (hasBrokenGlyphs(text)) {
+    const brokenCount = (text.match(/\uFFFD/g) || []).length;
+    if (brokenCount >= Math.max(3, Math.floor(text.length * 0.2))) return fallback || 'Сообщение';
+    text = text.replace(/\uFFFD+/g, '');
+  }
+
+  text = text.trim();
+  return text || fallback;
+}
+
+function canonicalFriendIdentity(raw) {
+  const text = sanitizeUiText(raw, String(raw || ''));
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function friendKeyPenalty(rawKey) {
+  const key = String(rawKey || '');
+  let penalty = 0;
+  if (!key.trim()) penalty += 50;
+  if (hasBrokenGlyphs(key)) penalty += 20;
+  if (looksMojibakeText(key)) penalty += 12;
+  if (/[\u0000-\u001F\u007F]/.test(key)) penalty += 20;
+  // если ключ уже читаемый (без иероглифов), пусть будет предпочтительнее
+  const normalized = sanitizeUiText(key, key);
+  if (normalized === key) penalty -= 3;
+  return penalty;
+}
+
+let friendDedupCleanupTimer = null;
+let friendDedupCleanupBusy = false;
+
+function scheduleDuplicateFriendCleanup(pairs) {
+  if (!username || !Array.isArray(pairs) || !pairs.length) return;
+  if (typeof db === 'undefined' || !db || typeof db.ref !== 'function') return;
+  clearTimeout(friendDedupCleanupTimer);
+  friendDedupCleanupTimer = setTimeout(async () => {
+    if (friendDedupCleanupBusy) return;
+    friendDedupCleanupBusy = true;
+    try {
+      for (const pair of pairs.slice(0, 8)) {
+        if (!pair || !pair.keep || !pair.drop || pair.keep === pair.drop) continue;
+        const dropPenalty = friendKeyPenalty(pair.drop);
+        if (dropPenalty < 8) continue;
+        let keepExists = false;
+        let dropExists = false;
+        try {
+          const [keepSnap, dropSnap] = await Promise.all([
+            db.ref(`accounts/${pair.keep}`).get(),
+            db.ref(`accounts/${pair.drop}`).get()
+          ]);
+          keepExists = !!(keepSnap && keepSnap.exists());
+          dropExists = !!(dropSnap && dropSnap.exists());
+        } catch {
+          continue;
+        }
+        const canDrop = (!dropExists) || (keepExists && looksMojibakeText(pair.drop));
+        if (!canDrop) continue;
+        try {
+          await db.ref(`accounts/${username}/friends/${pair.drop}`).remove();
+        } catch {
+          // ignore
+        }
+      }
+    } finally {
+      friendDedupCleanupBusy = false;
+    }
+  }, 1200);
 }
 
 function clearCurrentChatStatusListener() {
@@ -108,6 +262,10 @@ function detachMessagesScrollListener() {
   if (messagesScrollRaf) {
     cancelAnimationFrame(messagesScrollRaf);
     messagesScrollRaf = 0;
+  }
+  if (scrollToBottomRaf) {
+    cancelAnimationFrame(scrollToBottomRaf);
+    scrollToBottomRaf = 0;
   }
 }
 window.detachMessagesScrollListener = detachMessagesScrollListener;
@@ -305,7 +463,8 @@ function readChatCache(path) {
   try {
     const raw = localStorage.getItem(chatCacheKey(path));
     const list = raw ? JSON.parse(raw) : [];
-    return Array.isArray(list) ? list : [];
+    if (!Array.isArray(list)) return [];
+    return list.slice().sort(compareMessagesChronologically);
   } catch {
     return [];
   }
@@ -347,7 +506,7 @@ function upsertChatCacheMessage(path, message) {
   const idx = list.findIndex(m => m.id === message.id);
   if (idx >= 0) list[idx] = { ...list[idx], ...message };
   else list.push(message);
-  list.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  list.sort(compareMessagesChronologically);
   writeChatCache(path, list);
 }
 
@@ -420,7 +579,27 @@ function renderFriends() {
   if (!friendList) return;
   friendList.innerHTML = "";
   const friendKeys = Object.keys(friendsCache || {});
-  const visibleKeys = friendKeys.filter(fn => !blockedCache[fn]);
+  const visibleRawKeys = friendKeys.filter(fn => !blockedCache[fn]);
+
+  const dedupByCanonical = new Map();
+  const duplicatePairs = [];
+  visibleRawKeys.forEach(fn => {
+    const canonical = canonicalFriendIdentity(fn) || String(fn || '');
+    const existing = dedupByCanonical.get(canonical);
+    if (!existing) {
+      dedupByCanonical.set(canonical, fn);
+      return;
+    }
+    if (friendKeyPenalty(fn) < friendKeyPenalty(existing)) {
+      duplicatePairs.push({ keep: fn, drop: existing });
+      dedupByCanonical.set(canonical, fn);
+      return;
+    }
+    duplicatePairs.push({ keep: existing, drop: fn });
+  });
+
+  const visibleKeys = Array.from(dedupByCanonical.values());
+  scheduleDuplicateFriendCleanup(duplicatePairs);
   Object.keys(unreadListenerByFriend).forEach(fn => {
     if (!visibleKeys.includes(fn)) clearUnreadListener(fn);
   });
@@ -464,7 +643,7 @@ function renderBlocked() {
   keys.forEach(fn => {
     const item = document.createElement("div");
     item.className = "blocked-item";
-    const name = displayNameCache[fn] || normalizeText(fn);
+    const name = sanitizeUiText(displayNameCache[fn] || fn, fn);
     item.innerHTML = `
       <div class="blocked-name" id="blocked_name_${fn}">${name}</div>
       <div class="blocked-actions">
@@ -473,7 +652,7 @@ function renderBlocked() {
     list.appendChild(item);
     db.ref("accounts/" + fn + "/displayName").once("value").then(s => {
       const dn = s.val();
-      const display = typeof normalizeText === 'function' ? normalizeText(dn || fn) : (dn || fn);
+      const display = sanitizeUiText(dn || fn, fn);
       displayNameCache[fn] = display;
       const el = document.getElementById(`blocked_name_${fn}`);
       if (el) el.textContent = display;
@@ -482,7 +661,7 @@ function renderBlocked() {
 }
 
 function createFriendItem(fn) {
-  const displayName = displayNameCache[fn] || normalizeText(fn);
+  const displayName = sanitizeUiText(displayNameCache[fn] || fn, fn);
   const fl = document.getElementById("friendList");
   const item = document.createElement("div");
   item.className = "contact-item";
@@ -520,7 +699,7 @@ function createFriendItem(fn) {
   });
   db.ref("accounts/" + fn + "/displayName").on("value", s => {
     const dn = s.val();
-    const name = typeof normalizeText === 'function' ? normalizeText(dn || fn) : (dn || fn);
+    const name = sanitizeUiText(dn || fn, fn);
     displayNameCache[fn] = name;
     const nameEl = document.getElementById(`contactName_${fn}`);
     if (nameEl) nameEl.textContent = name;
@@ -557,8 +736,8 @@ function loadLastMessage(fn) {
 
     const lm = document.getElementById(`lastMsg_${fn}`);
     if (lm) {
-      const previewText = lastMsg.text ? normalizeText(lastMsg.text) : getMessagePreview(lastMsg);
-      const t = normalizeText(previewText);
+      const previewText = lastMsg.text ? sanitizeUiText(lastMsg.text, '') : sanitizeUiText(getMessagePreview(lastMsg), 'Сообщение');
+      const t = sanitizeUiText(previewText, 'Сообщение');
       lm.textContent = t.length > 30 ? t.substring(0, 30) + "..." : t;
     }
 
@@ -573,11 +752,11 @@ function loadLastMessage(fn) {
       const isCurrentChat = currentChatId === chatId;
       const muted = isChatMuted(chatId, false);
       if (lastMsg.from !== username && !isCurrentChat && !muted) {
-        const preview = lastMsg.text ? normalizeText(lastMsg.text) : getMessagePreview(lastMsg);
+        const preview = lastMsg.text ? sanitizeUiText(lastMsg.text, 'Сообщение') : sanitizeUiText(getMessagePreview(lastMsg), 'Сообщение');
         showNotification(fn, preview);
         if (typeof maybeShowSystemNotification === 'function') {
-          const title = displayNameCache[fn] || fn;
-          const body = lastMsg.text ? normalizeText(lastMsg.text) : getMessagePreview(lastMsg);
+          const title = sanitizeUiText(displayNameCache[fn] || fn, fn);
+          const body = lastMsg.text ? sanitizeUiText(lastMsg.text, 'Сообщение') : sanitizeUiText(getMessagePreview(lastMsg), 'Сообщение');
           maybeShowSystemNotification(title, body, { tag: `chat_${chatId}`, silent: lastMsg.silent === true });
         }
       }
@@ -647,7 +826,7 @@ function loadGroups() {
 }
 
 function createGroupItem(g, gid) {
-  const groupName = normalizeText(g.name);
+  const groupName = sanitizeUiText(g.name, 'Группа');
   const myRole = (g.roles && g.roles[username]) ? g.roles[username] : 'member';
   const roleLabel = myRole === 'owner' ? 'Владелец' : (myRole === 'admin' ? 'Админ' : 'Участник');
   const gl = document.getElementById("groupList");
@@ -708,7 +887,7 @@ function createStoryItem(fn) {
   const item = document.createElement("div");
   item.className = "story-item";
   item.style.animation = isMobile ? "none" : "slideUp .5s ease-out";
-  const displayName = displayNameCache[fn] || normalizeText(fn);
+  const displayName = sanitizeUiText(displayNameCache[fn] || fn, fn);
   item.innerHTML = `
     <img class="story-avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=60" alt="${displayName}">
     <div class="story-name">${displayName}</div>`;
@@ -749,7 +928,7 @@ function openPrivateChat(fn) {
   if (typeof clearMessageSearch === 'function') clearMessageSearch();
   if (typeof clearReply === 'function') clearReply();
   if (typeof clearEdit === 'function') clearEdit();
-  const displayName = displayNameCache[fn] || normalizeText(fn);
+  const displayName = sanitizeUiText(displayNameCache[fn] || fn, fn);
   document.getElementById("chatWith").textContent = displayName;
   document.getElementById("mobileChatTitle").textContent = displayName;
   if (isMobile) document.getElementById('mobileBackBtn').classList.add('active');
@@ -781,7 +960,7 @@ function openGroupChat(g, gid) {
   if (typeof clearMessageSearch === 'function') clearMessageSearch();
   if (typeof clearReply === 'function') clearReply();
   if (typeof clearEdit === 'function') clearEdit();
-  const groupName = normalizeText(g.name);
+  const groupName = sanitizeUiText(g.name, 'Группа');
   currentGroupRole = (g.roles && g.roles[username]) ? g.roles[username] : 'member';
   currentGroupName = groupName;
   document.getElementById("chatWith").textContent = groupName;
@@ -973,6 +1152,7 @@ function addMessageToChat(m, options = {}) {
   const md = document.getElementById("messages");
   if (document.getElementById(`message_${m.id}`)) return;
   if (m.clientMessageId && renderedClientMessageIds.has(m.clientMessageId)) return;
+  if (typeof m.text === 'string') m.text = sanitizeUiText(m.text, m.text);
   
   // meta-сообщения (закреп/откреп) не рендерим как обычные
   if (isMetaMessage(m)) {
@@ -992,8 +1172,8 @@ function addMessageToChat(m, options = {}) {
   }
   if (opts.notify && m.from !== username && !muted && typeof maybeShowSystemNotification === 'function') {
     const chatTitle = document.getElementById('chatWith');
-    const senderTitle = isGroupChat ? `${normalizeText(m.from || '')} • ${chatTitle ? chatTitle.textContent : 'Чат'}` : (displayNameCache[m.from] || m.from);
-    const body = m.text ? normalizeText(m.text) : getMessagePreview(m);
+    const senderTitle = isGroupChat ? `${sanitizeUiText(m.from || '', '')} • ${chatTitle ? chatTitle.textContent : 'Чат'}` : sanitizeUiText(displayNameCache[m.from] || m.from, m.from || 'Чат');
+    const body = m.text ? sanitizeUiText(m.text, 'Сообщение') : sanitizeUiText(getMessagePreview(m), 'Сообщение');
     maybeShowSystemNotification(senderTitle, body, { tag: `chat_${currentChatId}`, silent: silentIncoming });
   }
 
@@ -1007,6 +1187,9 @@ function addMessageToChat(m, options = {}) {
   wrap.className = `message-wrapper ${m.from === username ? "me" : "other"}`;
   wrap.id = `message_${m.id}`;
   wrap.dataset.from = m.from || '';
+  const orderTuple = getMessageSortTuple(m);
+  wrap.dataset.orderTime = String(orderTuple.time);
+  wrap.dataset.orderId = orderTuple.id;
   const shouldAnimate = opts.animate && !isMobile;
   if (shouldAnimate) {
     wrap.style.opacity = 0;
@@ -1038,9 +1221,9 @@ function addMessageToChat(m, options = {}) {
     ${m.from === username ? `<button class="reaction-btn" onclick="deleteMessage('${m.id}')" title="Удалить">🗑</button>` : ""}
   </div>`;
   let content = "";
-  const replyFrom = m.replyTo && m.replyTo.from ? (displayNameCache[m.replyTo.from] || m.replyTo.from) : '';
-  const replyHtml = m.replyTo ? `<div class="message-reply">↩ ${escapeHtml(replyFrom)}: ${escapeHtml(m.replyTo.text || '')}</div>` : "";
-  const fwdName = m.forwardedFrom ? (displayNameCache[m.forwardedFrom] || m.forwardedFrom) : '';
+  const replyFrom = m.replyTo && m.replyTo.from ? sanitizeUiText(displayNameCache[m.replyTo.from] || m.replyTo.from, m.replyTo.from) : '';
+  const replyHtml = m.replyTo ? `<div class="message-reply">↩ ${escapeHtml(replyFrom)}: ${escapeHtml(sanitizeUiText(m.replyTo.text || '', ''))}</div>` : "";
+  const fwdName = m.forwardedFrom ? sanitizeUiText(displayNameCache[m.forwardedFrom] || m.forwardedFrom, m.forwardedFrom) : '';
   const forwardedHtml = m.forwardedFrom ? `<div class="message-forwarded">↪ Переслано от ${escapeHtml(fwdName)}</div>` : "";
   if (m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl) {
     content = `${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>`;
@@ -1159,7 +1342,7 @@ function addMessageToChat(m, options = {}) {
     content = `${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div><a href="${docUrl}" download="${m.filename}" class="message-doc"><div class="doc-icon">📄</div><div class="doc-info"><div class="doc-name">${escapeHtml(m.filename)}</div><div class="doc-size">${fs}</div></div></a>`;
   }
   const t = new Date(m.time || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const senderName = escapeHtml(normalizeText(m.from || ''));
+  const senderName = escapeHtml(sanitizeUiText(m.from || '', ''));
   msg.innerHTML = `
     ${m.from !== username && !isGroupChat ? `<div class="message-sender">${senderName}</div>` : ""}
     ${isGroupChat && m.from !== username ? `<div class="message-sender">${senderName}</div>` : ""}
@@ -1177,7 +1360,7 @@ function addMessageToChat(m, options = {}) {
   if (opts.prepend) {
     md.insertBefore(wrap, md.firstChild);
   } else {
-    md.appendChild(wrap);
+    insertMessageNodeSorted(md, wrap, m);
   }
   if (shouldAnimate) {
     setTimeout(() => { wrap.style.opacity = 1; wrap.style.transform = 'translateY(0)'; wrap.style.transition = 'all .3s ease'; }, 10);
@@ -1186,7 +1369,8 @@ function addMessageToChat(m, options = {}) {
     wrap.style.transform = 'none';
   }
   if (opts.autoScroll && !opts.prepend) {
-    md.scrollTop = md.scrollHeight;
+    const shouldStickToBottom = (m.from === username) || isNearBottom(md);
+    if (shouldStickToBottom) requestScrollToBottom(md);
   }
   // авто-удаление отключено
 }
@@ -1289,7 +1473,7 @@ function renderReactions(messageId, reactions) {
 
 function getMessagePreview(m) {
   if (!m) return '';
-  if (m.text) return m.text;
+  if (m.text) return sanitizeUiText(m.text, 'Сообщение');
   if (m.photo) return '📷 Фото';
   if (m.video) return m.type === 'video_message' ? '🎥 Видеосообщение' : '🎥 Видео';
   if (m.audio) return '🎵 Аудио';
@@ -1556,11 +1740,16 @@ function jumpToPinnedMessage() {
 function updateMessageInChat(m) {
   const wrap = document.getElementById(`message_${m.id}`);
   if (!wrap) return;
+  const prevTime = Number(wrap.dataset.orderTime || 0);
+  const prevId = String(wrap.dataset.orderId || '');
+  const nextTuple = getMessageSortTuple(m);
+  wrap.dataset.orderTime = String(nextTuple.time);
+  wrap.dataset.orderId = nextTuple.id;
   const msg = wrap.querySelector('.message');
   if (!msg) return;
   const textEl = msg.querySelector('.message-text');
   if (textEl && typeof m.text === 'string') {
-    textEl.textContent = m.text;
+    textEl.textContent = sanitizeUiText(m.text, m.text);
   }
   const reactionsHtml = renderReactions(m.id, m.reactions || {});
   const currentReactions = msg.querySelector('.message-reactions');
@@ -1593,6 +1782,13 @@ function updateMessageInChat(m) {
     }
   } else if (editedEl) {
     editedEl.remove();
+  }
+
+  // Если порядок для сообщения поменялся (например, после синка времени), переставим его.
+  if (wrap.parentElement && (prevTime !== nextTuple.time || prevId !== nextTuple.id)) {
+    const parent = wrap.parentElement;
+    parent.removeChild(wrap);
+    insertMessageNodeSorted(parent, wrap, m);
   }
 }
 
@@ -2196,8 +2392,7 @@ function getPendingMessagesForPath(path) {
       if (!id) continue;
       out.push({ ...msg, id });
     }
-    // sort by key (compatible with our orderByKey queries)
-    out.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    out.sort(compareMessagesChronologically);
     // de-dup by id
     const seen = new Set();
     return out.filter(m => {
@@ -2222,7 +2417,7 @@ function mergeUniqueMessages(base, extra) {
     if (!byId.has(m.id)) byId.set(m.id, m);
   }
   const merged = Array.from(byId.values());
-  merged.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  merged.sort(compareMessagesChronologically);
   return merged;
 }
 
@@ -2295,7 +2490,7 @@ document.addEventListener('visibilitychange', () => {
 
 async function sendMessage() {
   const ti = document.getElementById("text");
-  const txt = ti.value.trim();
+  const txt = sanitizeUiText(ti.value.trim(), '');
   if (!txt || !currentChatId || !chatRef || !username) { showError("Введите сообщение или выберите чат!"); return; }
   if (!canSendNow()) { showError("Слишком часто. Подождите пару секунд."); return; }
   const btn = document.getElementById("sendBtn");
@@ -2456,7 +2651,7 @@ function createRequestItem(from) {
   const list = document.getElementById("friendRequestsList");
   const item = document.createElement("div");
   item.className = "request-item";
-  const name = displayNameCache[from] || normalizeText(from);
+  const name = sanitizeUiText(displayNameCache[from] || from, from);
   item.innerHTML = `
     <img class="contact-avatar" id="req_avatar_${from}" alt="${name}" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0088cc&color=fff&size=48'">
     <div class="request-name" id="req_name_${from}">${name}</div>
@@ -2479,7 +2674,7 @@ function createRequestItem(from) {
   });
   db.ref("accounts/" + from + "/displayName").once("value").then(s => {
     const dn = s.val();
-    const display = typeof normalizeText === 'function' ? normalizeText(dn || from) : (dn || from);
+    const display = sanitizeUiText(dn || from, from);
     displayNameCache[from] = display;
     const nameEl = document.getElementById(`req_name_${from}`);
     if (nameEl) nameEl.textContent = display;

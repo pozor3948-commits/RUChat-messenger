@@ -13,6 +13,48 @@ let voiceRecordStartY = 0;
 let voiceRecordLocked = false;
 let voiceRecordCancelled = false;
 let voiceHoldActive = false;
+let voiceRecorderMimeType = 'audio/webm';
+const MAX_RTDM_MEDIA_BYTES = 8 * 1024 * 1024;
+const MAX_VOICE_DURATION_SEC = 45;
+
+function estimateDataUrlBytes(url) {
+    if (!url || typeof url !== 'string' || !url.startsWith('data:')) return null;
+    const comma = url.indexOf(',');
+    if (comma < 0) return null;
+    const b64 = url.slice(comma + 1);
+    return Math.floor((b64.length * 3) / 4);
+}
+
+function pickSupportedAudioMimeType() {
+    if (!window.MediaRecorder || typeof MediaRecorder.isTypeSupported !== 'function') return '';
+    const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/ogg'
+    ];
+    for (const type of candidates) {
+        try {
+            if (MediaRecorder.isTypeSupported(type)) return type;
+        } catch {
+            // ignore
+        }
+    }
+    return '';
+}
+
+function createFilePicker(accept, multiple = false) {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = accept || '*/*';
+    inp.multiple = !!multiple;
+    inp.style.position = 'fixed';
+    inp.style.left = '-9999px';
+    inp.style.top = '0';
+    document.body.appendChild(inp);
+    return inp;
+}
 
 function fileToDataUrl(file) {
     return new Promise((resolve, reject) => {
@@ -65,8 +107,8 @@ async function startVoiceRecord() {
     voiceRecordLocked = false;
     setVoiceLockPill('idle');
     if (!window.isSecureContext) {
-        showError('Для записи нужен HTTPS (безопасный контекст). Откройте сайт по HTTPS.');
-        return;
+        // В APK/WebView isSecureContext может быть false даже при рабочем микрофоне.
+        console.warn('Небезопасный контекст, продолжаем попытку записи для WebView/APK');
     }
     if (!window.MediaRecorder) {
         showError('MediaRecorder не поддерживается. Используйте прикрепление файла.');
@@ -111,16 +153,19 @@ async function startVoiceRecord() {
         });
         
         // Настраиваем MediaRecorder
+        const mimeType = pickSupportedAudioMimeType();
         const options = {
-            mimeType: 'audio/webm;codecs=opus',
-            audioBitsPerSecond: 128000
+            audioBitsPerSecond: 32000
         };
+        if (mimeType) options.mimeType = mimeType;
         
         try {
             voiceRecorder = new MediaRecorder(voiceStream, options);
+            voiceRecorderMimeType = mimeType || voiceRecorder.mimeType || 'audio/webm';
         } catch (e) {
-            console.warn('Не удалось использовать кодек opus, используем стандартный:', e);
+            console.warn('Не удалось применить предпочитаемый mimeType, используем стандартный:', e);
             voiceRecorder = new MediaRecorder(voiceStream);
+            voiceRecorderMimeType = voiceRecorder.mimeType || 'audio/webm';
         }
         
         voiceChunks = [];
@@ -141,7 +186,7 @@ async function startVoiceRecord() {
                 return;
             }
             
-            const blob = new Blob(voiceChunks, { type: 'audio/webm' });
+            const blob = new Blob(voiceChunks, { type: voiceRecorderMimeType || 'audio/webm' });
             
             const reader = new FileReader();
             reader.onloadend = async () => {
@@ -169,6 +214,9 @@ async function startVoiceRecord() {
             
             // Анимация волны
             animateVoiceWaveform();
+            if (voiceRecordingTime >= MAX_VOICE_DURATION_SEC) {
+                stopVoiceRecord();
+            }
         }, 1000);
         
         showNotification("Запись", "Идёт запись голосового сообщения...");
@@ -233,6 +281,7 @@ function setVoiceLockPill(state) {
 }
 
 function onVoicePressStart(e) {
+    if (voiceHoldActive) return;
     if (voiceRecorder && voiceRecorder.state === 'recording') return;
     voiceHoldActive = true;
     voiceRecordCancelled = false;
@@ -245,6 +294,11 @@ function onVoicePressStart(e) {
     document.addEventListener('pointermove', onVoicePressMove);
     document.addEventListener('pointerup', onVoicePressEnd);
     document.addEventListener('pointercancel', onVoicePressEnd);
+    document.addEventListener('mousemove', onVoicePressMove);
+    document.addEventListener('mouseup', onVoicePressEnd);
+    document.addEventListener('touchmove', onVoicePressMove, { passive: false });
+    document.addEventListener('touchend', onVoicePressEnd);
+    document.addEventListener('touchcancel', onVoicePressEnd);
     if (e.cancelable) e.preventDefault();
 }
 
@@ -271,6 +325,11 @@ function onVoicePressEnd(e) {
     document.removeEventListener('pointermove', onVoicePressMove);
     document.removeEventListener('pointerup', onVoicePressEnd);
     document.removeEventListener('pointercancel', onVoicePressEnd);
+    document.removeEventListener('mousemove', onVoicePressMove);
+    document.removeEventListener('mouseup', onVoicePressEnd);
+    document.removeEventListener('touchmove', onVoicePressMove);
+    document.removeEventListener('touchend', onVoicePressEnd);
+    document.removeEventListener('touchcancel', onVoicePressEnd);
     if (voiceRecordCancelled) {
         cancelVoiceRecord();
         setVoiceLockPill('idle');
@@ -459,6 +518,12 @@ async function sendVoiceMessage(audioData, isTest = false) {
     }
     
     try {
+        const payloadBytes = estimateDataUrlBytes(audioData) || (new Blob([audioData || '']).size);
+        if (payloadBytes > MAX_RTDM_MEDIA_BYTES) {
+            showError('Голосовое слишком длинное для отправки. Сократите запись.');
+            return;
+        }
+
         const messageText = isTest ? '🎤 Тестовое голосовое сообщение (демо)' : '🎤 Голосовое сообщение';
         
         const message = {
@@ -549,11 +614,13 @@ window.testVoiceRecording = testVoiceRecording;
    9. ПРИКРЕПЛЕНИЕ ФАЙЛОВ (БЕЗ ИЗМЕНЕНИЙ)
    ========================================================== */
 function attachPhoto() {
-    const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+    const inp = createFilePicker('image/*', true);
     inp.onchange = async e => {
         const files = Array.from(e.target.files);
-        if (!files.length) return;
+        if (!files.length) {
+            inp.remove();
+            return;
+        }
         showLoading();
         try {
             for (const file of files) {
@@ -565,35 +632,51 @@ function attachPhoto() {
         } finally {
             hideLoading();
             document.getElementById("attachmentMenu").classList.remove("active");
+            inp.remove();
         }
     };
     inp.click();
 }
 
 function attachVideo() {
-    const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = 'video/*';
+    const inp = createFilePicker('video/*');
     inp.onchange = async e => {
         const file = e.target.files[0];
-        if (!file) return;
+        if (!file) {
+            inp.remove();
+            return;
+        }
+        if (file.size > MAX_RTDM_MEDIA_BYTES) {
+            showError('Видео слишком большое для отправки в текущем формате.');
+            inp.remove();
+            return;
+        }
         showLoading();
         try {
             const raw = await fileToDataUrl(file);
-            await sendMediaMessage('video', raw, file.name);
+            await sendMediaMessage('video', raw, file.name, file.size);
         } finally {
             hideLoading();
             document.getElementById("attachmentMenu").classList.remove("active");
+            inp.remove();
         }
     };
     inp.click();
 }
 
 function attachDocument() {
-    const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = '.pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar';
+    const inp = createFilePicker('*/*');
     inp.onchange = async e => {
         const file = e.target.files[0];
-        if (!file) return;
+        if (!file) {
+            inp.remove();
+            return;
+        }
+        if (file.size > MAX_RTDM_MEDIA_BYTES) {
+            showError('Файл слишком большой для отправки.');
+            inp.remove();
+            return;
+        }
         showLoading();
         try {
             const raw = await fileToDataUrl(file);
@@ -601,24 +684,33 @@ function attachDocument() {
         } finally {
             hideLoading();
             document.getElementById("attachmentMenu").classList.remove("active");
+            inp.remove();
         }
     };
     inp.click();
 }
 
 function attachAudio() {
-    const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = 'audio/*';
+    const inp = createFilePicker('audio/*');
     inp.onchange = async e => {
         const file = e.target.files[0];
-        if (!file) return;
+        if (!file) {
+            inp.remove();
+            return;
+        }
+        if (file.size > MAX_RTDM_MEDIA_BYTES) {
+            showError('Аудиофайл слишком большой для отправки.');
+            inp.remove();
+            return;
+        }
         showLoading();
         try {
             const raw = await fileToDataUrl(file);
-            await sendMediaMessage('audio', raw, file.name);
+            await sendMediaMessage('audio', raw, file.name, file.size);
         } finally {
             hideLoading();
             document.getElementById("attachmentMenu").classList.remove("active");
+            inp.remove();
         }
     };
     inp.click();
@@ -630,7 +722,11 @@ async function sendMediaMessage(type, data, filename, filesize) {
         return; 
     }
     
-    const dataSize = new Blob([data]).size;
+    const payloadBytes = estimateDataUrlBytes(data) || (new Blob([data || '']).size);
+    if (payloadBytes > MAX_RTDM_MEDIA_BYTES) {
+        showError("Файл слишком большой для отправки.");
+        return;
+    }
     
     try {
         const msg = { 
@@ -659,16 +755,18 @@ async function sendMediaMessage(type, data, filename, filesize) {
                 break;
             case 'video': 
                 msg.video = data; 
+                msg.filesize = filesize || payloadBytes;
                 msg.text = '🎥 Видео'; 
                 break;
             case 'audio': 
                 msg.audio = data; 
+                msg.filesize = filesize || payloadBytes;
                 msg.text = '🎵 Аудио'; 
                 break;
             case 'document': 
                 msg.document = data; 
                 msg.filename = filename; 
-                msg.filesize = filesize; 
+                msg.filesize = filesize || payloadBytes; 
                 msg.text = '📄 Документ'; 
                 break;
         }
@@ -710,6 +808,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('voiceStartBtn');
     if (btn) {
         btn.addEventListener('pointerdown', onVoicePressStart);
+        btn.addEventListener('touchstart', onVoicePressStart, { passive: false });
+        btn.addEventListener('mousedown', onVoicePressStart);
         btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
     }
 });

@@ -16,31 +16,31 @@ let lockActivatedAt = 0;
 let currentCamera = 'user';
 
 const videoConfig = {
-    maxDuration: 60000,
+    maxDuration: 20000,
     format: 'webm',
-    maxSize: 50 * 1024 * 1024,
+    maxSize: 8 * 1024 * 1024,
     quality: { 
-        width: 480, 
-        height: 480, 
-        frameRate: 30 
+        width: 480,
+        height: 480,
+        frameRate: 24
     },
-    videoBitsPerSecond: 2500000
+    videoBitsPerSecond: 450000
 };
 
 function applyVideoQualityFromSettings() {
     const mode = localStorage.getItem('ruchat_media_video_quality') || 'medium';
     if (mode === 'high') {
-        videoConfig.quality = { width: 720, height: 720, frameRate: 30 };
-        videoConfig.videoBitsPerSecond = 4000000;
+        videoConfig.quality = { width: 640, height: 640, frameRate: 24 };
+        videoConfig.videoBitsPerSecond = 750000;
         return;
     }
     if (mode === 'low') {
-        videoConfig.quality = { width: 360, height: 360, frameRate: 24 };
-        videoConfig.videoBitsPerSecond = 1200000;
+        videoConfig.quality = { width: 360, height: 360, frameRate: 20 };
+        videoConfig.videoBitsPerSecond = 280000;
         return;
     }
-    videoConfig.quality = { width: 480, height: 480, frameRate: 30 };
-    videoConfig.videoBitsPerSecond = 2500000;
+    videoConfig.quality = { width: 480, height: 480, frameRate: 24 };
+    videoConfig.videoBitsPerSecond = 450000;
 }
 window.applyVideoQualityFromSettings = applyVideoQualityFromSettings;
 applyVideoQualityFromSettings();
@@ -54,6 +54,32 @@ function initVideoMessages() {
     checkCameraPermissions();
     
     return true;
+}
+
+function estimateDataUrlBytes(url) {
+    if (!url || typeof url !== 'string' || !url.startsWith('data:')) return null;
+    const comma = url.indexOf(',');
+    if (comma < 0) return null;
+    const b64 = url.slice(comma + 1);
+    return Math.floor((b64.length * 3) / 4);
+}
+
+function pickSupportedVideoMimeType() {
+    if (!window.MediaRecorder || typeof MediaRecorder.isTypeSupported !== 'function') return '';
+    const candidates = [
+        'video/webm;codecs=vp8,opus',
+        'video/webm;codecs=vp9,opus',
+        'video/webm',
+        'video/mp4'
+    ];
+    for (const type of candidates) {
+        try {
+            if (MediaRecorder.isTypeSupported(type)) return type;
+        } catch {
+            // ignore
+        }
+    }
+    return '';
 }
 
 
@@ -76,8 +102,8 @@ async function checkCameraPermissions() {
 async function startVideoRecording() {
     applyVideoQualityFromSettings();
     if (!window.isSecureContext) {
-        showError('Для записи нужен HTTPS (безопасный контекст). Откройте сайт по HTTPS.');
-        return;
+        // В APK/WebView это может быть false даже при рабочей записи.
+        console.warn('Небезопасный контекст, продолжаем попытку записи для WebView/APK');
     }
     if (!window.MediaRecorder) {
         showError('MediaRecorder не поддерживается. Используйте прикрепление видеофайла.');
@@ -109,11 +135,12 @@ async function startVideoRecording() {
         
         document.getElementById('videoRecordOverlay').style.display = 'flex';
         
+        const mimeType = pickSupportedVideoMimeType();
         const options = {
-            mimeType: 'video/webm;codecs=vp9,opus',
-            audioBitsPerSecond: 128000,
-            videoBitsPerSecond: videoConfig.videoBitsPerSecond || 2500000
+            audioBitsPerSecond: 32000,
+            videoBitsPerSecond: videoConfig.videoBitsPerSecond || 450000
         };
+        if (mimeType) options.mimeType = mimeType;
         
         try {
             videoRecorder = new MediaRecorder(videoStream, options);
@@ -134,7 +161,7 @@ async function startVideoRecording() {
                 cleanupVideoRecording();
                 return;
             }
-            const blob = new Blob(videoChunks, { type: 'video/webm' });
+            const blob = new Blob(videoChunks, { type: videoRecorder.mimeType || 'video/webm' });
             
             const reader = new FileReader();
             reader.onloadend = async () => {
@@ -367,6 +394,12 @@ async function sendVideoMessage(videoData) {
     showLoading();
     
     try {
+        const payloadBytes = estimateDataUrlBytes(videoData) || (new Blob([videoData || '']).size);
+        if (payloadBytes > videoConfig.maxSize) {
+            showError('Видеосообщение слишком большое. Запишите короче.');
+            return;
+        }
+
         const message = {
             from: username,
             text: '🎥 Видеосообщение',
@@ -473,4 +506,3 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-

@@ -12,8 +12,8 @@ function checkMobile() {
 
 let mobileInputFixInitialized = false;
 let mobileSwipeBackInitialized = false;
-const MOBILE_SWIPE_EDGE_PX = 28;
-const MOBILE_SWIPE_TRIGGER_PX = 96;
+const MOBILE_SWIPE_EDGE_PX = 56;
+const MOBILE_SWIPE_TRIGGER_PX = 80;
 const mobileSwipeState = {
     tracking: false,
     startX: 0,
@@ -359,7 +359,6 @@ if (typeof window.toggleStickerPanel === 'function') {
         setTimeout(adjustMenuPositionForMobile, 50);
     };
 }
-
 
 
 

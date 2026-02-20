@@ -4001,12 +4001,21 @@ body {
         touch-action: pan-y;
         will-change: scroll-position;
         transform: translateZ(0);
+        contain: layout paint style;
     }
 
     #messages .message-wrapper {
         content-visibility: auto;
         contain-intrinsic-size: 72px;
         contain: layout paint;
+    }
+
+    #messages .message-media,
+    #messages .message-video,
+    #messages .message-audio,
+    #messages .message-doc {
+        content-visibility: auto;
+        contain-intrinsic-size: 160px;
     }
 
     #messages .message {
