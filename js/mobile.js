@@ -11,6 +11,106 @@ function checkMobile() {
 }
 
 let mobileInputFixInitialized = false;
+let mobileSwipeBackInitialized = false;
+const MOBILE_SWIPE_EDGE_PX = 28;
+const MOBILE_SWIPE_TRIGGER_PX = 96;
+const mobileSwipeState = {
+    tracking: false,
+    startX: 0,
+    startY: 0,
+    dx: 0,
+    lockedAxis: ''
+};
+
+function resetMobileSwipeState(chatContainer) {
+    mobileSwipeState.tracking = false;
+    mobileSwipeState.startX = 0;
+    mobileSwipeState.startY = 0;
+    mobileSwipeState.dx = 0;
+    mobileSwipeState.lockedAxis = '';
+    if (chatContainer) {
+        chatContainer.classList.remove('swipe-back-active');
+        chatContainer.style.removeProperty('transition');
+        chatContainer.style.removeProperty('transform');
+    }
+}
+
+function isSwipeBlockedTarget(target) {
+    if (!target || typeof target.closest !== 'function') return false;
+    return !!target.closest(
+        'button, a, input, textarea, select, video, audio, .emoji-picker, .attachment-menu, .record-type-menu, .sticker-panel, .chat-settings-menu, .media-library-overlay, .group-admin-overlay'
+    );
+}
+
+function setupMobileSwipeBack() {
+    if (mobileSwipeBackInitialized) return;
+    const chatContainer = document.getElementById('chatContainer');
+    if (!chatContainer) return;
+    mobileSwipeBackInitialized = true;
+
+    chatContainer.addEventListener('touchstart', (event) => {
+        if (!isMobile || !currentChatId || !chatContainer.classList.contains('active')) return;
+        if (event.touches.length !== 1) return;
+        if (isSwipeBlockedTarget(event.target)) return;
+        const touch = event.touches[0];
+        if (touch.clientX > MOBILE_SWIPE_EDGE_PX) return;
+
+        mobileSwipeState.tracking = true;
+        mobileSwipeState.startX = touch.clientX;
+        mobileSwipeState.startY = touch.clientY;
+        mobileSwipeState.dx = 0;
+        mobileSwipeState.lockedAxis = '';
+        chatContainer.classList.add('swipe-back-active');
+    }, { passive: true });
+
+    chatContainer.addEventListener('touchmove', (event) => {
+        if (!mobileSwipeState.tracking) return;
+        const touch = event.touches[0];
+        const dx = touch.clientX - mobileSwipeState.startX;
+        const dy = Math.abs(touch.clientY - mobileSwipeState.startY);
+
+        if (!mobileSwipeState.lockedAxis) {
+            if (Math.abs(dx) < 8 && dy < 8) return;
+            mobileSwipeState.lockedAxis = Math.abs(dx) > dy ? 'x' : 'y';
+        }
+
+        if (mobileSwipeState.lockedAxis !== 'x') {
+            mobileSwipeState.tracking = false;
+            resetMobileSwipeState(chatContainer);
+            return;
+        }
+
+        if (dx <= 0) return;
+
+        mobileSwipeState.dx = Math.min(dx, window.innerWidth * 0.9);
+        chatContainer.style.transition = 'none';
+        chatContainer.style.transform = `translateX(${mobileSwipeState.dx}px)`;
+        event.preventDefault();
+    }, { passive: false });
+
+    const finishSwipe = () => {
+        if (!mobileSwipeState.tracking && mobileSwipeState.dx === 0) return;
+        const distance = mobileSwipeState.dx;
+        const threshold = Math.max(MOBILE_SWIPE_TRIGGER_PX, window.innerWidth * 0.24);
+        chatContainer.style.transition = 'transform 0.18s cubic-bezier(.22,.61,.36,1)';
+
+        if (distance >= threshold && currentChatId && isMobile) {
+            chatContainer.style.transform = 'translateX(100%)';
+            setTimeout(() => {
+                resetMobileSwipeState(chatContainer);
+                closeChat();
+            }, 180);
+            return;
+        }
+
+        chatContainer.style.transform = 'translateX(0)';
+        setTimeout(() => resetMobileSwipeState(chatContainer), 180);
+    };
+
+    chatContainer.addEventListener('touchend', finishSwipe, { passive: true });
+    chatContainer.addEventListener('touchcancel', finishSwipe, { passive: true });
+}
+
 function setupMobileInputFixes() {
     if (mobileInputFixInitialized) return;
     const textInput = document.getElementById('text');
@@ -78,7 +178,9 @@ function openChatCommon() {
     document.getElementById('sidebar').classList.add('hidden-on-mobile');
 
     // Показываем чат на весь экран
-    document.getElementById('chatContainer').classList.add('active');
+    const chatContainer = document.getElementById('chatContainer');
+    chatContainer.classList.add('active');
+    resetMobileSwipeState(chatContainer);
 
     // Показываем кнопку "назад"
     document.getElementById('mobileBackBtn').classList.add('active');
@@ -97,12 +199,14 @@ function closeChatMobile() {
     if (!isMobile) return;
 
     document.body.classList.remove('chat-open');
+    const chatContainer = document.getElementById('chatContainer');
+    resetMobileSwipeState(chatContainer);
 
     // Возвращаем список чатов
     document.getElementById('sidebar').classList.remove('hidden-on-mobile');
 
     // Убираем чат с экрана
-    document.getElementById('chatContainer').classList.remove('active');
+    chatContainer.classList.remove('active');
 
     // Прячем кнопку назад
     document.getElementById('mobileBackBtn').classList.remove('active');
@@ -117,6 +221,8 @@ function closeChatMobile() {
     // Очищаем текущий чат
     currentChatId = null;
     currentChatPartner = null;
+    if (typeof clearCurrentChatStatusListener === 'function') clearCurrentChatStatusListener();
+    if (typeof detachMessagesScrollListener === 'function') detachMessagesScrollListener();
     if (chatRef) {
         chatRef.off();
         chatRef = null;
@@ -228,7 +334,10 @@ function adjustMenuPositionForMobile() {
 
 // Вызываем при изменениях
 window.addEventListener('resize', adjustMenuPositionForMobile);
-document.addEventListener('DOMContentLoaded', adjustMenuPositionForMobile);
+document.addEventListener('DOMContentLoaded', () => {
+    adjustMenuPositionForMobile();
+    setupMobileSwipeBack();
+});
 
 // Перехватываем открытие меню
 const originalToggleAttachmentMenu = window.toggleAttachmentMenu;
@@ -250,7 +359,6 @@ if (typeof window.toggleStickerPanel === 'function') {
         setTimeout(adjustMenuPositionForMobile, 50);
     };
 }
-
 
 
 

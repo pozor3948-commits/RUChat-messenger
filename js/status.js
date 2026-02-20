@@ -19,6 +19,54 @@ function getOnlineDotClass(st) {
     return "online-dot recently";
 }
 
+let networkConnectedRef = null;
+let networkConnectedHandler = null;
+let browserOnlineHandler = null;
+let browserOfflineHandler = null;
+
+function getServerTimestampValue() {
+    try {
+        if (
+            typeof firebase !== 'undefined' &&
+            firebase &&
+            firebase.database &&
+            firebase.database.ServerValue &&
+            firebase.database.ServerValue.TIMESTAMP
+        ) {
+            return firebase.database.ServerValue.TIMESTAMP;
+        }
+    } catch {
+        // ignore
+    }
+    return Date.now();
+}
+
+function buildMyStatusPayload(isOnlineStatus, isIdle = false) {
+    const online = isOnlineStatus === true;
+    return {
+        online,
+        idle: online && isIdle === true,
+        lastSeen: getServerTimestampValue(),
+        username: username
+    };
+}
+
+function setupPresenceDisconnectHook() {
+    if (!username) return;
+    if (typeof db === 'undefined' || !db || typeof db.ref !== 'function') return;
+
+    const offlineStatus = {
+        online: false,
+        idle: false,
+        lastSeen: getServerTimestampValue(),
+        username: username
+    };
+
+    try { db.ref(`userStatus/${username}`).onDisconnect().update(offlineStatus); } catch {}
+    try { db.ref(`accounts/${username}`).onDisconnect().update({ online: false, lastSeen: getServerTimestampValue() }); } catch {}
+}
+window.setupPresenceDisconnectHook = setupPresenceDisconnectHook;
+
 function canShowLastSeen(friendName) {
     const cache = window.friendPrivacyCache || {};
     const rule = cache[friendName] || 'everyone';
@@ -59,19 +107,28 @@ function updateChatStatus(friendName, statusData) {
 
 function updateMyStatus(isOnlineStatus, isIdle = false) {
     if (!username) return;
-    if (typeof db === 'undefined' || !db || typeof db.ref !== 'function') return;
-    const statusData = { online: isOnlineStatus, idle: isIdle, lastSeen: Date.now(), username: username };
-    try { db.ref(`userStatus/${username}`).set(statusData); } catch {}
-    try { db.ref(`accounts/${username}`).update({ lastSeen: statusData.lastSeen, online: isOnlineStatus }); } catch {}
+
+    const statusData = buildMyStatusPayload(isOnlineStatus, isIdle);
+    const localStatusData = {
+        online: statusData.online,
+        idle: statusData.idle,
+        lastSeen: Date.now(),
+        username: username
+    };
+
+    if (typeof db !== 'undefined' && db && typeof db.ref === 'function') {
+        try { db.ref(`userStatus/${username}`).update(statusData); } catch {}
+        try { db.ref(`accounts/${username}`).update({ lastSeen: statusData.lastSeen, online: statusData.online }); } catch {}
+    }
     
     // Используем глобальную переменную userStatuses
-    userStatuses[username] = statusData;
+    userStatuses[username] = localStatusData;
     
     const myStatusElement = document.getElementById('userStatus');
     if (myStatusElement) {
-        if (isOnlineStatus) {
-            myStatusElement.textContent = isIdle ? "Неактивен" : "В сети";
-            myStatusElement.className = isIdle ? "user-status idle" : "user-status";
+        if (statusData.online) {
+            myStatusElement.textContent = statusData.idle ? "Неактивен" : "В сети";
+            myStatusElement.className = statusData.idle ? "user-status idle" : "user-status";
         } else {
             myStatusElement.textContent = "Был(а) недавно";
             myStatusElement.className = "user-status recently";
@@ -109,9 +166,24 @@ function setupNetworkMonitoring() {
     let last = null;
     let offlineTimer = null;
 
+    if (networkConnectedRef && networkConnectedHandler) {
+        try { networkConnectedRef.off("value", networkConnectedHandler); } catch {}
+        networkConnectedRef = null;
+        networkConnectedHandler = null;
+    }
+    if (browserOnlineHandler) {
+        window.removeEventListener('online', browserOnlineHandler);
+        browserOnlineHandler = null;
+    }
+    if (browserOfflineHandler) {
+        window.removeEventListener('offline', browserOfflineHandler);
+        browserOfflineHandler = null;
+    }
+
     const setConnected = (connected) => {
         const next = !!connected;
         if (last === next) return;
+        const hadKnownState = last !== null;
         last = next;
 
         if (offlineTimer) {
@@ -121,8 +193,12 @@ function setupNetworkMonitoring() {
 
         if (next) {
             isOnline = true;
-            updateMyStatus(true, false);
-            showNotification("Сеть", "Соединение восстановлено", "success");
+            window.firebaseConnected = true;
+            if (username) {
+                setupPresenceDisconnectHook();
+                updateMyStatus(true, false);
+            }
+            if (hadKnownState) showNotification("Сеть", "Соединение восстановлено", "success");
             if (typeof flushPendingQueue === 'function') flushPendingQueue();
             return;
         }
@@ -130,19 +206,24 @@ function setupNetworkMonitoring() {
         // Небольшая задержка, чтобы не показывать "Нет сети" из‑за кратких просадок.
         offlineTimer = setTimeout(() => {
             isOnline = false;
-            updateMyStatus(false, false);
-            showNotification("Сеть", "Нет соединения. Отправка будет в очереди", "warning");
+            window.firebaseConnected = false;
+            if (username) updateMyStatus(false, false);
+            if (hadKnownState) showNotification("Сеть", "Нет соединения. Отправка будет в очереди", "warning");
         }, 1200);
     };
 
     try {
         if (typeof db !== 'undefined' && db && typeof db.ref === 'function') {
-            db.ref(".info/connected").on("value", s => setConnected(s.val() === true));
+            networkConnectedRef = db.ref(".info/connected");
+            networkConnectedHandler = s => setConnected(s.val() === true);
+            networkConnectedRef.on("value", networkConnectedHandler);
         }
     } catch {
         // ignore
     }
 
-    window.addEventListener('online', () => setConnected(true));
-    window.addEventListener('offline', () => setConnected(false));
+    browserOnlineHandler = () => setConnected(true);
+    browserOfflineHandler = () => setConnected(false);
+    window.addEventListener('online', browserOnlineHandler);
+    window.addEventListener('offline', browserOfflineHandler);
 }

@@ -41,6 +41,10 @@ let hasMoreHistory = true;
 let isHistoryLoading = false;
 let addedMessagesQuery = null;
 let addedMessagesHandler = null;
+let currentPrivateStatusRef = null;
+let currentPrivateStatusHandler = null;
+let messagesScrollElement = null;
+let messagesScrollRaf = 0;
 const CHAT_INITIAL_PAGE_SIZE = 80;
 const CHAT_HISTORY_PAGE_SIZE = 60;
 const SEND_RATE_WINDOW_MS = 3000;
@@ -60,6 +64,59 @@ async function renderMessagesBatched(list, options, batchSize = 12) {
     // даем браузеру отрисовать ввод/скролл на слабых мобилках
     await new Promise(requestAnimationFrame);
   }
+}
+
+function clearCurrentChatStatusListener() {
+  if (currentPrivateStatusRef && currentPrivateStatusHandler) {
+    try {
+      currentPrivateStatusRef.off("value", currentPrivateStatusHandler);
+    } catch {
+      // ignore
+    }
+  }
+  currentPrivateStatusRef = null;
+  currentPrivateStatusHandler = null;
+}
+window.clearCurrentChatStatusListener = clearCurrentChatStatusListener;
+
+function subscribeCurrentChatStatus(friendName) {
+  clearCurrentChatStatusListener();
+  if (!friendName || isGroupChat) return;
+  if (typeof db === 'undefined' || !db || typeof db.ref !== 'function') return;
+
+  currentPrivateStatusRef = db.ref(`userStatus/${friendName}`);
+  currentPrivateStatusHandler = snap => {
+    const statusData = snap.exists() ? (snap.val() || null) : null;
+    if (typeof updateFriendStatusInList === 'function') {
+      updateFriendStatusInList(friendName, statusData);
+      return;
+    }
+    userStatuses[friendName] = statusData;
+    if (typeof updateChatStatus === 'function' && currentChatPartner === friendName && !isGroupChat) {
+      updateChatStatus(friendName, statusData);
+    }
+  };
+
+  currentPrivateStatusRef.on("value", currentPrivateStatusHandler);
+}
+
+function detachMessagesScrollListener() {
+  if (messagesScrollElement) {
+    messagesScrollElement.removeEventListener("scroll", handleMessagesScroll);
+  }
+  messagesScrollElement = null;
+  if (messagesScrollRaf) {
+    cancelAnimationFrame(messagesScrollRaf);
+    messagesScrollRaf = 0;
+  }
+}
+window.detachMessagesScrollListener = detachMessagesScrollListener;
+
+function attachMessagesScrollListener(el) {
+  detachMessagesScrollListener();
+  if (!el) return;
+  messagesScrollElement = el;
+  messagesScrollElement.addEventListener("scroll", handleMessagesScroll, { passive: true });
 }
 
 // ===== Per-chat notification settings (mute / silent send) =====
@@ -706,6 +763,7 @@ function openPrivateChat(fn) {
   }
   const st = userStatuses[fn];
   updateChatStatus(fn, st);
+  subscribeCurrentChatStatus(fn);
   if (typeof applyChatBackground === 'function') applyChatBackground(currentChatId);
   loadChat("privateChats/" + currentChatId);
   setupTypingIndicator();
@@ -715,6 +773,7 @@ function openPrivateChat(fn) {
 }
 
 function openGroupChat(g, gid) {
+  clearCurrentChatStatusListener();
   setActiveChatItem('group', gid);
   isGroupChat = true;
   currentChatId = gid;
@@ -753,6 +812,7 @@ function loadChat(path) {
     addedMessagesQuery = null;
     addedMessagesHandler = null;
   }
+  detachMessagesScrollListener();
   clearEphemeralWatch();
   currentChatPath = path;
   chatRef = db.ref(path);
@@ -769,7 +829,7 @@ function loadChat(path) {
   const md = document.getElementById("messages");
   md.innerHTML = "";
   md.style.opacity = 1;
-  md.onscroll = handleMessagesScroll;
+  attachMessagesScrollListener(md);
   const expectedPath = path;
   let cachedMessages = readChatCache(path);
   // Чтобы "свои" сообщения не пропадали при перезагрузке/переключении (если они ещё в очереди отправки)
@@ -848,11 +908,15 @@ function setupAddedMessagesListener() {
 }
 
 function handleMessagesScroll() {
-  const md = document.getElementById("messages");
-  if (!md || isHistoryLoading || !hasMoreHistory) return;
-  if (md.scrollTop <= 120) {
-    loadOlderMessages();
-  }
+  if (messagesScrollRaf) return;
+  messagesScrollRaf = requestAnimationFrame(() => {
+    messagesScrollRaf = 0;
+    const md = document.getElementById("messages");
+    if (!md || isHistoryLoading || !hasMoreHistory) return;
+    if (md.scrollTop <= 120) {
+      loadOlderMessages();
+    }
+  });
 }
 
 function loadOlderMessages() {
@@ -943,8 +1007,11 @@ function addMessageToChat(m, options = {}) {
   wrap.className = `message-wrapper ${m.from === username ? "me" : "other"}`;
   wrap.id = `message_${m.id}`;
   wrap.dataset.from = m.from || '';
-  wrap.style.opacity = 0;
-  wrap.style.transform = 'translateY(10px)';
+  const shouldAnimate = opts.animate && !isMobile;
+  if (shouldAnimate) {
+    wrap.style.opacity = 0;
+    wrap.style.transform = 'translateY(10px)';
+  }
   const msg = document.createElement("div");
   msg.className = `message ${m.from === username ? "me" : "other"}`;
   let status = 'sent';
@@ -982,7 +1049,7 @@ function addMessageToChat(m, options = {}) {
     content = `
       ${forwardedHtml}${replyHtml}${m.text ? `<div class="message-text">${escapeHtml(m.text)}</div>` : ''}
       <div class="message-sticker-wrap">
-        <img src="${stickerUrl}" class="message-sticker" onclick="openMedia('${stickerUrl}')" alt="Стикер">
+        <img src="${stickerUrl}" class="message-sticker" onclick="openMedia('${stickerUrl}')" alt="Стикер" loading="lazy" decoding="async">
         ${emojiTag}
       </div>
     `;
@@ -1004,7 +1071,7 @@ function addMessageToChat(m, options = {}) {
       content = `
         ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
         <a href="${photoUrl}" target="_blank" download>
-          <img src="${photoUrl}" class="message-media" onclick="openMedia('${photoUrl}')" alt="Фото">
+          <img src="${photoUrl}" class="message-media" onclick="openMedia('${photoUrl}')" alt="Фото" loading="lazy" decoding="async">
         </a>
         <div class="message-media-actions">
           <a href="${photoUrl}" target="_blank" download>Скачать</a>
@@ -1057,7 +1124,7 @@ function addMessageToChat(m, options = {}) {
       } else {
         content = `
           ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
-          <video src="${videoUrl}" class="message-media" controls onclick="openMedia('${videoUrl}')"></video>
+          <video src="${videoUrl}" class="message-media" controls preload="metadata" onclick="openMedia('${videoUrl}')"></video>
           <div class="message-media-actions">
             <a href="${videoUrl}" target="_blank" download>Скачать</a>
           </div>
@@ -1081,7 +1148,7 @@ function addMessageToChat(m, options = {}) {
     } else {
       content = `
         ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
-        <audio src="${audioUrl}" class="message-audio" controls></audio>
+        <audio src="${audioUrl}" class="message-audio" controls preload="none"></audio>
         <div class="message-media-actions">
           <a href="${audioUrl}" target="_blank" download>Скачать</a>
         </div>
@@ -1112,11 +1179,11 @@ function addMessageToChat(m, options = {}) {
   } else {
     md.appendChild(wrap);
   }
-  if (!opts.animate || isMobile) {
+  if (shouldAnimate) {
+    setTimeout(() => { wrap.style.opacity = 1; wrap.style.transform = 'translateY(0)'; wrap.style.transition = 'all .3s ease'; }, 10);
+  } else {
     wrap.style.opacity = 1;
     wrap.style.transform = 'none';
-  } else {
-    setTimeout(() => { wrap.style.opacity = 1; wrap.style.transform = 'translateY(0)'; wrap.style.transition = 'all .3s ease'; }, 10);
   }
   if (opts.autoScroll && !opts.prepend) {
     md.scrollTop = md.scrollHeight;
@@ -1147,6 +1214,8 @@ function revealDeferredMedia(messageId) {
       img.src = url;
       img.className = 'message-media';
       img.alt = 'Фото';
+      img.loading = 'lazy';
+      img.decoding = 'async';
       img.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1181,6 +1250,7 @@ function revealDeferredMedia(messageId) {
       v.src = url;
       v.className = 'message-media';
       v.controls = true;
+      v.preload = 'metadata';
       host.appendChild(v);
       return;
     }
@@ -1190,6 +1260,7 @@ function revealDeferredMedia(messageId) {
       a.src = url;
       a.className = 'message-audio';
       a.controls = true;
+      a.preload = 'none';
       host.appendChild(a);
       return;
     }
@@ -1960,6 +2031,8 @@ async function removeGroupMember(memberName) {
 }
 
 function resetCurrentChatAfterLeave() {
+  clearCurrentChatStatusListener();
+  detachMessagesScrollListener();
   if (chatRef) {
     chatRef.off();
     chatRef = null;

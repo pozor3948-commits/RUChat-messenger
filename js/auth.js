@@ -72,7 +72,11 @@ async function doLoginAfterAuth(u, title, message) {
   updateMyStatus(true, false);
   setupActivityTracking();
   setupUserStatusMonitoring();
-  db.ref(`userStatus/${username}`).onDisconnect().set({ online: false, idle: false, lastSeen: Date.now(), username: username });
+  if (typeof setupPresenceDisconnectHook === 'function') {
+    setupPresenceDisconnectHook();
+  } else {
+    db.ref(`userStatus/${username}`).onDisconnect().set({ online: false, idle: false, lastSeen: Date.now(), username: username });
+  }
   document.getElementById("login").style.display = "none";
   document.getElementById("main").style.display = "flex";
   const safeName = typeof normalizeText === 'function' ? normalizeText(username) : username;
@@ -233,6 +237,7 @@ function logout() {
   });
   friendStatusListeners = {};
   db.ref(`userStatus/${username}`).onDisconnect().cancel();
+  db.ref(`accounts/${username}`).onDisconnect().cancel();
   document.getElementById('callButton').classList.remove('active');
   setTimeout(() => window.location.reload(), 500);
 }

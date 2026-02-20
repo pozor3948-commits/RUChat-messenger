@@ -14,6 +14,8 @@ function toggleSidebar() {
 
 function closeChat() {
     if (!isMobile) return;
+    if (typeof clearCurrentChatStatusListener === 'function') clearCurrentChatStatusListener();
+    if (typeof detachMessagesScrollListener === 'function') detachMessagesScrollListener();
     currentChatId = null; 
     currentChatPartner = null;
     document.getElementById('chatWith').textContent = 'Выберите чат';
@@ -329,5 +331,4 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.classList.add('light');
     }
 });
-
 
