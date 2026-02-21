@@ -52,7 +52,18 @@ function createFilePicker(accept, multiple = false) {
     inp.style.position = 'fixed';
     inp.style.left = '-9999px';
     inp.style.top = '0';
+    inp.style.zIndex = '-9999';
+    inp.style.opacity = '0';
     document.body.appendChild(inp);
+    
+    // Для Android WebView добавляем задержку перед кликом
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    if (isAndroid) {
+        setTimeout(() => inp.click(), 50);
+    } else {
+        inp.click();
+    }
+    
     return inp;
 }
 
@@ -611,14 +622,14 @@ function startAudioRecording() {
 window.testVoiceRecording = testVoiceRecording;
 
 /* ==========================================================
-   9. ПРИКРЕПЛЕНИЕ ФАЙЛОВ (БЕЗ ИЗМЕНЕНИЙ)
+   9. ПРИКРЕПЛЕНИЕ ФАЙЛОВ (ИСПРАВЛЕНО ДЛЯ APK)
    ========================================================== */
 function attachPhoto() {
     const inp = createFilePicker('image/*', true);
     inp.onchange = async e => {
         const files = Array.from(e.target.files);
         if (!files.length) {
-            inp.remove();
+            setTimeout(() => inp.remove(), 100);
             return;
         }
         showLoading();
@@ -629,13 +640,19 @@ function attachPhoto() {
                 const compressed = await compressImageDataUrl(raw, qs.maxSide, qs.quality);
                 await sendMediaMessage('photo', compressed, file.name);
             }
+        } catch (err) {
+            console.error('Ошибка отправки фото:', err);
+            showError('Не удалось отправить фото: ' + err.message);
         } finally {
             hideLoading();
             document.getElementById("attachmentMenu").classList.remove("active");
-            inp.remove();
+            setTimeout(() => inp.remove(), 100);
         }
     };
-    inp.click();
+    inp.onerror = () => {
+        showError('Не удалось открыть выбор файлов');
+        inp.remove();
+    };
 }
 
 function attachVideo() {
@@ -643,7 +660,7 @@ function attachVideo() {
     inp.onchange = async e => {
         const file = e.target.files[0];
         if (!file) {
-            inp.remove();
+            setTimeout(() => inp.remove(), 100);
             return;
         }
         if (file.size > MAX_RTDM_MEDIA_BYTES) {
@@ -655,13 +672,19 @@ function attachVideo() {
         try {
             const raw = await fileToDataUrl(file);
             await sendMediaMessage('video', raw, file.name, file.size);
+        } catch (err) {
+            console.error('Ошибка отправки видео:', err);
+            showError('Не удалось отправить видео: ' + err.message);
         } finally {
             hideLoading();
             document.getElementById("attachmentMenu").classList.remove("active");
-            inp.remove();
+            setTimeout(() => inp.remove(), 100);
         }
     };
-    inp.click();
+    inp.onerror = () => {
+        showError('Не удалось открыть выбор файлов');
+        inp.remove();
+    };
 }
 
 function attachDocument() {
@@ -669,7 +692,7 @@ function attachDocument() {
     inp.onchange = async e => {
         const file = e.target.files[0];
         if (!file) {
-            inp.remove();
+            setTimeout(() => inp.remove(), 100);
             return;
         }
         if (file.size > MAX_RTDM_MEDIA_BYTES) {
@@ -681,13 +704,19 @@ function attachDocument() {
         try {
             const raw = await fileToDataUrl(file);
             await sendMediaMessage('document', raw, file.name, file.size);
+        } catch (err) {
+            console.error('Ошибка отправки файла:', err);
+            showError('Не удалось отправить файл: ' + err.message);
         } finally {
             hideLoading();
             document.getElementById("attachmentMenu").classList.remove("active");
-            inp.remove();
+            setTimeout(() => inp.remove(), 100);
         }
     };
-    inp.click();
+    inp.onerror = () => {
+        showError('Не удалось открыть выбор файлов');
+        inp.remove();
+    };
 }
 
 function attachAudio() {
@@ -695,7 +724,7 @@ function attachAudio() {
     inp.onchange = async e => {
         const file = e.target.files[0];
         if (!file) {
-            inp.remove();
+            setTimeout(() => inp.remove(), 100);
             return;
         }
         if (file.size > MAX_RTDM_MEDIA_BYTES) {
@@ -707,13 +736,19 @@ function attachAudio() {
         try {
             const raw = await fileToDataUrl(file);
             await sendMediaMessage('audio', raw, file.name, file.size);
+        } catch (err) {
+            console.error('Ошибка отправки аудио:', err);
+            showError('Не удалось отправить аудио: ' + err.message);
         } finally {
             hideLoading();
             document.getElementById("attachmentMenu").classList.remove("active");
-            inp.remove();
+            setTimeout(() => inp.remove(), 100);
         }
     };
-    inp.click();
+    inp.onerror = () => {
+        showError('Не удалось открыть выбор файлов');
+        inp.remove();
+    };
 }
 
 async function sendMediaMessage(type, data, filename, filesize) {

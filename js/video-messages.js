@@ -85,40 +85,63 @@ function pickSupportedVideoMimeType() {
 
 async function checkCameraPermissions() {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'user' },
-            audio: true 
-        });
+        // Для APK/WebView пробуем разные варианты запроса разрешений
+        const constraints = {
+            video: { 
+                facingMode: 'user',
+                width: { ideal: 480 },
+                height: { ideal: 480 }
+            },
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true
+            }
+        };
         
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         stream.getTracks().forEach(track => track.stop());
-        
         return true;
     } catch (error) {
-        console.warn('Нет доступа к камере:', error);
-        return false;
+        console.warn('Ошибка доступа к камере:', error.name, error.message);
+        
+        // Пробуем упрощённый запрос для APK
+        try {
+            const simpleStream = await navigator.mediaDevices.getUserMedia({ 
+                video: true, 
+                audio: true 
+            });
+            simpleStream.getTracks().forEach(track => track.stop());
+            return true;
+        } catch (e2) {
+            console.warn('Упрощённый запрос также не удался:', e2);
+            return false;
+        }
     }
 }
 
 async function startVideoRecording() {
     applyVideoQualityFromSettings();
-    if (!window.isSecureContext) {
-        // В APK/WebView это может быть false даже при рабочей записи.
-        console.warn('Небезопасный контекст, продолжаем попытку записи для WebView/APK');
-    }
+    
+    // Для APK/WebView игнорируем isSecureContext
     if (!window.MediaRecorder) {
         showError('MediaRecorder не поддерживается. Используйте прикрепление видеофайла.');
-        attachVideo();
+        setTimeout(() => attachVideo(), 500);
         return;
     }
+    
     try {
         document.getElementById('recordTypeMenu').classList.remove('active');
+
+        // Для APK используем более простые ограничения
+        const isAndroidWebView = /Android/.test(navigator.userAgent) && /wv/.test(navigator.userAgent);
+        const isAndroid = /Android/i.test(navigator.userAgent);
         
         const constraints = {
-            video: { 
-                facingMode: currentCamera,
-                width: { ideal: videoConfig.quality.width },
-                height: { ideal: videoConfig.quality.height },
-                frameRate: { ideal: videoConfig.quality.frameRate }
+            video: {
+                facingMode: currentCamera === 'user' ? 'user' : 'environment',
+                width: isAndroid ? { exact: 480 } : { ideal: 480 },
+                height: isAndroid ? { exact: 480 } : { ideal: 480 },
+                frameRate: { ideal: 24 }
             },
             audio: {
                 echoCancellation: true,
@@ -126,28 +149,41 @@ async function startVideoRecording() {
                 sampleRate: 44100
             }
         };
-        
-        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
-        
+
+        // Для Android пробуем без exact значений если первая попытка не удалась
+        try {
+            videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (e1) {
+            console.warn('Первая попытка получения потока не удалась, пробуем упрощённую:', e1);
+            const simpleConstraints = {
+                video: { facingMode: currentCamera === 'user' ? 'user' : 'environment' },
+                audio: true
+            };
+            videoStream = await navigator.mediaDevices.getUserMedia(simpleConstraints);
+        }
+
         const videoPreview = document.getElementById('videoPreview');
         videoPreview.srcObject = videoStream;
-        videoPreview.play();
-        
+        videoPreview.setAttribute('playsinline', 'true');
+        videoPreview.setAttribute('webkit-playsinline', 'true');
+        await videoPreview.play();
+
         document.getElementById('videoRecordOverlay').style.display = 'flex';
-        
+
         const mimeType = pickSupportedVideoMimeType();
         const options = {
             audioBitsPerSecond: 32000,
             videoBitsPerSecond: videoConfig.videoBitsPerSecond || 450000
         };
         if (mimeType) options.mimeType = mimeType;
-        
+
         try {
             videoRecorder = new MediaRecorder(videoStream, options);
         } catch (e) {
+            console.warn('MediaRecorder с опциями не удался, пробуем без:', e);
             videoRecorder = new MediaRecorder(videoStream);
         }
-        
+
         videoChunks = [];
         
         videoRecorder.ondataavailable = (event) => {
@@ -189,9 +225,12 @@ function updateVideoLockUI(locked) {
     const lock = document.getElementById('videoLockIndicator');
     const hint = document.getElementById('videoLockHint');
     if (!lock) return;
+    
     lock.style.display = isRecordingVideo ? 'flex' : 'none';
+    lock.classList.add('visible');
     lock.classList.toggle('locked', !!locked);
     lock.classList.toggle('cancel', !!videoRecordCancelled);
+    
     if (hint) {
         if (videoRecordCancelled) hint.textContent = 'Отпустите чтобы отменить';
         else hint.textContent = locked ? 'Запись закреплена' : 'Свайп вверх — закрепить, влево — отмена';
@@ -237,8 +276,19 @@ function startVideoRecordingAction(event) {
     isRecordingVideo = true;
     recordingStartTime = Date.now();
 
-    document.getElementById('recordingIndicator').style.display = 'flex';
-    document.getElementById('videoRecordBtn').classList.add('recording');
+    // Обновляем UI для нового интерфейса
+    const recordingIndicator = document.getElementById('recordingIndicator');
+    const recordBtn = document.getElementById('videoRecordBtn');
+    const timer = document.getElementById('videoTimer');
+    
+    if (recordingIndicator) recordingIndicator.style.display = 'flex';
+    if (recordBtn) recordBtn.classList.add('recording');
+    if (timer) {
+        timer.textContent = '00:00';
+        timer.classList.add('visible');
+        timer.style.color = '#fff';
+        timer.style.animation = 'none';
+    }
 
     recordingTimer = setInterval(updateRecordingTimer, 1000);
 
@@ -256,18 +306,21 @@ function startVideoRecordingAction(event) {
 
 function updateRecordingTimer() {
     if (!isRecordingVideo) return;
-    
+
     const elapsed = Date.now() - recordingStartTime;
     const seconds = Math.floor(elapsed / 1000);
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    
-    document.getElementById('videoTimer').textContent = 
-        `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-    
-    if (elapsed > videoConfig.maxDuration - 10000) {
-        document.getElementById('videoTimer').style.color = '#ef4444';
-        document.getElementById('videoTimer').style.animation = 'pulse 1s infinite';
+
+    const timer = document.getElementById('videoTimer');
+    if (timer) {
+        timer.textContent = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        
+        // Последние 10 секунд мигаем красным
+        if (elapsed > videoConfig.maxDuration - 10000) {
+            timer.style.color = '#ef4444';
+            timer.style.animation = 'pulse 1s infinite';
+        }
     }
 }
 
@@ -298,9 +351,19 @@ function stopVideoRecordingAction(event) {
         recordingTimer = null;
     }
 
-    document.getElementById('recordingIndicator').style.display = 'none';
-    document.getElementById('videoRecordBtn').classList.remove('recording');
-    document.getElementById('videoRecordOverlay').style.display = 'none';
+    // Очищаем UI нового интерфейса
+    const recordingIndicator = document.getElementById('recordingIndicator');
+    const recordBtn = document.getElementById('videoRecordBtn');
+    const timer = document.getElementById('videoTimer');
+    
+    if (recordingIndicator) recordingIndicator.style.display = 'none';
+    if (recordBtn) recordBtn.classList.remove('recording');
+    if (timer) {
+        timer.classList.remove('visible');
+        timer.style.color = '#fff';
+        timer.style.animation = 'none';
+    }
+
     updateVideoLockUI(false);
 
     document.removeEventListener('mouseup', stopVideoRecordingAction);
@@ -327,23 +390,39 @@ async function toggleCamera() {
         videoStream.getTracks().forEach(track => track.stop());
     } catch (e) {}
 
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    
     const constraints = {
         video: {
-            facingMode: currentCamera,
-            width: { ideal: videoConfig.quality.width },
-            height: { ideal: videoConfig.quality.height },
-            frameRate: { ideal: videoConfig.quality.frameRate }
+            facingMode: currentCamera === 'user' ? 'user' : 'environment',
+            width: isAndroid ? { exact: 480 } : { ideal: 480 },
+            height: isAndroid ? { exact: 480 } : { ideal: 480 }
         },
         audio: true
     };
 
-    videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+    try {
+        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (e1) {
+        console.warn('Переключение камеры не удалось, пробуем упрощённо:', e1);
+        const simpleConstraints = {
+            video: { facingMode: currentCamera === 'user' ? 'user' : 'environment' },
+            audio: true
+        };
+        videoStream = await navigator.mediaDevices.getUserMedia(simpleConstraints);
+    }
 
     const videoPreview = document.getElementById('videoPreview');
     if (videoPreview) {
         videoPreview.srcObject = videoStream;
-        videoPreview.play();
+        videoPreview.setAttribute('playsinline', 'true');
+        videoPreview.setAttribute('webkit-playsinline', 'true');
+        // Для фронтальной камеры зеркалим
+        videoPreview.style.transform = currentCamera === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
+        await videoPreview.play();
     }
+    
+    showNotification('Камера переключена', '');
 }
 
 function cleanupVideoRecording() {
@@ -377,6 +456,13 @@ function cancelVideoRecording() {
     videoRecordCancelled = true;
     if (videoRecorder && videoRecorder.state !== 'inactive') {
         videoRecorder.stop();
+    }
+
+    // Очищаем UI
+    const timer = document.getElementById('videoTimer');
+    if (timer) {
+        timer.classList.remove('visible');
+        timer.textContent = '00:00';
     }
     
     cleanupVideoRecording();

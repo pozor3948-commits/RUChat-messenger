@@ -424,11 +424,241 @@ body.light .deferred-sub { color: #64748b; }
 .voice-lock-pill.locked { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.6); color: #dcfce7; }
 .voice-lock-pill.cancel { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.6); color: #fecaca; }
 
-/* --- video record layout --- */
-.video-record-modal { max-width:420px; width:92%; padding:16px; }
-.video-record-controls { margin-top: 8px; gap: 14px; }
-.video-record-controls .record-lock { position:absolute; left:8px; top:50%; transform:translateY(-50%); min-width:170px; }
-.video-record-controls .record-hint { font-size:13px; margin-top:8px; }
+/* --- video record layout (Telegram style) --- */
+.video-record-overlay {
+    background: rgba(0, 0, 0, 0.95);
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-record-modal {
+    width: 100%;
+    max-width: 500px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+.video-preview-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+    border-radius: 24px;
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 1 / 1;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.video-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.video-preview-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.3) 100%);
+}
+
+.recording-timer {
+    font-size: 28px;
+    font-weight: 600;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    background: rgba(239, 68, 68, 0.85);
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin-top: 12px;
+    display: none;
+}
+
+.recording-timer.visible {
+    display: block;
+    animation: pulse 1s infinite;
+}
+
+.camera-switch-btn,
+.camera-close-btn {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    top: 16px;
+}
+
+.camera-switch-btn {
+    right: 16px;
+}
+
+.camera-switch-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.camera-close-btn {
+    left: 16px;
+}
+
+.camera-close-btn:hover {
+    background: rgba(239, 68, 68, 0.4);
+    transform: scale(1.1);
+}
+
+.recording-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(239, 68, 68, 0.85);
+    padding: 8px 14px;
+    border-radius: 20px;
+    margin-bottom: 12px;
+}
+
+.recording-dot {
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border-radius: 50%;
+    animation: pulse 1s infinite;
+}
+
+/* Кнопка записи в виде круга как в Telegram */
+.video-record-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    margin-top: 24px;
+    position: relative;
+}
+
+.video-record-circle-btn {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.video-record-circle-btn:active {
+    transform: scale(0.92);
+    transition: transform 0.1s ease;
+}
+
+.video-record-circle-btn.recording {
+    border-color: rgba(239, 68, 68, 0.6);
+    background: rgba(239, 68, 68, 0.3);
+    animation: pulse 1s infinite;
+}
+
+.video-record-circle-inner {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #fff;
+    transition: all 0.2s ease;
+}
+
+.video-record-circle-btn.recording .video-record-circle-inner {
+    width: 24px;
+    height: 24px;
+    background: #ef4444;
+}
+
+.record-lock {
+    position: absolute;
+    left: -140px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #a5b4fc;
+    font-size: 12px;
+    min-width: 160px;
+    transition: all 0.2s ease;
+}
+
+.record-lock.visible {
+    display: flex;
+}
+
+.record-lock.locked {
+    background: rgba(34, 197, 94, 0.25);
+    border-color: rgba(34, 197, 94, 0.5);
+    color: #86efac;
+}
+
+.record-lock.cancel {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fca5a5;
+}
+
+.record-hint {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: center;
+    margin-top: 8px;
+}
+
+@media (max-width: 480px) {
+    .video-record-modal {
+        max-width: 100%;
+    }
+    
+    .video-preview-wrapper {
+        max-width: 100%;
+        border-radius: 0;
+        aspect-ratio: 3/4;
+    }
+    
+    .video-record-circle-btn {
+        width: 72px;
+        height: 72px;
+    }
+    
+    .record-lock {
+        left: 12px;
+        min-width: 140px;
+        font-size: 11px;
+    }
+}
 
 .notification { position:fixed; top:25px; right:25px; background:linear-gradient(135deg,rgba(0,136,204,.95),rgba(0,180,255,.95)); color:white; padding:20px 25px; border-radius:15px; box-shadow:0 15px 35px rgba(0,136,204,.4),inset 0 1px 0 rgba(255,255,255,.2); display:none; align-items:center; gap:15px; z-index:1001; max-width:400px; animation:slideIn .3s ease-out,bounce 1s ease; backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.2); transform-origin:top right; }
 @keyframes slideIn { from{transform:translateX(100%) rotate(10deg);opacity:0} to{transform:translateX(0) rotate(0deg);opacity:1} }
