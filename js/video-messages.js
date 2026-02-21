@@ -16,10 +16,10 @@ let lockActivatedAt = 0;
 let currentCamera = 'user';
 
 const videoConfig = {
-    maxDuration: 20000,
+    maxDuration: 60000, // 60 секунд
     format: 'webm',
-    maxSize: 8 * 1024 * 1024,
-    quality: { 
+    maxSize: 100 * 1024 * 1024, // 100MB
+    quality: {
         width: 480,
         height: 480,
         frameRate: 24
@@ -187,31 +187,74 @@ async function startVideoRecording() {
         videoChunks = [];
         
         videoRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
+            if (event.data && event.data.size > 0) {
                 videoChunks.push(event.data);
+                console.log('Video chunk received:', event.data.size, 'total chunks:', videoChunks.length);
             }
         };
-        
+
         videoRecorder.onstop = async () => {
+            console.log('Video recorder stopped, chunks:', videoChunks.length);
             if (videoRecordCancelled) {
                 cleanupVideoRecording();
                 return;
             }
             const blob = new Blob(videoChunks, { type: videoRecorder.mimeType || 'video/webm' });
-            
+            console.log('Video blob created, size:', blob.size);
+
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const base64Video = reader.result;
+                console.log('Video converted to base64, length:', base64Video.length);
                 await sendVideoMessage(base64Video);
+                cleanupVideoRecording();
+            };
+            reader.onerror = (e) => {
+                console.error('FileReader error:', e);
+                showError('Ошибка чтения видео');
                 cleanupVideoRecording();
             };
             reader.readAsDataURL(blob);
         };
-        
+
+        // Запускаем запись сразу после инициализации
+        console.log('Starting video recording...');
+        try {
+            videoRecorder.start(1000);
+            isRecordingVideo = true;
+            recordingStartTime = Date.now();
+            
+            // Обновляем UI
+            const recordingIndicator = document.getElementById('recordingIndicator');
+            const recordBtn = document.getElementById('videoRecordBtn');
+            const timer = document.getElementById('videoTimer');
+            
+            if (recordingIndicator) recordingIndicator.style.display = 'flex';
+            if (recordBtn) recordBtn.classList.add('recording');
+            if (timer) {
+                timer.textContent = '00:00';
+                timer.classList.add('visible');
+            }
+            
+            recordingTimer = setInterval(updateRecordingTimer, 1000);
+            console.log('Video recording started successfully');
+            
+            // Авто-остановка по максимальному времени
+            setTimeout(() => {
+                if (isRecordingVideo && !isVideoLocked) {
+                    stopVideoRecordingAction({ forceStop: true });
+                }
+            }, videoConfig.maxDuration);
+        } catch (startError) {
+            console.error('Error starting recorder:', startError);
+            showError('Не удалось начать запись: ' + startError.message);
+            cleanupVideoRecording();
+        }
+
     } catch (error) {
         console.error('Ошибка при запуске камеры:', error);
         showError('Не удалось получить доступ к камере. Проверьте разрешения.');
-        
+
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
             const useAudioOnly = confirm('Нет доступа к камере. Записать только аудиосообщение?');
             if (useAudioOnly) {
@@ -258,50 +301,24 @@ function handleVideoRecordMove(event) {
     if (event.cancelable) event.preventDefault();
 }
 function startVideoRecordingAction(event) {
-    if (!videoRecorder) return;
-    if (isRecordingVideo && isVideoLocked) {
+    // Запись уже запущена в startVideoRecording
+    // Эта функция нужна только для обработки свайпов
+    if (!isRecordingVideo) return;
+    if (isVideoLocked) {
         stopVideoRecordingAction({ forceStop: true });
         return;
     }
-    if (isRecordingVideo) return;
 
     const touch = event && event.touches && event.touches[0];
     recordStartY = touch ? touch.clientY : (event ? event.clientY : 0);
     recordStartX = touch ? touch.clientX : (event ? event.clientX : 0);
-    isVideoLocked = false;
     videoRecordCancelled = false;
     updateVideoLockUI(false);
-
-    videoRecorder.start(1000);
-    isRecordingVideo = true;
-    recordingStartTime = Date.now();
-
-    // Обновляем UI для нового интерфейса
-    const recordingIndicator = document.getElementById('recordingIndicator');
-    const recordBtn = document.getElementById('videoRecordBtn');
-    const timer = document.getElementById('videoTimer');
-    
-    if (recordingIndicator) recordingIndicator.style.display = 'flex';
-    if (recordBtn) recordBtn.classList.add('recording');
-    if (timer) {
-        timer.textContent = '00:00';
-        timer.classList.add('visible');
-        timer.style.color = '#fff';
-        timer.style.animation = 'none';
-    }
-
-    recordingTimer = setInterval(updateRecordingTimer, 1000);
 
     document.addEventListener('mouseup', stopVideoRecordingAction);
     document.addEventListener('touchend', stopVideoRecordingAction);
     document.addEventListener('mousemove', handleVideoRecordMove);
     document.addEventListener('touchmove', handleVideoRecordMove, { passive: false });
-
-    setTimeout(() => {
-        if (isRecordingVideo) {
-            stopVideoRecordingAction({ forceStop: true });
-        }
-    }, videoConfig.maxDuration);
 }
 
 function updateRecordingTimer() {

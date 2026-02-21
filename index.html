@@ -487,31 +487,58 @@
 
 <!-- ===== ОВЕРЛЕЙ ЗАПИСИ ГОЛОСОВОГО ===== -->
 <div class="record-overlay voice-record-overlay" id="voiceRecordOverlay">
-    <div class="record-modal voice-record-modal">
-        <div class="voice-record-top">
-            <div class="voice-record-label">Голосовое сообщение</div>
-            <div class="record-timer" id="voiceTimer">00:00</div>
-        </div>
-        <div class="voice-waveform" id="voiceWaveform">
-            <div class="waveform-line" style="left:10%"></div>
-            <div class="waveform-line" style="left:20%"></div>
-            <div class="waveform-line" style="left:30%"></div>
-            <div class="waveform-line" style="left:40%"></div>
-            <div class="waveform-line" style="left:50%"></div>
-            <div class="waveform-line" style="left:60%"></div>
-            <div class="waveform-line" style="left:70%"></div>
-            <div class="waveform-line" style="left:80%"></div>
-            <div class="waveform-line" style="left:90%"></div>
-        </div>
-        <div class="voice-record-bar">
-            <button class="voice-cancel-btn" onclick="cancelVoiceRecord()">Отмена</button>
-            <div class="voice-record-center">
-            <button class="record-btn start" id="voiceStartBtn" title="Удерживайте для записи">●</button>
-            <button class="record-btn stop" onclick="stopVoiceRecord()" id="voiceStopBtn" style="display:none" title="Остановить запись">■</button>
-            <div class="voice-record-hint">Свайп вверх — закрепить, влево — отмена</div>
+    <div class="voice-record-container">
+        <div class="voice-record-header">
+            <div class="voice-record-icon">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                    <line x1="8" y1="23" x2="16" y2="23"></line>
+                </svg>
             </div>
-            <div class="voice-lock-pill">🔒</div>
+            <div class="voice-timer-display" id="voiceTimer">00:00</div>
+            <div class="voice-status-text">Запись голосового сообщения</div>
         </div>
+        
+        <div class="voice-visualizer" id="voiceVisualizer">
+            <canvas id="voiceCanvas"></canvas>
+        </div>
+        
+        <div class="voice-controls">
+            <button class="voice-control-btn cancel" onclick="cancelVoiceRecord()" title="Отменить">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"></path>
+                </svg>
+            </button>
+            
+            <div class="voice-record-button-wrapper">
+                <button class="voice-record-circle" id="voiceRecordBtn"
+                        onmousedown="startVoiceRecordAction()"
+                        ontouchstart="startVoiceRecordAction()"
+                        onmouseup="stopVoiceRecordAction()"
+                        ontouchend="stopVoiceRecordAction()"
+                        title="Удерживайте для записи">
+                    <div class="voice-record-circle-inner"></div>
+                </button>
+                <div class="voice-lock-indicator" id="voiceLockIndicator">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span>Запись закреплена</span>
+                </div>
+            </div>
+            
+            <button class="voice-control-btn send" id="voiceSendBtn" style="display:none;" onclick="sendVoiceRecord()" title="Отправить">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </div>
+        
+        <div class="voice-hint">Удерживайте для записи • Свайп вверх — закрепить</div>
     </div>
 </div>
 
@@ -553,7 +580,7 @@
 <script src="js/auth.js?v=20260219d"></script>
 <script src="js/status.js?v=20260222a"></script>
 <script src="js/chat.js?v=20260222b"></script>
-<script src="js/media.js?v=20260222b"></script>
+<script src="js/media.js?v=20260222c"></script>
 <script src="js/emoji.js?v=20260219d"></script>
 <script src="js/stickers.js?v=20260219d"></script>
 <script src="js/groups.js?v=20260219d"></script>

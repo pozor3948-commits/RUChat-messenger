@@ -14,7 +14,8 @@ let voiceRecordLocked = false;
 let voiceRecordCancelled = false;
 let voiceHoldActive = false;
 let voiceRecorderMimeType = 'audio/webm';
-const MAX_RTDM_MEDIA_BYTES = 8 * 1024 * 1024;
+// Ограничение размера файлов увеличено до 100MB
+const MAX_RTDM_MEDIA_BYTES = 100 * 1024 * 1024;
 const MAX_VOICE_DURATION_SEC = 45;
 
 function estimateDataUrlBytes(url) {
@@ -117,76 +118,57 @@ async function startVoiceRecord() {
     voiceRecordCancelled = false;
     voiceRecordLocked = false;
     setVoiceLockPill('idle');
-    if (!window.isSecureContext) {
-        // В APK/WebView isSecureContext может быть false даже при рабочем микрофоне.
-        console.warn('Небезопасный контекст, продолжаем попытку записи для WebView/APK');
-    }
+    
     if (!window.MediaRecorder) {
         showError('MediaRecorder не поддерживается. Используйте прикрепление файла.');
         attachAudio();
         return;
     }
-    // Проверка поддержки браузером
+    
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showError('Ваш браузер не поддерживает запись с микрофона. Пожалуйста, используйте современный браузер (Chrome, Firefox, Edge).');
+        showError('Ваш браузер не поддерживает запись с микрофона.');
         return;
     }
-    
+
     try {
         // Закрываем меню выбора типа записи
-        if (document.getElementById('recordTypeMenu').classList.contains('active')) {
-            document.getElementById('recordTypeMenu').classList.remove('active');
-        }
-        
-        // Проверяем, находимся ли мы в режиме разработки
-        const isDevMode = window.isLocalFile && window.isLocalFile();
-        
-        if (isDevMode) {
-            // В режиме разработки предлагаем выбор
-            const useTest = confirm('Режим разработки:\n\n1. Использовать реальный микрофон\n2. Запустить тестовую запись\n\nВыберите "ОК" для реальной записи или "Отмена" для тестовой записи.');
-            
-            if (!useTest) {
-                testVoiceRecording();
-                return;
-            }
-        }
-        
+        document.getElementById('recordTypeMenu').classList.remove('active');
+
         // Показываем оверлей записи
         document.getElementById('voiceRecordOverlay').style.display = 'flex';
-        
+
         // Получаем доступ к микрофону
-        voiceStream = await navigator.mediaDevices.getUserMedia({ 
+        voiceStream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 echoCancellation: true,
                 noiseSuppression: true,
                 sampleRate: 44100
             }
         });
-        
+
         // Настраиваем MediaRecorder
         const mimeType = pickSupportedAudioMimeType();
         const options = {
             audioBitsPerSecond: 32000
         };
         if (mimeType) options.mimeType = mimeType;
-        
+
         try {
             voiceRecorder = new MediaRecorder(voiceStream, options);
             voiceRecorderMimeType = mimeType || voiceRecorder.mimeType || 'audio/webm';
         } catch (e) {
-            console.warn('Не удалось применить предпочитаемый mimeType, используем стандартный:', e);
             voiceRecorder = new MediaRecorder(voiceStream);
             voiceRecorderMimeType = voiceRecorder.mimeType || 'audio/webm';
         }
-        
+
         voiceChunks = [];
-        
+
         voiceRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
+            if (event.data && event.data.size > 0) {
                 voiceChunks.push(event.data);
             }
         };
-        
+
         voiceRecorder.onstop = async () => {
             if (voiceRecordCancelled) {
                 cleanupVoiceRecording();
@@ -196,98 +178,169 @@ async function startVoiceRecord() {
                 showError('Не удалось записать аудио. Пожалуйста, попробуйте снова.');
                 return;
             }
-            
+
             const blob = new Blob(voiceChunks, { type: voiceRecorderMimeType || 'audio/webm' });
-            
+
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const base64Audio = reader.result;
                 await sendVoiceMessage(base64Audio);
                 cleanupVoiceRecording();
             };
+            reader.onerror = () => {
+                showError('Ошибка чтения аудио');
+                cleanupVoiceRecording();
+            };
             reader.readAsDataURL(blob);
         };
-        
+
         // Запускаем запись
-        voiceRecorder.start(1000); // Собираем данные каждую секунду
-        voiceRecordingTime = 0;
+        voiceRecorder.start(100);
+        voiceIsRecording = true;
+        voiceStartTime = Date.now();
         
         // Обновляем UI
-        document.getElementById("voiceStartBtn").style.display = "none";
-        document.getElementById("voiceStopBtn").style.display = "flex";
+        updateVoiceRecordUI(true);
         
-        // Запускаем таймер
-        voiceRecordingTimer = setInterval(() => {
-            voiceRecordingTime++;
-            const minutes = Math.floor(voiceRecordingTime / 60).toString().padStart(2, '0');
-            const seconds = (voiceRecordingTime % 60).toString().padStart(2, '0');
-            document.getElementById("voiceTimer").textContent = `${minutes}:${seconds}`;
-            
-            // Анимация волны
-            animateVoiceWaveform();
-            if (voiceRecordingTime >= MAX_VOICE_DURATION_SEC) {
+        // Запускаем визуализацию
+        startVoiceVisualizer();
+        
+        // Таймер записи
+        voiceTimerInterval = setInterval(updateVoiceTimer, 100);
+        
+        // Авто-остановка по времени
+        setTimeout(() => {
+            if (voiceIsRecording && !voiceRecordLocked) {
                 stopVoiceRecord();
             }
-        }, 1000);
-        
-        showNotification("Запись", "Идёт запись голосового сообщения...");
-        
+        }, MAX_VOICE_DURATION_SEC * 1000);
+
     } catch (error) {
-        console.error('Ошибка при запуске записи:', error);
-        
-        // Скрываем оверлей
-        document.getElementById("voiceRecordOverlay").style.display = "none";
+        console.error('Ошибка доступа к микрофону:', error);
+        showError('Не удалось получить доступ к микрофону. Проверьте разрешения.');
         
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            const useTest = confirm('Доступ к микрофону запрещен.\n\nРазрешите доступ к микрофону в настройках браузера или запустите тестовую запись для демонстрации.\n\nЗапустить тестовую запись?');
-            
+            const useTest = confirm('Нет доступа к микрофону. Запустить тестовую запись для демонстрации?');
             if (useTest) {
                 testVoiceRecording();
-            } else {
-                showError('Для записи голосовых сообщений необходимо разрешить доступ к микрофону.');
-            }
-        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-            const useTest = confirm('Микрофон не найден.\n\nПодключите микрофон или запустите тестовую запись для демонстрации.\n\nЗапустить тестовую запись?');
-            
-            if (useTest) {
-                testVoiceRecording();
-            } else {
-                showError('Микрофон не найден. Подключите микрофон и попробуйте снова.');
-            }
-        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-            const useTest = confirm('Микрофон уже используется другим приложением.\n\nЗакройте другие приложения, использующие микрофон, или запустите тестовую запись.\n\nЗапустить тестовую запись?');
-            
-            if (useTest) {
-                testVoiceRecording();
-            } else {
-                showError('Микрофон уже используется другим приложением.');
-            }
-        } else {
-            // Для других ошибок предлагаем тестовую запись
-            const useTest = confirm('Не удалось получить доступ к микрофону. Запустить тестовую запись для демонстрации?');
-            
-            if (useTest) {
-                testVoiceRecording();
-            } else {
-                showError('Не удалось получить доступ к микрофону. Проверьте разрешения браузера.');
             }
         }
     }
 }
 
-function setVoiceLockPill(state) {
-    const pill = document.querySelector('.voice-lock-pill');
-    const hint = document.querySelector('.voice-record-hint');
-    if (pill) {
-        pill.classList.remove('locked', 'cancel');
-        if (state === 'locked') pill.classList.add('locked');
-        if (state === 'cancel') pill.classList.add('cancel');
-        pill.textContent = state === 'cancel' ? '✖' : '🔒';
+function updateVoiceRecordUI(isRecording) {
+    const timer = document.getElementById('voiceTimer');
+    const recordBtn = document.getElementById('voiceRecordBtn');
+    const sendBtn = document.getElementById('voiceSendBtn');
+    const lockIndicator = document.getElementById('voiceLockIndicator');
+    
+    if (timer) {
+        timer.textContent = '00:00';
+        timer.classList.toggle('recording', isRecording);
     }
-    if (hint) {
-        if (state === 'locked') hint.textContent = 'Запись закреплена — нажмите ■';
-        else if (state === 'cancel') hint.textContent = 'Отпустите для отмены';
-        else hint.textContent = 'Свайп вверх — закрепить, влево — отмена';
+    
+    if (recordBtn) {
+        recordBtn.classList.toggle('recording', isRecording);
+    }
+    
+    if (sendBtn) {
+        sendBtn.style.display = isRecording ? 'none' : 'flex';
+    }
+    
+    if (lockIndicator) {
+        lockIndicator.classList.toggle('visible', voiceRecordLocked);
+    }
+}
+
+function startVoiceRecordAction() {
+    if (voiceIsRecording) return;
+    startVoiceRecord();
+}
+
+function stopVoiceRecordAction() {
+    if (!voiceIsRecording || voiceRecordLocked) return;
+    stopVoiceRecord();
+}
+
+function sendVoiceRecord() {
+    stopVoiceRecord();
+}
+
+function setVoiceLockPill(state) {
+    const lockIndicator = document.getElementById('voiceLockIndicator');
+    if (lockIndicator) {
+        lockIndicator.classList.toggle('visible', state === 'locked');
+    }
+}
+
+let voiceVisualizerAnimationId = null;
+
+function updateVoiceTimer() {
+    if (!voiceIsRecording) return;
+    const elapsed = Date.now() - voiceStartTime;
+    const seconds = Math.floor(elapsed / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    
+    const timer = document.getElementById('voiceTimer');
+    if (timer) {
+        timer.textContent = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+}
+
+function startVoiceVisualizer() {
+    const canvas = document.getElementById('voiceCanvas');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const analyser = null;
+    
+    // Устанавливаем размер canvas
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    
+    const bars = 64;
+    const barWidth = canvas.width / bars;
+    
+    function draw() {
+        if (!voiceIsRecording) return;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Генерируем случайные значения для визуализации
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+        gradient.addColorStop(0, '#0088cc');
+        gradient.addColorStop(0.5, '#00b4ff');
+        gradient.addColorStop(1, '#0088cc');
+        
+        ctx.fillStyle = gradient;
+        
+        for (let i = 0; i < bars; i++) {
+            const barHeight = Math.random() * canvas.height * 0.8 + canvas.height * 0.1;
+            const x = i * barWidth;
+            const y = (canvas.height - barHeight) / 2;
+            
+            ctx.beginPath();
+            ctx.roundRect(x + 2, y, barWidth - 4, barHeight, 4);
+            ctx.fill();
+        }
+        
+        voiceVisualizerAnimationId = requestAnimationFrame(draw);
+    }
+    
+    draw();
+}
+
+function stopVoiceVisualizer() {
+    if (voiceVisualizerAnimationId) {
+        cancelAnimationFrame(voiceVisualizerAnimationId);
+        voiceVisualizerAnimationId = null;
+    }
+    
+    const canvas = document.getElementById('voiceCanvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 }
 
@@ -442,67 +495,55 @@ function animateVoiceWaveform() {
 // Остановка записи голосового сообщения
 function stopVoiceRecord() {
     if (!voiceRecorder || voiceRecorder.state === 'inactive') {
-        // Если нет активного рекордера, просто скрываем оверлей
-        document.getElementById("voiceStartBtn").style.display = "flex";
-        document.getElementById("voiceStopBtn").style.display = "none";
-        document.getElementById("voiceTimer").textContent = "00:00";
         document.getElementById("voiceRecordOverlay").style.display = "none";
-        setVoiceLockPill('idle');
+        updateVoiceRecordUI(false);
         return;
     }
-    
-    // Останавливаем запись
+
     voiceRecordCancelled = false;
     voiceRecorder.stop();
-    
-    // Останавливаем таймер
-    if (voiceRecordingTimer) {
-        clearInterval(voiceRecordingTimer);
-        voiceRecordingTimer = null;
+
+    // Останавливаем таймер и визуализацию
+    if (voiceTimerInterval) {
+        clearInterval(voiceTimerInterval);
+        voiceTimerInterval = null;
     }
+    stopVoiceVisualizer();
+    
+    voiceIsRecording = false;
     
     // Обновляем UI
-    document.getElementById("voiceStartBtn").style.display = "flex";
-    document.getElementById("voiceStopBtn").style.display = "none";
-    document.getElementById("voiceTimer").textContent = "00:00";
-    
-    // Скрываем оверлей через небольшую задержку, чтобы успел обработаться onstop
+    updateVoiceRecordUI(false);
+
     setTimeout(() => {
         document.getElementById("voiceRecordOverlay").style.display = "none";
     }, 100);
-    setVoiceLockPill('idle');
-    
-    if (voiceRecordingTime > 0) {
-        showNotification("Успешно", "Голосовое сообщение отправляется...");
-    }
 }
 
 // Отмена записи голосового сообщения
 function cancelVoiceRecord() {
     voiceRecordCancelled = true;
-    // Останавливаем запись если она идет
+    
     if (voiceRecorder && voiceRecorder.state !== 'inactive') {
         voiceRecorder.stop();
     }
-    
-    // Останавливаем поток
+
     if (voiceStream) {
         voiceStream.getTracks().forEach(track => track.stop());
         voiceStream = null;
     }
     
-    // Останавливаем таймер
-    if (voiceRecordingTimer) {
-        clearInterval(voiceRecordingTimer);
-        voiceRecordingTimer = null;
+    // Останавливаем таймер и визуализацию
+    if (voiceTimerInterval) {
+        clearInterval(voiceTimerInterval);
+        voiceTimerInterval = null;
     }
+    stopVoiceVisualizer();
     
-    // Сбрасываем UI
-    document.getElementById("voiceStartBtn").style.display = "flex";
-    document.getElementById("voiceStopBtn").style.display = "none";
-    document.getElementById("voiceTimer").textContent = "00:00";
+    voiceIsRecording = false;
+    
+    updateVoiceRecordUI(false);
     document.getElementById("voiceRecordOverlay").style.display = "none";
-    setVoiceLockPill('idle');
 }
 
 // Очистка ресурсов после записи
@@ -511,10 +552,10 @@ function cleanupVoiceRecording() {
         voiceStream.getTracks().forEach(track => track.stop());
         voiceStream = null;
     }
-    
+
     voiceRecorder = null;
     voiceChunks = [];
-    voiceRecordingTime = 0;
+    voiceIsRecording = false;
 }
 
 // Отправка голосового сообщения
@@ -663,8 +704,9 @@ function attachVideo() {
             setTimeout(() => inp.remove(), 100);
             return;
         }
-        if (file.size > MAX_RTDM_MEDIA_BYTES) {
-            showError('Видео слишком большое для отправки в текущем формате.');
+        // Проверка на очень большие файлы (2GB)
+        if (file.size > 2 * 1024 * 1024 * 1024) {
+            showError('Видео слишком большое (макс. 2GB).');
             inp.remove();
             return;
         }
@@ -695,8 +737,9 @@ function attachDocument() {
             setTimeout(() => inp.remove(), 100);
             return;
         }
-        if (file.size > MAX_RTDM_MEDIA_BYTES) {
-            showError('Файл слишком большой для отправки.');
+        // Проверка на очень большие файлы (2GB)
+        if (file.size > 2 * 1024 * 1024 * 1024) {
+            showError('Файл слишком большой (макс. 2GB).');
             inp.remove();
             return;
         }
@@ -727,8 +770,9 @@ function attachAudio() {
             setTimeout(() => inp.remove(), 100);
             return;
         }
-        if (file.size > MAX_RTDM_MEDIA_BYTES) {
-            showError('Аудиофайл слишком большой для отправки.');
+        // Проверка на очень большие файлы (500MB)
+        if (file.size > 500 * 1024 * 1024) {
+            showError('Аудиофайл слишком большой (макс. 500MB).');
             inp.remove();
             return;
         }
@@ -758,8 +802,9 @@ async function sendMediaMessage(type, data, filename, filesize) {
     }
 
     const payloadBytes = estimateDataUrlBytes(data) || (new Blob([data || '']).size);
+    // Увеличенное ограничение до 100MB
     if (payloadBytes > MAX_RTDM_MEDIA_BYTES) {
-        showError("Файл слишком большой для отправки.");
+        showError("Файл слишком большой для отправки (макс. 100MB).");
         return;
     }
 
