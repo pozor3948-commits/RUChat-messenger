@@ -14,8 +14,14 @@ let voiceRecordLocked = false;
 let voiceRecordCancelled = false;
 let voiceHoldActive = false;
 let voiceRecorderMimeType = 'audio/webm';
-// Ограничение размера файлов увеличено до 100MB
-const MAX_RTDM_MEDIA_BYTES = 100 * 1024 * 1024;
+// Новые переменные для обновлённого UI
+let voiceIsRecording = false;
+let voiceTimerInterval = null;
+let voiceStartTime = 0;
+let voiceVisualizerAnimationId = null;
+
+// Ограничение размера файлов для Firebase (10MB лимит на запись)
+const MAX_RTDM_MEDIA_BYTES = 10 * 1024 * 1024;
 const MAX_VOICE_DURATION_SEC = 45;
 
 function estimateDataUrlBytes(url) {
@@ -272,8 +278,6 @@ function setVoiceLockPill(state) {
         lockIndicator.classList.toggle('visible', state === 'locked');
     }
 }
-
-let voiceVisualizerAnimationId = null;
 
 function updateVoiceTimer() {
     if (!voiceIsRecording) return;
@@ -704,9 +708,9 @@ function attachVideo() {
             setTimeout(() => inp.remove(), 100);
             return;
         }
-        // Проверка на очень большие файлы (2GB)
-        if (file.size > 2 * 1024 * 1024 * 1024) {
-            showError('Видео слишком большое (макс. 2GB).');
+        // Firebase лимит 10MB
+        if (file.size > MAX_RTDM_MEDIA_BYTES) {
+            showError('Видео слишком большое (макс. 10MB). Выберите файл меньше или запишите видеосообщение.');
             inp.remove();
             return;
         }
@@ -737,9 +741,9 @@ function attachDocument() {
             setTimeout(() => inp.remove(), 100);
             return;
         }
-        // Проверка на очень большие файлы (2GB)
-        if (file.size > 2 * 1024 * 1024 * 1024) {
-            showError('Файл слишком большой (макс. 2GB).');
+        // Firebase лимит 10MB
+        if (file.size > MAX_RTDM_MEDIA_BYTES) {
+            showError('Файл слишком большой (макс. 10MB).');
             inp.remove();
             return;
         }
@@ -770,9 +774,9 @@ function attachAudio() {
             setTimeout(() => inp.remove(), 100);
             return;
         }
-        // Проверка на очень большие файлы (500MB)
-        if (file.size > 500 * 1024 * 1024) {
-            showError('Аудиофайл слишком большой (макс. 500MB).');
+        // Firebase лимит 10MB
+        if (file.size > MAX_RTDM_MEDIA_BYTES) {
+            showError('Аудиофайл слишком большой (макс. 10MB).');
             inp.remove();
             return;
         }
@@ -802,9 +806,9 @@ async function sendMediaMessage(type, data, filename, filesize) {
     }
 
     const payloadBytes = estimateDataUrlBytes(data) || (new Blob([data || '']).size);
-    // Увеличенное ограничение до 100MB
+    // Firebase Realtime Database имеет лимит 10MB на запись
     if (payloadBytes > MAX_RTDM_MEDIA_BYTES) {
-        showError("Файл слишком большой для отправки (макс. 100MB).");
+        showError("Файл слишком большой для отправки (макс. 10MB). Используйте сжатие или выберите файл меньше.");
         return;
     }
 
