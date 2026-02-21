@@ -1483,7 +1483,7 @@ img:not([src]) {
     text-overflow: ellipsis !important;
 }
 
-/* Исправляем положение меню на мобильных */
+/* ����справляем положение меню на мобильных */
 @media (max-width: 768px) {
     .input-wrapper {
         gap: 8px;
@@ -2303,16 +2303,41 @@ body.light .pinned-close { background: rgba(15,23,42,0.04); color: #0f172a; bord
     margin-top: 6px;
     display: flex;
     justify-content: flex-end;
-    gap: 6px;
+    gap: 4px;
+    opacity: 0;
+    transform: translateY(-5px);
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+.message-wrapper:hover .message-actions {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
 }
 .reaction-btn {
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.12);
+    border: none;
     color: #fff;
-    border-radius: 8px;
-    padding: 4px 8px;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s cubic-bezier(.4,0,.2,1);
+    padding: 0;
+}
+.reaction-btn:hover {
+    background: rgba(0,136,204,0.4);
+    transform: scale(1.15);
+}
+.reaction-btn:active {
+    transform: scale(0.95);
+    transition: transform 0.1s ease;
 }
 .message-reactions {
     display: flex;
@@ -4002,12 +4027,14 @@ body {
         will-change: scroll-position;
         transform: translateZ(0);
         contain: layout paint style;
+        scroll-behavior: auto !important;
     }
 
     #messages .message-wrapper {
         content-visibility: auto;
         contain-intrinsic-size: 72px;
         contain: layout paint;
+        will-change: auto;
     }
 
     #messages .message-media,
@@ -4020,10 +4047,33 @@ body {
 
     #messages .message {
         backdrop-filter: none !important;
+        will-change: auto;
+        transform: translateZ(0);
     }
 
     #messages .message-wrapper.me .message,
     #messages .message-wrapper.other .message {
         box-shadow: none !important;
+    }
+    
+    /* Оптимизация производительности для 60 FPS */
+    .messages-container,
+    #messages,
+    .message-wrapper,
+    .message {
+        -webkit-transform: translateZ(0);
+        -webkit-backface-visibility: hidden;
+        -webkit-perspective: 1000px;
+    }
+    
+    /* Плавная прокрутка без подтормаживаний */
+    .messages-container {
+        scroll-padding: 0;
+        scroll-snap-type: none;
+    }
+    
+    /* Убираем лишние анимации при скролле */
+    .messages-container.scrolling .message-wrapper {
+        animation: none !important;
     }
 }

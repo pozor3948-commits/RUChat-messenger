@@ -2883,7 +2883,51 @@ function renderMediaLibrary() {
   });
 }
 
+// ==========================================================
+// ОПТИМИЗАЦИЯ ПРОКРУТКИ ДЛЯ 60 FPS
+// ==========================================================
+let scrollThrottleRaf = 0;
+let isScrolling = false;
+let scrollTimeout = null;
+
+function setupScrollOptimization() {
+  const messagesContainer = document.getElementById('messages');
+  if (!messagesContainer) return;
+  
+  // Убираем анимации во время скролла для производительности
+  messagesContainer.addEventListener('scroll', () => {
+    if (!isScrolling) {
+      isScrolling = true;
+      messagesContainer.classList.add('scrolling');
+    }
+    
+    if (scrollThrottleRaf) return;
+    
+    scrollThrottleRaf = requestAnimationFrame(() => {
+      scrollThrottleRaf = 0;
+      // Здесь можно добавить логику для ленивой подгрузки
+    });
+    
+    // Прекращаем считать скролл через 150мс после последнего события
+    if (scrollTimeout) clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+      isScrolling = false;
+      messagesContainer.classList.remove('scrolling');
+    }, 150);
+  }, { passive: true });
+}
+
+// Вызываем после загрузки DOM
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupScrollOptimization);
+  } else {
+    setupScrollOptimization();
+  }
+}
+
 window.sendMessagePayload = sendMessagePayload;
 window.enqueuePendingMessage = enqueuePendingMessage;
 window.flushPendingQueue = flushPendingQueue;
 window.createClientMessageId = createClientMessageId;
+window.setupScrollOptimization = setupScrollOptimization;
