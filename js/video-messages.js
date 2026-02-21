@@ -493,70 +493,154 @@ async function sendVideoMessage(videoData) {
         showError('Невозможно отправить сообщение');
         return;
     }
-    
+
     showLoading();
-    
+
     try {
-        const payloadBytes = estimateDataUrlBytes(videoData) || (new Blob([videoData || '']).size);
-        if (payloadBytes > videoConfig.maxSize) {
+        // Конвертируем base64 в Blob
+        const response = await fetch(videoData);
+        const blob = await response.blob();
+        
+        // Проверяем размер
+        if (blob.size > videoConfig.maxSize) {
             showError('Видеосообщение слишком большое. Запишите короче.');
+            hideLoading();
             return;
         }
-
-        const message = {
-            from: username,
-            text: '🎥 Видеосообщение',
-            video: videoData,
-            time: Date.now(),
-            sent: true,
-            delivered: false,
-            read: false,
-            status: 'sent',
-            clientMessageId: (typeof createClientMessageId === 'function') ? createClientMessageId() : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
-            type: 'video_message',
-            duration: Math.floor((Date.now() - recordingStartTime) / 1000)
-        };
-        // Отправка без звука (настраивается для каждого чата отдельно)
-        if (typeof getSilentSend === 'function' && getSilentSend(currentChatId, isGroupChat)) {
-            message.silent = true;
-        }
-        const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
-        if (expiresAt) message.expiresAt = expiresAt;
-        if (typeof replyToMessage !== 'undefined' && replyToMessage) {
-            message.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
-        }
         
-        const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
-
-        // Оптимистичный UI: сразу добавляем в чат
-        try {
-            const localMsg = { ...message, id: message.clientMessageId };
-            if (typeof addMessageToChat === 'function') addMessageToChat(localMsg, { notify: false });
-            if (typeof upsertChatCacheMessage === 'function') upsertChatCacheMessage(path, localMsg);
-            if (typeof newestLoadedKey !== 'undefined') newestLoadedKey = localMsg.id;
-        } catch (e) {
-            // ignore
-        }
-
-        const sent = (typeof sendMessagePayload === 'function')
-            ? await sendMessagePayload(path, message)
-            : await chatRef.push(message).then(() => true).catch(() => false);
-        if (!sent && typeof enqueuePendingMessage === 'function') {
-            enqueuePendingMessage(path, message);
-            showNotification('Сеть', 'Видеосообщение в очереди отправки');
-        } else {
+        // Создаём File из Blob
+        const file = new File([blob], `video_${Date.now()}.webm`, { type: 'video/webm' });
+        
+        // Используем Firebase Storage если доступен
+        if (typeof sendMediaViaStorage === 'function' && typeof storage !== 'undefined') {
+            const timestamp = Date.now();
+            const randomId = Math.random().toString(36).slice(2, 10);
+            const storagePath = `video_messages/${currentChatId}/${timestamp}_${randomId}.webm`;
+            
+            // Загружаем в Storage
+            const downloadURL = await uploadFileToStorage(file, storagePath);
+            
+            const message = {
+                from: username,
+                text: '🎥 Видеосообщение',
+                video: downloadURL,
+                videoStoragePath: storagePath,
+                time: Date.now(),
+                sent: true,
+                delivered: false,
+                read: false,
+                status: 'sent',
+                clientMessageId: (typeof createClientMessageId === 'function') 
+                    ? createClientMessageId() 
+                    : `${timestamp}_${randomId}`,
+                type: 'video_message',
+                duration: Math.floor((Date.now() - recordingStartTime) / 1000)
+            };
+            
+            // Отправка без звука
+            if (typeof getSilentSend === 'function' && getSilentSend(currentChatId, isGroupChat)) {
+                message.silent = true;
+            }
+            
+            const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
+            if (expiresAt) message.expiresAt = expiresAt;
+            
+            if (typeof replyToMessage !== 'undefined' && replyToMessage) {
+                message.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
+            }
+            
+            const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
+            
+            // Оптимистичный UI
+            try {
+                const localMsg = { ...message, id: message.clientMessageId };
+                if (typeof addMessageToChat === 'function') addMessageToChat(localMsg, { notify: false });
+                if (typeof upsertChatCacheMessage === 'function') upsertChatCacheMessage(path, localMsg);
+                if (typeof newestLoadedKey !== 'undefined') newestLoadedKey = localMsg.id;
+            } catch (e) {
+                // ignore
+            }
+            
+            // Отправляем в Firebase
+            await db.ref(path).push(message);
+            
+            if (typeof clearReply === 'function') clearReply();
+            
+            if (typeof areSoundsEnabled === 'function' && areSoundsEnabled()) {
+                if (typeof playSendSound === 'function') playSendSound();
+            }
+            
             showNotification('Успешно', 'Видеосообщение отправлено!');
-        }
-        if (typeof clearReply === 'function') clearReply();
-        
-        const soundsOn = (typeof areSoundsEnabled === 'function') ? areSoundsEnabled() : (localStorage.getItem('soundsEnabled') !== 'false');
-        if (soundsOn && typeof playSendSound === 'function') {
-            playSendSound();
+            
+        } else {
+            // Fallback на старый метод (base64 в RTDB)
+            const payloadBytes = estimateDataUrlBytes(videoData) || blob.size;
+            if (payloadBytes > videoConfig.maxSize) {
+                showError('Видеосообщение слишком большое. Запишите короче.');
+                hideLoading();
+                return;
+            }
+            
+            const message = {
+                from: username,
+                text: '🎥 Видеосообщение',
+                video: videoData,
+                time: Date.now(),
+                sent: true,
+                delivered: false,
+                read: false,
+                status: 'sent',
+                clientMessageId: (typeof createClientMessageId === 'function') 
+                    ? createClientMessageId() 
+                    : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+                type: 'video_message',
+                duration: Math.floor((Date.now() - recordingStartTime) / 1000)
+            };
+            
+            if (typeof getSilentSend === 'function' && getSilentSend(currentChatId, isGroupChat)) {
+                message.silent = true;
+            }
+            
+            const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
+            if (expiresAt) message.expiresAt = expiresAt;
+            
+            if (typeof replyToMessage !== 'undefined' && replyToMessage) {
+                message.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
+            }
+            
+            const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
+            
+            // Оптимистичный UI
+            try {
+                const localMsg = { ...message, id: message.clientMessageId };
+                if (typeof addMessageToChat === 'function') addMessageToChat(localMsg, { notify: false });
+                if (typeof upsertChatCacheMessage === 'function') upsertChatCacheMessage(path, localMsg);
+                if (typeof newestLoadedKey !== 'undefined') newestLoadedKey = localMsg.id;
+            } catch (e) {
+                // ignore
+            }
+            
+            const sent = (typeof sendMessagePayload === 'function')
+                ? await sendMessagePayload(path, message)
+                : await chatRef.push(message).then(() => true).catch(() => false);
+            
+            if (!sent && typeof enqueuePendingMessage === 'function') {
+                enqueuePendingMessage(path, message);
+                showNotification('Сеть', 'Видеосообщение в очереди отправки');
+            } else {
+                showNotification('Успешно', 'Видеосообщение отправлено!');
+            }
+            
+            if (typeof clearReply === 'function') clearReply();
+            
+            if (typeof areSoundsEnabled === 'function' && areSoundsEnabled()) {
+                if (typeof playSendSound === 'function') playSendSound();
+            }
         }
         
     } catch (error) {
         console.error('Ошибка отправки видеосообщения:', error);
-        showError('Не удалось отправить видеосообщение', () => sendVideoMessage(videoData));
+        showError('Не удалось отправить видеосообщение: ' + error.message);
     } finally {
         hideLoading();
     }

@@ -677,22 +677,37 @@ function attachPhoto() {
             setTimeout(() => inp.remove(), 100);
             return;
         }
-        showLoading();
-        try {
-            for (const file of files) {
-                const raw = await fileToDataUrl(file);
-                const qs = getPhotoCompressionSettings();
-                const compressed = await compressImageDataUrl(raw, qs.maxSide, qs.quality);
-                await sendMediaMessage('photo', compressed, file.name);
+        
+        // Используем Firebase Storage для загрузки
+        if (typeof sendMediaViaStorage === 'function') {
+            showLoading();
+            try {
+                for (const file of files) {
+                    await sendMediaViaStorage('photo', file);
+                }
+            } catch (err) {
+                console.error('Ошибка отправки фото:', err);
+                showError('Не удалось отправить фото: ' + err.message);
+            } finally {
+                hideLoading();
             }
-        } catch (err) {
-            console.error('Ошибка отправки фото:', err);
-            showError('Не удалось отправить фото: ' + err.message);
-        } finally {
-            hideLoading();
-            document.getElementById("attachmentMenu").classList.remove("active");
-            setTimeout(() => inp.remove(), 100);
+        } else {
+            // Fallback на старый метод (base64 в RTDB)
+            showLoading();
+            try {
+                for (const file of files) {
+                    const raw = await fileToDataUrl(file);
+                    const qs = getPhotoCompressionSettings();
+                    const compressed = await compressImageDataUrl(raw, qs.maxSide, qs.quality);
+                    await sendMediaMessage('photo', compressed, file.name);
+                }
+            } finally {
+                hideLoading();
+            }
         }
+        
+        document.getElementById("attachmentMenu").classList.remove("active");
+        setTimeout(() => inp.remove(), 100);
     };
     inp.onerror = () => {
         showError('Не удалось открыть выбор файлов');
@@ -708,24 +723,30 @@ function attachVideo() {
             setTimeout(() => inp.remove(), 100);
             return;
         }
-        // Firebase лимит 10MB
-        if (file.size > MAX_RTDM_MEDIA_BYTES) {
-            showError('Видео слишком большое (макс. 10MB). Выберите файл меньше или запишите видеосообщение.');
-            inp.remove();
-            return;
+        
+        // Firebase Storage поддерживает файлы до 5GB
+        if (typeof sendMediaViaStorage === 'function') {
+            await sendMediaViaStorage('video', file);
+        } else {
+            // Fallback на старый метод
+            if (file.size > MAX_RTDM_MEDIA_BYTES) {
+                showError('Видео слишком большое (макс. 10MB).');
+                inp.remove();
+                return;
+            }
+            showLoading();
+            try {
+                const raw = await fileToDataUrl(file);
+                await sendMediaMessage('video', raw, file.name, file.size);
+            } catch (err) {
+                showError('Не удалось отправить видео: ' + err.message);
+            } finally {
+                hideLoading();
+            }
         }
-        showLoading();
-        try {
-            const raw = await fileToDataUrl(file);
-            await sendMediaMessage('video', raw, file.name, file.size);
-        } catch (err) {
-            console.error('Ошибка отправки видео:', err);
-            showError('Не удалось отправить видео: ' + err.message);
-        } finally {
-            hideLoading();
-            document.getElementById("attachmentMenu").classList.remove("active");
-            setTimeout(() => inp.remove(), 100);
-        }
+        
+        document.getElementById("attachmentMenu").classList.remove("active");
+        setTimeout(() => inp.remove(), 100);
     };
     inp.onerror = () => {
         showError('Не удалось открыть выбор файлов');
@@ -741,24 +762,30 @@ function attachDocument() {
             setTimeout(() => inp.remove(), 100);
             return;
         }
-        // Firebase лимит 10MB
-        if (file.size > MAX_RTDM_MEDIA_BYTES) {
-            showError('Файл слишком большой (макс. 10MB).');
-            inp.remove();
-            return;
+        
+        // Firebase Storage поддерживает файлы до 5GB
+        if (typeof sendMediaViaStorage === 'function') {
+            await sendMediaViaStorage('document', file);
+        } else {
+            // Fallback на старый метод
+            if (file.size > MAX_RTDM_MEDIA_BYTES) {
+                showError('Файл слишком большой (макс. 10MB).');
+                inp.remove();
+                return;
+            }
+            showLoading();
+            try {
+                const raw = await fileToDataUrl(file);
+                await sendMediaMessage('document', raw, file.name, file.size);
+            } catch (err) {
+                showError('Не удалось отправить файл: ' + err.message);
+            } finally {
+                hideLoading();
+            }
         }
-        showLoading();
-        try {
-            const raw = await fileToDataUrl(file);
-            await sendMediaMessage('document', raw, file.name, file.size);
-        } catch (err) {
-            console.error('Ошибка отправки файла:', err);
-            showError('Не удалось отправить файл: ' + err.message);
-        } finally {
-            hideLoading();
-            document.getElementById("attachmentMenu").classList.remove("active");
-            setTimeout(() => inp.remove(), 100);
-        }
+        
+        document.getElementById("attachmentMenu").classList.remove("active");
+        setTimeout(() => inp.remove(), 100);
     };
     inp.onerror = () => {
         showError('Не удалось открыть выбор файлов');
@@ -774,24 +801,30 @@ function attachAudio() {
             setTimeout(() => inp.remove(), 100);
             return;
         }
-        // Firebase лимит 10MB
-        if (file.size > MAX_RTDM_MEDIA_BYTES) {
-            showError('Аудиофайл слишком большой (макс. 10MB).');
-            inp.remove();
-            return;
+        
+        // Firebase Storage поддерживает файлы до 5GB
+        if (typeof sendMediaViaStorage === 'function') {
+            await sendMediaViaStorage('audio', file);
+        } else {
+            // Fallback на старый метод
+            if (file.size > MAX_RTDM_MEDIA_BYTES) {
+                showError('Аудиофайл слишком большой (макс. 10MB).');
+                inp.remove();
+                return;
+            }
+            showLoading();
+            try {
+                const raw = await fileToDataUrl(file);
+                await sendMediaMessage('audio', raw, file.name, file.size);
+            } catch (err) {
+                showError('Не удалось отправить аудио: ' + err.message);
+            } finally {
+                hideLoading();
+            }
         }
-        showLoading();
-        try {
-            const raw = await fileToDataUrl(file);
-            await sendMediaMessage('audio', raw, file.name, file.size);
-        } catch (err) {
-            console.error('Ошибка отправки аудио:', err);
-            showError('Не удалось отправить аудио: ' + err.message);
-        } finally {
-            hideLoading();
-            document.getElementById("attachmentMenu").classList.remove("active");
-            setTimeout(() => inp.remove(), 100);
-        }
+        
+        document.getElementById("attachmentMenu").classList.remove("active");
+        setTimeout(() => inp.remove(), 100);
     };
     inp.onerror = () => {
         showError('Не удалось открыть выбор файлов');

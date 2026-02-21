@@ -34,4 +34,9 @@ try {
 }
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const storage = firebase.storage();
+
+// Делаем переменные доступными глобально
 window.db = db;
+window.storage = storage;
+window.firebase = firebase;
