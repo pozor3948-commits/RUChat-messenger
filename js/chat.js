@@ -563,7 +563,27 @@ function subscribeUnreadForFriend(friendName) {
 function loadFriends() {
   const friendsRef = db.ref("accounts/" + username + "/friends");
   friendsRef.on("value", snap => {
-    friendsCache = snap.exists() ? (snap.val() || {}) : {};
+    const rawFriends = snap.exists() ? (snap.val() || {}) : {};
+    // Дедупликация друзей по canonical имени
+    const dedupedFriends = {};
+    const seenCanonical = new Map();
+    Object.keys(rawFriends || {}).forEach(key => {
+      const canonical = canonicalFriendIdentity(key) || String(key || '');
+      const existing = seenCanonical.get(canonical);
+      if (!existing) {
+        seenCanonical.set(canonical, key);
+        dedupedFriends[key] = rawFriends[key];
+        return;
+      }
+      // Оставляем ключ с меньшим penalty (более "чистый")
+      if (friendKeyPenalty(key) < friendKeyPenalty(existing)) {
+        delete dedupedFriends[existing];
+        seenCanonical.set(canonical, key);
+        dedupedFriends[key] = rawFriends[key];
+      }
+      // Иначе игнорируем дубликат
+    });
+    friendsCache = dedupedFriends;
     renderFriends();
   });
   const blockedRef = db.ref("accounts/" + username + "/blocked");
@@ -1024,7 +1044,7 @@ function loadChat(path) {
     newestLoadedKey = cachedMessages[cachedMessages.length - 1].id || null;
   }
 
-  chatRef.orderByKey().limitToLast(CHAT_INITIAL_PAGE_SIZE).once("value").then(snap => {
+  chatRef.orderByChild('time').limitToLast(CHAT_INITIAL_PAGE_SIZE).once("value").then(snap => {
     if (currentChatPath !== expectedPath) return;
     const items = [];
     snap.forEach(ch => {
@@ -1033,6 +1053,12 @@ function loadChat(path) {
       m.id = ch.key;
       if (m.text === undefined || m.text === null) m.text = "";
       items.push(m);
+    });
+    // Сортируем сообщения по времени для корректного отображения
+    items.sort((a, b) => {
+      const timeA = Number(a.time) || 0;
+      const timeB = Number(b.time) || 0;
+      return timeA - timeB;
     });
     (async () => {
       await renderMessagesBatched(items, { autoScroll: false, animate: false, notify: false }, isMobile ? 10 : 18);

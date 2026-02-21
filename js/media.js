@@ -717,24 +717,24 @@ function attachAudio() {
 }
 
 async function sendMediaMessage(type, data, filename, filesize) {
-    if (!currentChatId || !chatRef || !username) { 
-        showError("Выберите чат для отправки!"); 
-        return; 
+    if (!currentChatId || !chatRef || !username) {
+        showError("Выберите чат для отправки!");
+        return;
     }
-    
+
     const payloadBytes = estimateDataUrlBytes(data) || (new Blob([data || '']).size);
     if (payloadBytes > MAX_RTDM_MEDIA_BYTES) {
         showError("Файл слишком большой для отправки.");
         return;
     }
-    
+
     try {
-        const msg = { 
-            from: username, 
-            time: Date.now(), 
-            sent: true, 
-            delivered: false, 
-            read: false, 
+        const msg = {
+            from: username,
+            time: Date.now(),
+            sent: true,
+            delivered: false,
+            read: false,
             status: 'sent',
             clientMessageId: (typeof createClientMessageId === 'function') ? createClientMessageId() : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
         };
@@ -747,30 +747,30 @@ async function sendMediaMessage(type, data, filename, filesize) {
         if (typeof replyToMessage !== 'undefined' && replyToMessage) {
             msg.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
         }
-        
+
         switch (type) {
-            case 'photo': 
-                msg.photo = data; 
-                msg.text = '📷 Фото'; 
+            case 'photo':
+                msg.photo = data;
+                msg.text = '📷 Фото';
                 break;
-            case 'video': 
-                msg.video = data; 
+            case 'video':
+                msg.video = data;
                 msg.filesize = filesize || payloadBytes;
-                msg.text = '🎥 Видео'; 
+                msg.text = '🎥 Видео';
                 break;
-            case 'audio': 
-                msg.audio = data; 
+            case 'audio':
+                msg.audio = data;
                 msg.filesize = filesize || payloadBytes;
-                msg.text = '🎵 Аудио'; 
+                msg.text = '🎵 Аудио';
                 break;
-            case 'document': 
-                msg.document = data; 
-                msg.filename = filename; 
-                msg.filesize = filesize || payloadBytes; 
-                msg.text = '📄 Документ'; 
+            case 'document':
+                msg.document = data;
+                msg.filename = filename;
+                msg.filesize = filesize || payloadBytes;
+                msg.text = '📄 Документ';
                 break;
         }
-        
+
         const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
 
         // Оптимистичный UI: показываем медиа сразу
@@ -793,13 +793,27 @@ async function sendMediaMessage(type, data, filename, filesize) {
             showNotification("Успешно", "Файл отправлен!");
         }
         if (typeof clearReply === 'function') clearReply();
-        
+
     } catch (e) {
-        console.error(e);
-        if (e.message && e.message.includes('greater than 10485760')) {
+        console.error('sendMediaMessage error:', e);
+        // Обработка специфичных ошибок для APK/WebView
+        if (e.message && e.message.includes('greater than')) {
             showError("Файл слишком большой для отправки.");
+        } else if (e.message && e.message.includes('network')) {
+            showError("Нет соединения. Файл добавлен в очередь.");
+            const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
+            if (typeof enqueuePendingMessage === 'function') {
+                enqueuePendingMessage(path, {
+                    from: username,
+                    time: Date.now(),
+                    [type]: data,
+                    filename: filename,
+                    filesize: filesize,
+                    clientMessageId: `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+                });
+            }
         } else {
-            showError("Не удалось отправить файл", () => sendMediaMessage(type, data, filename, filesize));
+            showError("Не удалось отправить файл: " + e.message);
         }
     }
 }
