@@ -2,6 +2,16 @@
   "rules": {
     ".read": true,
     ".write": false,
+    
+    "blockedUsers": {
+      "$username": {
+        ".read": true,
+        ".write": false,
+        ".indexOn": ["blocked", "blockedAt"],
+        ".validate": "newData.hasChildren(['blocked']) && newData.child('blocked').isBoolean()"
+      }
+    },
+    
     "accounts": {
       "$user": {
         ".write": true,

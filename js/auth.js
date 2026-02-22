@@ -78,6 +78,30 @@ async function register() {
 async function doLoginAfterAuth(u, title, message) {
   username = u;
   window.username = username;
+  
+  // Проверка блокировки при каждом входе (даже если уже авторизован)
+  try {
+    const blockedSnap = await db.ref("blockedUsers/" + u).get();
+    if (blockedSnap.exists() && blockedSnap.val().blocked === true) {
+      // Блокируем выход из приложения, показываем сообщение о блокировке
+      blockAppInterface();
+      showBlockedMessage(blockedSnap.val());
+      return; // Не продолжаем загрузку
+    }
+    
+    // Дополнительная проверка блокировки в аккаунте
+    const accountSnap = await db.ref("accounts/" + u).get();
+    const accountData = accountSnap.val();
+    if (accountData && accountData.blocked && accountData.blocked.admin === true) {
+      blockAppInterface();
+      showBlockedMessage({ reason: "Нарушение правил пользования мессенджером", blockedAt: Date.now() });
+      return;
+    }
+  } catch (e) {
+    console.warn("Ошибка проверки блокировки:", e.message);
+    // Продолжаем вход даже если проверка не прошла
+  }
+  
   if (localStorage.getItem('ruchat_autologin') === null) {
     localStorage.setItem('ruchat_autologin', 'true');
   }
@@ -140,11 +164,42 @@ async function login() {
     const u = document.getElementById("usernameInput").value.trim();
     const p = document.getElementById("passwordInput").value;
     if (!u || !p) throw new Error("Введите имя и пароль!");
+    
+    // Проверяем, не заблокирован ли пользователь глобально
+    const blockedSnap = await (typeof withTimeout === 'function'
+      ? withTimeout(db.ref("blockedUsers/" + u).get(), 12000, "Не удалось подключиться к серверу.")
+      : db.ref("blockedUsers/" + u).get());
+    
+    if (blockedSnap.exists() && blockedSnap.val().blocked === true) {
+      const blockData = blockedSnap.val() || {};
+      const reason = blockData.reason || "Нарушение правил пользования мессенджером";
+      const blockedAt = blockData.blockedAt ? new Date(blockData.blockedAt).toLocaleString('ru-RU') : 'неизвестно';
+      throw new Error(
+        "🚫 АККАУНТ ЗАБЛОКИРОВАН\n\n" +
+        "По причине: " + reason + "\n" +
+        "Дата блокировки: " + blockedAt + "\n\n" +
+        "Если вы хотите обжаловать блокировку, пишите на почту:\n" +
+        "📧 ruchat.offical@mail.ru"
+      );
+    }
+    
     const snap = await (typeof withTimeout === 'function'
       ? withTimeout(db.ref("accounts/" + u).get(), 12000, "Не удалось подключиться к серверу. Проверьте интернет.")
       : db.ref("accounts/" + u).get());
     if (!snap.exists()) throw new Error("Пользователь не найден!");
     if (snap.val().password !== hashPassword(p)) throw new Error("Неверный пароль!");
+    
+    // Дополнительная проверка блокировки в аккаунте
+    const accountData = snap.val();
+    if (accountData.blocked && accountData.blocked.admin === true) {
+      throw new Error(
+        "🚫 АККАУНТ ЗАБЛОКИРОВАН\n\n" +
+        "За нарушение правил пользования мессенджером.\n\n" +
+        "Если вы хотите обжаловать блокировку, пишите на почту:\n" +
+        "📧 ruchat.offical@mail.ru"
+      );
+    }
+    
     await doLoginAfterAuth(u, "Добро пожаловать", `Привет, ${u}!`);
   } catch (e) {
     showError(e.message, () => login());
@@ -337,10 +392,198 @@ async function autoLoginFromDevice() {
   const token = localStorage.getItem('ruchat_device_token');
   if (!u || !token) return;
   try {
+    // Проверка блокировки перед автовходом
+    const blockedSnap = await db.ref("blockedUsers/" + u).get();
+    if (blockedSnap.exists() && blockedSnap.val().blocked === true) {
+      blockAppInterface();
+      showBlockedMessage(blockedSnap.val());
+      return;
+    }
+    
     const snap = await db.ref(`accounts/${u}/devices/${token}`).get();
     if (!snap.exists()) return;
+    
+    // Дополнительная проверка блокировки в аккаунте
+    const accountSnap = await db.ref(`accounts/${u}`).get();
+    const accountData = accountSnap.val();
+    if (accountData && accountData.blocked && accountData.blocked.admin === true) {
+      blockAppInterface();
+      showBlockedMessage({ reason: "Нарушение правил пользования мессенджером", blockedAt: Date.now() });
+      return;
+    }
+    
     await doLoginAfterAuth(u, "Автовход", "Вы вошли на этом устройстве");
   } catch (e) {
     // ignore
   }
 }
+
+// ────────────────────────────────────────────────
+//  БЛОКИРОВКА ПОЛЬЗОВАТЕЛЕЙ
+// ────────────────────────────────────────────────
+
+/**
+ * Блокирует интерфейс приложения, показывая экран блокировки
+ */
+function blockAppInterface() {
+  // Скрываем основной интерфейс
+  const main = document.getElementById("main");
+  if (main) main.style.display = "none";
+  
+  // Показываем экран блокировки
+  const login = document.getElementById("login");
+  if (login) login.style.display = "flex";
+  
+  // Блокируем все элементы ввода
+  const inputs = login.querySelectorAll("input, button");
+  inputs.forEach(el => {
+    if (!el.classList.contains("blocked-overlay")) {
+      el.disabled = true;
+    }
+  });
+}
+
+/**
+ * Показывает сообщение о блокировке
+ */
+function showBlockedMessage(blockData) {
+  const reason = blockData?.reason || "Нарушение правил пользования мессенджером";
+  const blockedAt = blockData?.blockedAt ? new Date(blockData.blockedAt).toLocaleString('ru-RU') : 'неизвестно';
+  
+  // Создаём или находим оверлей блокировки
+  let overlay = document.getElementById("blockedOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "blockedOverlay";
+    overlay.className = "blocked-overlay";
+    overlay.innerHTML = `
+      <div class="blocked-modal">
+        <div class="blocked-icon">🚫</div>
+        <h2 class="blocked-title">АККАУНТ ЗАБЛОКИРОВАН</h2>
+        <div class="blocked-content">
+          <p class="blocked-reason-label">Причина блокировки:</p>
+          <p class="blocked-reason" id="blockedReason">${reason}</p>
+          <p class="blocked-date">Дата: <span id="blockedDate">${blockedAt}</span></p>
+          <div class="blocked-footer">
+            <p>Если вы хотите обжаловать блокировку, напишите на почту:</p>
+            <a href="mailto:ruchat.offical@mail.ru" class="blocked-email">ruchat.offical@mail.ru</a>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    
+    // Добавляем стили
+    const style = document.createElement("style");
+    style.id = "blockedStyles";
+    style.textContent = `
+      .blocked-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        padding: 20px;
+      }
+      .blocked-modal {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border-radius: 20px;
+        padding: 40px;
+        max-width: 500px;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .blocked-icon {
+        font-size: 80px;
+        margin-bottom: 20px;
+      }
+      .blocked-title {
+        color: #ef4444;
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 25px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+      .blocked-content {
+        color: #e2e8f0;
+        line-height: 1.6;
+      }
+      .blocked-reason-label {
+        font-size: 14px;
+        color: #94a3b8;
+        margin-bottom: 8px;
+      }
+      .blocked-reason {
+        font-size: 18px;
+        font-weight: 600;
+        color: #f8fafc;
+        margin-bottom: 15px;
+        padding: 15px;
+        background: rgba(239, 68, 68, 0.1);
+        border-radius: 10px;
+        border-left: 3px solid #ef4444;
+      }
+      .blocked-date {
+        font-size: 14px;
+        color: #94a3b8;
+        margin-bottom: 25px;
+      }
+      .blocked-footer {
+        margin-top: 30px;
+        padding-top: 25px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .blocked-footer p {
+        font-size: 14px;
+        color: #94a3b8;
+        margin-bottom: 10px;
+      }
+      .blocked-email {
+        display: inline-block;
+        color: #38bdf8;
+        font-size: 16px;
+        font-weight: 600;
+        text-decoration: none;
+        padding: 10px 20px;
+        background: rgba(56, 189, 248, 0.1);
+        border-radius: 8px;
+        transition: all 0.3s;
+      }
+      .blocked-email:hover {
+        background: rgba(56, 189, 248, 0.2);
+        transform: translateY(-2px);
+      }
+      @media (max-width: 600px) {
+        .blocked-modal {
+          padding: 30px 20px;
+        }
+        .blocked-title {
+          font-size: 22px;
+        }
+        .blocked-icon {
+          font-size: 60px;
+        }
+      }
+    `;
+    if (!document.getElementById("blockedStyles")) {
+      document.head.appendChild(style);
+    }
+  } else {
+    // Обновляем данные
+    document.getElementById("blockedReason").textContent = reason;
+    document.getElementById("blockedDate").textContent = blockedAt;
+  }
+  
+  overlay.style.display = "flex";
+}
+
+window.blockAppInterface = blockAppInterface;
+window.showBlockedMessage = showBlockedMessage;
