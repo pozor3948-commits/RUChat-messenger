@@ -1178,6 +1178,24 @@ function addMessageToChat(m, options = {}) {
   const md = document.getElementById("messages");
   if (document.getElementById(`message_${m.id}`)) return;
   if (m.clientMessageId && renderedClientMessageIds.has(m.clientMessageId)) return;
+  
+  // РАСШИФРОВКА СООБЩЕНИЯ (если зашифровано)
+  let messageText = m.text || '';
+  if (m.encrypted === true && typeof decryptMessage === 'function') {
+    try {
+      // Асинхронная расшифровка
+      decryptMessage(messageText).then(decrypted => {
+        const msgEl = document.getElementById(`message_${m.id}`);
+        if (msgEl) {
+          const textEl = msgEl.querySelector('.message-text');
+          if (textEl) textEl.textContent = decrypted;
+        }
+      }).catch(e => console.warn('Ошибка расшифровки:', e));
+    } catch (e) {
+      console.warn('Не удалось расшифровать сообщение');
+    }
+  }
+  
   if (typeof m.text === 'string') m.text = sanitizeUiText(m.text, m.text);
   
   // meta-сообщения (закреп/откреп) не рендерим как обычные
@@ -2535,8 +2553,23 @@ async function sendMessage() {
       return;
     }
     const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
-    const msg = { from: username, text: txt, time: Date.now(), sent: true, delivered: false, read: false, status: 'sent', clientMessageId: createClientMessageId() };
-    if (getSilentSend(currentChatId, isGroupChat)) msg.silent = true;
+    
+    // ШИФРОВАНИЕ СООБЩЕНИЯ (если включено)
+    let textToSend = txt;
+    const useEncryption = localStorage.getItem('ruchat_encryption') === 'true';
+    let isEncrypted = false;
+    
+    if (useEncryption && typeof encryptMessage === 'function') {
+      try {
+        textToSend = await encryptMessage(txt);
+        isEncrypted = true;
+      } catch (e) {
+        console.warn('Не удалось зашифровать сообщение, отправляем открытым текстом');
+      }
+    }
+    
+    const msg = { from: username, text: textToSend, time: Date.now(), sent: true, delivered: false, read: false, status: 'sent', clientMessageId: createClientMessageId() };
+    if (isEncrypted) msg.encrypted = true;
     if (expiresAt) msg.expiresAt = expiresAt;
     if (replyToMessage) {
       msg.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };

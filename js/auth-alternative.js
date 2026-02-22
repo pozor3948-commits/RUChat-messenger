@@ -11,12 +11,22 @@ let phoneVerificationId = null;
    ========================================================== */
 async function signInWithGoogle() {
     try {
-        const provider = new firebase.auth.GoogleAuthProvider();
+        // Проверяем, запущен ли проект на localhost или через файл
+        const isLocal = window.location.protocol === 'file:' || 
+                       window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1';
         
+        if (isLocal) {
+            showError('Вход через Google недоступен в локальном режиме. Пожалуйста, используйте логин/пароль или разверните проект на Firebase Hosting.');
+            return;
+        }
+
+        const provider = new firebase.auth.GoogleAuthProvider();
+
         // Добавляем scopes если нужно
         provider.addScope('email');
         provider.addScope('profile');
-        
+
         // Настраиваем provider для popup или redirect
         if (isMobile) {
             // Для мобильных используем redirect
@@ -28,7 +38,20 @@ async function signInWithGoogle() {
         }
     } catch (error) {
         console.error('Google sign in error:', error);
-        handleAuthError(error);
+        
+        // Обработка специфичных ошибок
+        if (error.code === 'auth/operation-not-allowed') {
+            showError('Вход через Google отключён. Обратитесь к администратору.');
+        } else if (error.code === 'auth/popup-closed-by-user') {
+            // Пользователь закрыл popup - не показываем ошибку
+            return;
+        } else if (error.code === 'auth/popup-blocked') {
+            showError('Всплывающее окно заблокировано. Разрешите popup для этого сайта.');
+        } else if (error.code === 'auth/network-request-failed') {
+            showError('Нет соединения с интернетом. Проверьте подключение.');
+        } else {
+            handleAuthError(error);
+        }
     }
 }
 
@@ -122,42 +145,24 @@ function getCleanPhoneNumber() {
 
 async function sendSmsCode() {
     const phoneNumber = getCleanPhoneNumber();
-    
+
     if (phoneNumber.length < 12) {
         showError('Введите корректный номер телефона');
         return;
     }
-    
+
     try {
         const sendBtn = document.getElementById('sendSmsBtn');
         sendBtn.disabled = true;
         sendBtn.textContent = 'Отправка...';
+
+        // Проверяем, запущен ли проект локально
+        const isLocal = window.location.protocol === 'file:' || 
+                       window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1';
         
-        // Используем Firebase Phone Auth
-        const recaptchaVerifier = new firebase.auth.RecaptchaVerifier('sendSmsBtn', {
-            'size': 'invisible',
-            'callback': (response) => {
-                console.log('reCAPTCHA verified');
-            }
-        }, firebase.auth());
-        
-        const confirmationResult = await firebase.auth().signInWithPhoneNumber(phoneNumber, recaptchaVerifier);
-        
-        phoneConfirmationResult = confirmationResult;
-        
-        // Показываем поле для ввода кода
-        document.getElementById('verificationCodeSection').style.display = 'flex';
-        sendBtn.textContent = 'Код отправлен';
-        
-        showNotification('SMS', 'Код подтверждения отправлен на ' + phoneNumber);
-        
-    } catch (error) {
-        console.error('SMS send error:', error);
-        handleAuthError(error);
-        
-        // Для тестирования без реального SMS (в режиме разработки)
-        if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/internal-error') {
-            // Тестовый режим - позволяем ввести любой 6-значный код
+        if (isLocal) {
+            // В локальном режиме используем тестовый режим
             phoneConfirmationResult = {
                 confirm: async (code) => {
                     if (code.length === 6) {
@@ -172,9 +177,87 @@ async function sendSmsCode() {
                     throw new Error('Invalid code');
                 }
             };
-            
+
             document.getElementById('verificationCodeSection').style.display = 'flex';
-            showNotification('Тест', 'Введите любой 6-значный код');
+            sendBtn.textContent = 'Тестовый режим';
+            showNotification('Тест', 'Введите любой 6-значный код для тестирования');
+            return;
+        }
+
+        // Для production используем реальный Phone Auth
+        // Проверяем, есть ли элемент для reCAPTCHA
+        let recaptchaContainer = document.getElementById('recaptcha-container');
+        if (!recaptchaContainer) {
+            recaptchaContainer = document.createElement('div');
+            recaptchaContainer.id = 'recaptcha-container';
+            recaptchaContainer.style.display = 'none';
+            document.body.appendChild(recaptchaContainer);
+        }
+
+        const recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+            'size': 'invisible',
+            'callback': (response) => {
+                console.log('reCAPTCHA verified');
+            },
+            'expired-callback': () => {
+                showError('reCAPTCHA истёк. Попробуйте снова.');
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Отправить код';
+            }
+        }, firebase.auth());
+
+        const confirmationResult = await firebase.auth().signInWithPhoneNumber(phoneNumber, recaptchaVerifier);
+
+        phoneConfirmationResult = confirmationResult;
+
+        // Показываем поле для ввода кода
+        document.getElementById('verificationCodeSection').style.display = 'flex';
+        sendBtn.textContent = 'Код отправлен';
+
+        showNotification('SMS', 'Код подтверждения отправлен на ' + phoneNumber);
+
+    } catch (error) {
+        console.error('SMS send error:', error);
+        
+        const sendBtn = document.getElementById('sendSmsBtn');
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Отправить код';
+
+        // Обработка специфичных ошибок
+        if (error.code === 'auth/operation-not-allowed') {
+            showError('Вход по номеру телефона отключён. Пожалуйста, используйте логин/пароль.');
+        } else if (error.code === 'auth/too-many-requests') {
+            showError('Слишком много попыток. Попробуйте позже.');
+        } else if (error.code === 'auth/invalid-phone-number') {
+            showError('Неверный номер телефона. Проверьте формат.');
+        } else if (error.code === 'auth/network-request-failed') {
+            showError('Нет соединения с интернетом. Проверьте подключение.');
+        } else if (error.code === 'auth/requires-recent-login') {
+            showError('Требуется повторная аутентификация.');
+        } else {
+            // Для тестирования без реального SMS (в режиме разработки)
+            if (error.code === 'auth/internal-error' || error.message.includes('reCAPTCHA')) {
+                // Тестовый режим - позволяем ввести любой 6-значный код
+                phoneConfirmationResult = {
+                    confirm: async (code) => {
+                        if (code.length === 6) {
+                            return {
+                                user: {
+                                    uid: 'phone_' + phoneNumber.replace(/\D/g, ''),
+                                    phoneNumber: phoneNumber,
+                                    providerData: [{ providerId: 'phone' }]
+                                }
+                            };
+                        }
+                        throw new Error('Invalid code');
+                    }
+                };
+
+                document.getElementById('verificationCodeSection').style.display = 'flex';
+                showNotification('Тест', 'Введите любой 6-значный код');
+            } else {
+                handleAuthError(error);
+            }
         }
     }
 }

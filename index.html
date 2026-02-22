@@ -12,7 +12,9 @@
     <meta name="application-name" content="RuChat Messenger">
     <meta name="description" content="RuChat - современный мессенджер с видеосообщениями">
     <meta name="keywords" content="мессенджер, чат, RuChat, сообщения, общение, видеосообщения">
-    
+    <!-- Исправление для Android клавиатуры -->
+    <meta name="format-detection" content="telephone=no">
+
     <title>RuChat | Современный мессенджер</title>
     
     <!-- Иконки без файлов (встроенные SVG) -->
@@ -43,12 +45,14 @@
                 width: 100%;
                 position: relative;
             }
-            
+
             input, textarea {
                 -webkit-user-select: text;
                 user-select: text;
+                /* Исправление для Android - разрешаем длинное нажатие для копирования/вставки */
+                -webkit-touch-callout: default;
             }
-            
+
             /* Фикс для меню на мобильных */
             .attachment-menu,
             .record-type-menu,
@@ -59,21 +63,26 @@
                 max-height: 60vh;
                 overflow-y: auto;
             }
-            
+
             .attachment-menu {
                 left: 10px !important;
                 right: auto !important;
             }
-            
+
             .record-type-menu {
                 right: 10px !important;
                 left: auto !important;
             }
-            
+
             .emoji-picker {
                 left: 10px !important;
                 right: 10px !important;
                 width: calc(100% - 20px) !important;
+            }
+            
+            /* Исправление для Android клавиатуры */
+            .auth-input, .message-input, .sidebar-search-input {
+                font-size: 16px !important; /* Предотвращает зум на iPhone */
             }
         }
     </style>
@@ -84,22 +93,22 @@
 <div class="auth-page" id="login">
     <div class="auth-bg" aria-hidden="true"></div>
     <div class="auth-card" role="region" aria-label="Авторизация">
-        <div class="auth-title" id="authTitle">SIGN IN</div>
+        <div class="auth-title" id="authTitle">ВХОД</div>
 
-        <label class="auth-label" for="usernameInput">USERNAME</label>
-        <input type="text" id="usernameInput" class="auth-input" placeholder="Введите имя" autocomplete="username" inputmode="text" spellcheck="false" lang="ru">
+        <label class="auth-label" for="usernameInput">ИМЯ ПОЛЬЗОВАТЕЛЯ</label>
+        <input type="text" id="usernameInput" class="auth-input" placeholder="Введите имя" autocomplete="username" inputmode="text" spellcheck="true" autocorrect="on" autocapitalize="none" lang="ru">
 
-        <label class="auth-label" for="passwordInput">PASSWORD</label>
-        <input type="password" id="passwordInput" class="auth-input" placeholder="Введите пароль" autocomplete="current-password">
+        <label class="auth-label" for="passwordInput">ПАРОЛЬ</label>
+        <input type="password" id="passwordInput" class="auth-input" placeholder="Введите пароль" autocomplete="current-password" inputmode="text" autocapitalize="none">
 
         <label class="auth-keep">
             <input type="checkbox" id="keepSignedIn">
-            <span>Keep me Signed in</span>
+            <span>Запомнить меня</span>
         </label>
 
-        <button class="auth-btn" id="authSubmitBtn" type="button">SIGN IN</button>
+        <button class="auth-btn" id="authSubmitBtn" type="button">ВХОД</button>
 
-        <button class="auth-link" id="authForgotBtn" type="button" onclick="recoverPassword()">Forgot password?</button>
+        <button class="auth-link" id="authForgotBtn" type="button" onclick="recoverPassword()">Забыли пароль?</button>
 
         <!-- ===== АЛЬТЕРНАТИВНЫЕ ВАРИАНТЫ ВХОДА ===== -->
         <div class="auth-divider">
@@ -125,8 +134,8 @@
         </div>
 
         <div class="auth-switch">
-            <span id="authSwitchText">New member?</span>
-            <button class="auth-switch-link" id="authSwitchLink" type="button" onclick="toggleAuthMode()">Register</button>
+            <span id="authSwitchText">Нет аккаунта?</span>
+            <button class="auth-switch-link" id="authSwitchLink" type="button" onclick="toggleAuthMode()">Зарегистрироваться</button>
         </div>
     </div>
 </div>
@@ -193,9 +202,9 @@
             <button class="sidebar-menu-btn" onclick="showSettingsMenu()" title="Меню">☰</button>
             <div class="sidebar-search">
                 <span class="sidebar-search-icon">🔍</span>
-                <input type="text" class="sidebar-search-input" placeholder="Search" id="searchInput" oninput="searchChats(this.value)">
+                <input type="text" class="sidebar-search-input" placeholder="Поиск" id="searchInput" oninput="searchChats(this.value)">
             </div>
-            <img src="" alt="Me" class="sidebar-self-avatar" id="userAvatarTop" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=User&background=0088cc&color=fff&size=36'">
+            <img src="" alt="Я" class="sidebar-self-avatar" id="userAvatarTop" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=User&background=0088cc&color=fff&size=36'">
         </div>
 
         <!-- Скрытые мета-элементы (их читает/обновляет JS) -->
@@ -242,7 +251,7 @@
                 <button class="icon-btn" onclick="toggleMessageSearch()" title="Поиск в чате">🔍</button>
                 <button class="icon-btn" onclick="openMediaLibrary()" title="Медиа">🗂</button>
                 <button class="icon-btn" onclick="toggleTheme()" title="Сменить тему">🌙</button>
-                <button class="icon-btn" onclick="showChatInfo()" title="Информация о чате">№️</button>
+                <button class="icon-btn" onclick="showChatInfo()" title="Информация о чате">ℹ️</button>
                 <button class="icon-btn" onclick="toggleEmojiPicker()" title="Эмодзи">😊</button>
             </div>
         </div>
@@ -279,7 +288,7 @@
             </div>
             <div class="input-wrapper">
                 <button class="attachment-btn" onclick="toggleAttachmentMenu()" title="Прикрепить файл">📎</button>
-                <input type="text" class="message-input" id="text" placeholder="Введите сообщение..." 
+                <input type="text" class="message-input" id="text" placeholder="Введите сообщение..."
                        onkeypress="handleKeyPress(event)" oninput="updateSendButton(); handleTyping()"
                        autocomplete="off" autocorrect="on" autocapitalize="sentences" lang="ru" dir="auto">
                 <button class="icon-btn" onclick="toggleStickerPanel()" title="Стикеры">🧩</button>
@@ -370,14 +379,14 @@
     </div>
     <div class="sticker-grid" id="stickerGrid"></div>
     <div class="sticker-actions">
-        <button class="sticker-action-btn" onclick="openStickerBot()">Sticker Bot</button>
+        <button class="sticker-action-btn" onclick="openStickerBot()">Бот стикеров</button>
     </div>
 </div>
 
 <!-- ===== STICKER BOT ===== -->
 <div class="sticker-bot-overlay" id="stickerBotOverlay">
     <div class="sticker-bot-modal">
-        <h2 class="sticker-bot-title">Sticker Bot</h2>
+        <h2 class="sticker-bot-title">Бот стикеров</h2>
         <p class="sticker-bot-subtitle">Создай стикер из фото и добавь эмодзи</p>
         <input type="file" id="stickerFileInput" accept="image/*" onchange="handleStickerFileChange(event)">
         <input type="text" id="stickerEmojiInput" placeholder="Эмодзи (необязательно)">
@@ -636,6 +645,7 @@
 <script src="js/auth-alternative.js?v=20260222b"></script>
 <script src="js/storage.js?v=20260222a"></script>
 <script src="js/utils.js?v=20260219d"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/encryption.js?v=20260222a"></script>
 <script src="js/main.js?v=20260219d"></script>
 <script src="js/ui.js?v=20260219d"></script>
 <script src="js/sounds.js?v=20260219d"></script>
@@ -656,6 +666,34 @@
     window.isLocalFile = function() {
         return window.location.protocol === 'file:';
     };
+
+    // Исправление для Android - обработка ввода русских символов
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputs = document.querySelectorAll('input[type="text"], textarea');
+        
+        inputs.forEach(function(input) {
+            // Устанавливаем правильный тип ввода для Android
+            if (!input.hasAttribute('inputmode')) {
+                input.setAttribute('inputmode', 'text');
+            }
+            
+            // Обработка composition events для корректного ввода
+            input.addEventListener('compositionstart', function() {
+                this.dataset.composing = 'true';
+            });
+            
+            input.addEventListener('compositionend', function() {
+                this.dataset.composing = 'false';
+            });
+        });
+        
+        // Специальная обработка для поля ввода номера телефона
+        const phoneInput = document.getElementById('phoneNumberInput');
+        if (phoneInput) {
+            phoneInput.setAttribute('autocomplete', 'tel');
+            phoneInput.setAttribute('inputmode', 'tel');
+        }
+    });
     
     // Улучшенные уведомления для локального запуска
     window.showNotification = function(title, text, type = 'info') {

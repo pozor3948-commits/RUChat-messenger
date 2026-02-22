@@ -166,13 +166,13 @@ function applyAuthMode(mode) {
   const switchLink = document.getElementById('authSwitchLink');
   const forgot = document.getElementById('authForgotBtn');
 
-  if (title) title.textContent = authMode === 'register' ? 'REGISTER' : 'SIGN IN';
+  if (title) title.textContent = authMode === 'register' ? 'РЕГИСТРАЦИЯ' : 'ВХОД';
   if (submit) {
-    submit.textContent = authMode === 'register' ? 'CREATE ACCOUNT' : 'SIGN IN';
+    submit.textContent = authMode === 'register' ? 'СОЗДАТЬ АККАУНТ' : 'ВХОД';
     submit.onclick = authMode === 'register' ? register : login;
   }
-  if (switchText) switchText.textContent = authMode === 'register' ? 'Already have an account?' : 'New member?';
-  if (switchLink) switchLink.textContent = authMode === 'register' ? 'Sign in' : 'Register';
+  if (switchText) switchText.textContent = authMode === 'register' ? 'Уже есть аккаунт?' : 'Нет аккаунта?';
+  if (switchLink) switchLink.textContent = authMode === 'register' ? 'Войти' : 'Зарегистрироваться';
   if (forgot) forgot.style.display = authMode === 'register' ? 'none' : 'inline-flex';
 }
 
