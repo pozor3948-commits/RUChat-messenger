@@ -1,3 +1,0 @@
-com.ruchat.messenger.test
-style WhiteBackgroundDialogTheme
-style WhiteBackgroundTheme
