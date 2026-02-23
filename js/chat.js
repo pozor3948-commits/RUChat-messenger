@@ -1231,6 +1231,7 @@ function addMessageToChat(m, options = {}) {
   wrap.className = `message-wrapper ${m.from === username ? "me" : "other"}`;
   wrap.id = `message_${m.id}`;
   wrap.dataset.from = m.from || '';
+  wrap.dataset.messageId = m.id;
   const orderTuple = getMessageSortTuple(m);
   wrap.dataset.orderTime = String(orderTuple.time);
   wrap.dataset.orderId = orderTuple.id;
@@ -1239,6 +1240,33 @@ function addMessageToChat(m, options = {}) {
     wrap.style.opacity = 0;
     wrap.style.transform = 'translateY(10px)';
   }
+  
+  // Добавляем обработчики для контекстного меню
+  wrap.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    if (typeof showMessageActions === 'function') {
+      showMessageActions(m.id, e);
+    }
+  });
+  
+  // Длительное нажатие для мобильных
+  let longPressTimer;
+  wrap.addEventListener('touchstart', (e) => {
+    longPressTimer = setTimeout(() => {
+      if (typeof showMessageActions === 'function') {
+        const touch = e.touches[0];
+        showMessageActions(m.id, { 
+          clientX: touch.clientX, 
+          clientY: touch.clientY, 
+          preventDefault: () => {},
+          stopPropagation: () => {}
+        });
+      }
+    }, 500);
+  }, { passive: true });
+  
+  wrap.addEventListener('touchend', () => clearTimeout(longPressTimer));
+  wrap.addEventListener('touchmove', () => clearTimeout(longPressTimer));
   const msg = document.createElement("div");
   msg.className = `message ${m.from === username ? "me" : "other"}`;
   let status = 'sent';

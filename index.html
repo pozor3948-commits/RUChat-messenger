@@ -250,7 +250,11 @@
             <div class="chat-actions">
                 <button class="icon-btn" onclick="toggleMessageSearch()" title="Поиск в чате">🔍</button>
                 <button class="icon-btn" onclick="openMediaLibrary()" title="Медиа">🗂</button>
+                <button class="icon-btn" onclick="openFavoritesPanel()" title="Избранное">⭐</button>
+                <button class="icon-btn" onclick="showBackgroundPicker()" title="Фон чата">🎨</button>
                 <button class="icon-btn" onclick="toggleTheme()" title="Сменить тему">🌙</button>
+                <button class="icon-btn" onclick="showPrivacySettings()" title="Приватность">🔒</button>
+                <button class="icon-btn" onclick="startVideoCall()" title="Видеозвонок">📹</button>
                 <button class="icon-btn" onclick="showChatInfo()" title="Информация о чате">ℹ️</button>
                 <button class="icon-btn" onclick="toggleEmojiPicker()" title="Эмодзи">😊</button>
             </div>
@@ -661,6 +665,10 @@
 <script src="js/video-messages.js?v=20260222c"></script>
 <script src="js/audio-call.js?v=20260219d"></script>
 <script src="js/settings.js?v=20260219d"></script>
+<script src="js/extras.js?v=20260223a"></script>
+<script src="js/video-call.js?v=20260223a"></script>
+<script src="js/stories-new.js?v=20260223a"></script>
+<script src="js/customization.js?v=20260223a"></script>
 
 <script>
     // Функция для проверки локального запуска
@@ -671,29 +679,36 @@
     // Исправление для Android - обработка ввода русских символов
     document.addEventListener('DOMContentLoaded', function() {
         const inputs = document.querySelectorAll('input[type="text"], textarea');
-        
+
         inputs.forEach(function(input) {
             // Устанавливаем правильный тип ввода для Android
             if (!input.hasAttribute('inputmode')) {
                 input.setAttribute('inputmode', 'text');
             }
-            
+
             // Обработка composition events для корректного ввода
             input.addEventListener('compositionstart', function() {
                 this.dataset.composing = 'true';
             });
-            
+
             input.addEventListener('compositionend', function() {
                 this.dataset.composing = 'false';
             });
         });
-        
+
         // Специальная обработка для поля ввода номера телефона
         const phoneInput = document.getElementById('phoneNumberInput');
         if (phoneInput) {
             phoneInput.setAttribute('autocomplete', 'tel');
             phoneInput.setAttribute('inputmode', 'tel');
         }
+        
+        // Запрос на push-уведомления через 5 секунд после загрузки
+        setTimeout(() => {
+            if (typeof requestNotificationPermission === 'function') {
+                requestNotificationPermission();
+            }
+        }, 5000);
     });
     
     // Улучшенные уведомления для локального запуска
