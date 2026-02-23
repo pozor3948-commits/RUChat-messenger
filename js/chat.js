@@ -140,12 +140,19 @@ function looksMojibakeText(text) {
 
 function sanitizeUiText(value, fallback = '') {
   if (value === null || value === undefined) return fallback;
-  let text = String(value);
-  if (typeof normalizeText === 'function') text = normalizeText(text);
-
+  if (typeof value !== 'string') return fallback;
+  let text = value;
+  
+  // Если текст уже нормальный (кириллица в Unicode), не трогаем его
+  if (/^[\u0400-\u04FF\s\p{P}\p{S}\p{N}\p{L}\n\t]*$/u.test(text) && text.trim().length > 0) {
+    text = text.trim();
+    return text || fallback;
+  }
+  
+  // Проверяем на mojibake/битую кодировку
   if ((hasBrokenGlyphs(text) || looksMojibakeText(text)) && typeof fixMojibakeCp1251 === 'function') {
     const fixed = fixMojibakeCp1251(text);
-    if (fixed && fixed !== text) text = (typeof normalizeText === 'function') ? normalizeText(fixed) : fixed;
+    if (fixed && fixed !== text) text = fixed;
   }
 
   // убираем неотображаемые control-символы, кроме перевода строки/таба

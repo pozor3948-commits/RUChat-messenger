@@ -11,6 +11,10 @@ window._ruchatBootAt = window._ruchatBootAt || Date.now();
 
 function fixMojibakeCp1251(str) {
     if (!str) return str;
+    // Если текст уже нормальный (кириллица в Unicode), возвращаем как есть
+    if (/^[\u0400-\u04FF\s\p{P}\p{S}\p{N}\p{L}]*$/u.test(str) && str.length > 0) {
+        return str;
+    }
     const bytes = [];
     for (let i = 0; i < str.length; i++) {
         const c = str.charCodeAt(i);
@@ -32,7 +36,8 @@ function fixMojibakeCp1251(str) {
             bytes.push(c);
             continue;
         }
-        bytes.push(0x3F);
+        // Сохраняем оригинальный символ вместо замены на ?
+        bytes.push(c);
     }
     try {
         return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
@@ -42,7 +47,8 @@ function fixMojibakeCp1251(str) {
 }
 
 function normalizeText(text) {
-    if (typeof text !== 'string') return text;
+    if (typeof text !== 'string') return text === null || text === undefined ? '' : text;
+    if (!text) return text;
     const vowels = /[аеёиоуыэюя]/gi;
     const countVowels = (str) => (str.match(vowels) || []).length;
     const countRS = (str) => (str.match(/[РС]/g) || []).length;
@@ -236,8 +242,9 @@ function withTimeout(promise, ms, errorMessage = 'Истекло время ож
 window.withTimeout = withTimeout;
 
 function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
     const div = document.createElement('div');
-    div.textContent = normalizeText(text);
+    div.textContent = String(normalizeText(text) || '');
     return div.innerHTML;
 }
 
