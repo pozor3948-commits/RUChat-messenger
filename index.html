@@ -12,9 +12,7 @@
     <meta name="application-name" content="RuChat Messenger">
     <meta name="description" content="RuChat - современный мессенджер с видеосообщениями">
     <meta name="keywords" content="мессенджер, чат, RuChat, сообщения, общение, видеосообщения">
-    <!-- Исправление для Android клавиатуры -->
-    <meta name="format-detection" content="telephone=no">
-
+    
     <title>RuChat | Современный мессенджер</title>
     
     <!-- Иконки без файлов (встроенные SVG) -->
@@ -29,10 +27,9 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260222b">
+    <link rel="stylesheet" href="css/style.css?v=20260219d">
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -45,14 +42,12 @@
                 width: 100%;
                 position: relative;
             }
-
+            
             input, textarea {
                 -webkit-user-select: text;
                 user-select: text;
-                /* Исправление для Android - разрешаем длинное нажатие для копирования/вставки */
-                -webkit-touch-callout: default;
             }
-
+            
             /* Фикс для меню на мобильных */
             .attachment-menu,
             .record-type-menu,
@@ -63,26 +58,21 @@
                 max-height: 60vh;
                 overflow-y: auto;
             }
-
+            
             .attachment-menu {
                 left: 10px !important;
                 right: auto !important;
             }
-
+            
             .record-type-menu {
                 right: 10px !important;
                 left: auto !important;
             }
-
+            
             .emoji-picker {
                 left: 10px !important;
                 right: 10px !important;
                 width: calc(100% - 20px) !important;
-            }
-            
-            /* Исправление для Android клавиатуры */
-            .auth-input, .message-input, .sidebar-search-input {
-                font-size: 16px !important; /* Предотвращает зум на iPhone */
             }
         }
     </style>
@@ -93,85 +83,26 @@
 <div class="auth-page" id="login">
     <div class="auth-bg" aria-hidden="true"></div>
     <div class="auth-card" role="region" aria-label="Авторизация">
-        <div class="auth-title" id="authTitle">ВХОД</div>
+        <div class="auth-title" id="authTitle">SIGN IN</div>
 
-        <label class="auth-label" for="usernameInput">ИМЯ ПОЛЬЗОВАТЕЛЯ</label>
-        <input type="text" id="usernameInput" class="auth-input" placeholder="Введите имя" autocomplete="username" inputmode="text" spellcheck="true" autocorrect="on" autocapitalize="none" lang="ru">
+        <label class="auth-label" for="usernameInput">USERNAME</label>
+        <input type="text" id="usernameInput" class="auth-input" placeholder="Введите имя" autocomplete="username" inputmode="text" spellcheck="false" lang="ru">
 
-        <label class="auth-label" for="passwordInput">ПАРОЛЬ</label>
-        <input type="password" id="passwordInput" class="auth-input" placeholder="Введите пароль" autocomplete="current-password" inputmode="text" autocapitalize="none">
+        <label class="auth-label" for="passwordInput">PASSWORD</label>
+        <input type="password" id="passwordInput" class="auth-input" placeholder="Введите пароль" autocomplete="current-password">
 
         <label class="auth-keep">
             <input type="checkbox" id="keepSignedIn">
-            <span>Запомнить меня</span>
+            <span>Keep me Signed in</span>
         </label>
 
-        <button class="auth-btn" id="authSubmitBtn" type="button">ВХОД</button>
+        <button class="auth-btn" id="authSubmitBtn" type="button">SIGN IN</button>
 
-        <button class="auth-link" id="authForgotBtn" type="button" onclick="recoverPassword()">Забыли пароль?</button>
-
-        <!-- ===== АЛЬТЕРНАТИВНЫЕ ВАРИАНТЫ ВХОДА ===== -->
-        <div class="auth-divider">
-            <span>или войдите через</span>
-        </div>
-
-        <div class="auth-social-buttons">
-            <button class="social-btn google-btn" type="button" onclick="signInWithGoogle()" title="Войти через Google">
-                <svg width="20" height="20" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                Google
-            </button>
-            <button class="social-btn phone-btn" type="button" onclick="showPhoneAuthModal()" title="Войти по номеру телефона">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                </svg>
-                Телефон
-            </button>
-        </div>
+        <button class="auth-link" id="authForgotBtn" type="button" onclick="recoverPassword()">Forgot password?</button>
 
         <div class="auth-switch">
-            <span id="authSwitchText">Нет аккаунта?</span>
-            <button class="auth-switch-link" id="authSwitchLink" type="button" onclick="toggleAuthMode()">Зарегистрироваться</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== МОДАЛЬНОЕ ОКНО ВХОДА ПО ТЕЛЕФОНУ ===== -->
-<div class="phone-auth-overlay" id="phoneAuthOverlay" onclick="hidePhoneAuthModal()">
-    <div class="phone-auth-modal" onclick="event.stopPropagation()">
-        <button class="phone-auth-close" onclick="hidePhoneAuthModal()">✕</button>
-        <h2 class="phone-auth-title">Вход по номеру телефона</h2>
-        <p class="phone-auth-subtitle">Введите номер телефона для получения SMS с кодом</p>
-        
-        <div class="phone-auth-form">
-            <label class="phone-auth-label">Номер телефона</label>
-            <div class="phone-input-wrapper">
-                <span class="phone-prefix">+7</span>
-                <input type="tel" id="phoneNumberInput" class="phone-auth-input" placeholder="(999) 000-00-00" maxlength="17">
-            </div>
-            
-            <button class="phone-auth-btn" id="sendSmsBtn" type="button" onclick="sendSmsCode()">
-                Отправить код
-            </button>
-            
-            <div class="verification-code-section" id="verificationCodeSection" style="display:none;">
-                <label class="phone-auth-label">Код из SMS</label>
-                <input type="text" id="verificationCodeInput" class="phone-auth-input code-input" placeholder="000000" maxlength="6">
-                <button class="phone-auth-btn verify-btn" id="verifyCodeBtn" type="button" onclick="verifySmsCode()">
-                    Подтвердить
-                </button>
-                <button class="phone-auth-link" type="button" onclick="resendSmsCode()">
-                    Отправить код повторно
-                </button>
-            </div>
-        </div>
-        
-        <div class="phone-auth-hint">
-            ⚠️ SMS платное согласно тарифам вашего оператора
+            <span id="authSwitchText">New member?</span>
+            <button class="auth-switch-link" id="authSwitchLink" type="button" onclick="toggleAuthMode()">Register</button>
         </div>
     </div>
 </div>
@@ -202,9 +133,9 @@
             <button class="sidebar-menu-btn" onclick="showSettingsMenu()" title="Меню">☰</button>
             <div class="sidebar-search">
                 <span class="sidebar-search-icon">🔍</span>
-                <input type="text" class="sidebar-search-input" placeholder="Поиск" id="searchInput" oninput="searchChats(this.value)">
+                <input type="text" class="sidebar-search-input" placeholder="Search" id="searchInput" oninput="searchChats(this.value)">
             </div>
-            <img src="" alt="Я" class="sidebar-self-avatar" id="userAvatarTop" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=User&background=0088cc&color=fff&size=36'">
+            <img src="" alt="Me" class="sidebar-self-avatar" id="userAvatarTop" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=User&background=0088cc&color=fff&size=36'">
         </div>
 
         <!-- Скрытые мета-элементы (их читает/обновляет JS) -->
@@ -250,12 +181,8 @@
             <div class="chat-actions">
                 <button class="icon-btn" onclick="toggleMessageSearch()" title="Поиск в чате">🔍</button>
                 <button class="icon-btn" onclick="openMediaLibrary()" title="Медиа">🗂</button>
-                <button class="icon-btn" onclick="openFavoritesPanel()" title="Избранное">⭐</button>
-                <button class="icon-btn" onclick="showBackgroundPicker()" title="Фон чата">🎨</button>
                 <button class="icon-btn" onclick="toggleTheme()" title="Сменить тему">🌙</button>
-                <button class="icon-btn" onclick="showPrivacySettings()" title="Приватность">🔒</button>
-                <button class="icon-btn" onclick="startVideoCall()" title="Видеозвонок">📹</button>
-                <button class="icon-btn" onclick="showChatInfo()" title="Информация о чате">ℹ️</button>
+                <button class="icon-btn" onclick="showChatInfo()" title="Информация о чате">№️</button>
                 <button class="icon-btn" onclick="toggleEmojiPicker()" title="Эмодзи">😊</button>
             </div>
         </div>
@@ -277,7 +204,6 @@
 
         <div class="stories-container" id="storiesContainer">
             <div class="stories-list" id="storiesList"></div>
-            <button class="add-story-btn" onclick="showAddStoryDialog()" title="Добавить историю">➕</button>
         </div>
 
         <div class="messages-container" id="messages"></div>
@@ -293,7 +219,7 @@
             </div>
             <div class="input-wrapper">
                 <button class="attachment-btn" onclick="toggleAttachmentMenu()" title="Прикрепить файл">📎</button>
-                <input type="text" class="message-input" id="text" placeholder="Введите сообщение..."
+                <input type="text" class="message-input" id="text" placeholder="Введите сообщение..." 
                        onkeypress="handleKeyPress(event)" oninput="updateSendButton(); handleTyping()"
                        autocomplete="off" autocorrect="on" autocapitalize="sentences" lang="ru" dir="auto">
                 <button class="icon-btn" onclick="toggleStickerPanel()" title="Стикеры">🧩</button>
@@ -384,14 +310,14 @@
     </div>
     <div class="sticker-grid" id="stickerGrid"></div>
     <div class="sticker-actions">
-        <button class="sticker-action-btn" onclick="openStickerBot()">Бот стикеров</button>
+        <button class="sticker-action-btn" onclick="openStickerBot()">Sticker Bot</button>
     </div>
 </div>
 
 <!-- ===== STICKER BOT ===== -->
 <div class="sticker-bot-overlay" id="stickerBotOverlay">
     <div class="sticker-bot-modal">
-        <h2 class="sticker-bot-title">Бот стикеров</h2>
+        <h2 class="sticker-bot-title">Sticker Bot</h2>
         <p class="sticker-bot-subtitle">Создай стикер из фото и добавь эмодзи</p>
         <input type="file" id="stickerFileInput" accept="image/*" onchange="handleStickerFileChange(event)">
         <input type="text" id="stickerEmojiInput" placeholder="Эмодзи (необязательно)">
@@ -476,39 +402,32 @@
 <!-- ===== ОВЕРЛЕЙ ЗАПИСИ ВИДЕОСООБЩЕНИЯ ===== -->
 <div class="record-overlay video-record-overlay" id="videoRecordOverlay">
     <div class="record-modal video-record-modal">
-        <div class="video-preview-wrapper">
-            <video class="video-preview" id="videoPreview" autoplay muted playsinline webkit-playsinline></video>
-            <div class="video-preview-overlay">
-                <div class="recording-timer" id="videoTimer">00:00</div>
-                <button class="camera-switch-btn" id="cameraSwitchBtn" onclick="toggleCamera()" title="Переключить камеру">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M23 7l-7 5 7 5V7z"></path>
-                        <path d="M14 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11"></path>
-                        <path d="M1 7l7 5-7 5V7z"></path>
-                        <path d="M10 19H21a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H10"></path>
-                    </svg>
+        <div class="video-preview-container">
+            <video class="video-preview" id="videoPreview" autoplay muted></video>
+            <div class="recording-indicator" id="recordingIndicator">
+                <div class="recording-dot"></div>
+                <span>Идет запись...</span>
+            </div>
+            <div class="record-timer" id="videoTimer">00:00</div>
+            <div class="camera-controls">
+                <button class="icon-btn" onclick="toggleCamera()" title="Перевернуть камеру">
+                    <span class="camera-icon">🔄</span>
                 </button>
-                <button class="camera-close-btn" onclick="cancelVideoRecording()" title="Закрыть">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
+                <button class="icon-btn" onclick="cancelVideoRecording()" title="Отмена">
+                    <span class="cancel-icon">✕</span>
                 </button>
-                <div class="recording-indicator" id="recordingIndicator" style="display:none;">
-                    <div class="recording-dot"></div>
-                </div>
             </div>
         </div>
-        <div class="video-record-controls">
+        <div class="record-controls video-record-controls">
             <div class="record-lock" id="videoLockIndicator">
                 <div class="lock-icon">🔒</div>
                 <div class="lock-text" id="videoLockHint">Потяните вверх, чтобы закрепить</div>
             </div>
-            <button class="video-record-circle-btn" id="videoRecordBtn"
+            <button class="record-btn video-record-btn" id="videoRecordBtn"
                     onmousedown="startVideoRecordingAction()"
                     ontouchstart="startVideoRecordingAction()"
                     title="Удерживайте для записи">
-                <div class="video-record-circle-inner"></div>
+                <div class="video-record-btn-inner"></div>
             </button>
             <div class="record-hint">Свайп вверх — закрепить, влево — отмена</div>
         </div>
@@ -561,58 +480,31 @@
 
 <!-- ===== ОВЕРЛЕЙ ЗАПИСИ ГОЛОСОВОГО ===== -->
 <div class="record-overlay voice-record-overlay" id="voiceRecordOverlay">
-    <div class="voice-record-container">
-        <div class="voice-record-header">
-            <div class="voice-record-icon">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                    <line x1="12" y1="19" x2="12" y2="23"></line>
-                    <line x1="8" y1="23" x2="16" y2="23"></line>
-                </svg>
+    <div class="record-modal voice-record-modal">
+        <div class="voice-record-top">
+            <div class="voice-record-label">Голосовое сообщение</div>
+            <div class="record-timer" id="voiceTimer">00:00</div>
+        </div>
+        <div class="voice-waveform" id="voiceWaveform">
+            <div class="waveform-line" style="left:10%"></div>
+            <div class="waveform-line" style="left:20%"></div>
+            <div class="waveform-line" style="left:30%"></div>
+            <div class="waveform-line" style="left:40%"></div>
+            <div class="waveform-line" style="left:50%"></div>
+            <div class="waveform-line" style="left:60%"></div>
+            <div class="waveform-line" style="left:70%"></div>
+            <div class="waveform-line" style="left:80%"></div>
+            <div class="waveform-line" style="left:90%"></div>
+        </div>
+        <div class="voice-record-bar">
+            <button class="voice-cancel-btn" onclick="cancelVoiceRecord()">Отмена</button>
+            <div class="voice-record-center">
+            <button class="record-btn start" id="voiceStartBtn" title="Удерживайте для записи">●</button>
+            <button class="record-btn stop" onclick="stopVoiceRecord()" id="voiceStopBtn" style="display:none" title="Остановить запись">■</button>
+            <div class="voice-record-hint">Свайп вверх — закрепить, влево — отмена</div>
             </div>
-            <div class="voice-timer-display" id="voiceTimer">00:00</div>
-            <div class="voice-status-text">Запись голосового сообщения</div>
+            <div class="voice-lock-pill">🔒</div>
         </div>
-        
-        <div class="voice-visualizer" id="voiceVisualizer">
-            <canvas id="voiceCanvas"></canvas>
-        </div>
-        
-        <div class="voice-controls">
-            <button class="voice-control-btn cancel" onclick="cancelVoiceRecord()" title="Отменить">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 6L6 18M6 6l12 12"></path>
-                </svg>
-            </button>
-            
-            <div class="voice-record-button-wrapper">
-                <button class="voice-record-circle" id="voiceRecordBtn"
-                        onmousedown="startVoiceRecordAction()"
-                        ontouchstart="startVoiceRecordAction()"
-                        onmouseup="stopVoiceRecordAction()"
-                        ontouchend="stopVoiceRecordAction()"
-                        title="Удерживайте для записи">
-                    <div class="voice-record-circle-inner"></div>
-                </button>
-                <div class="voice-lock-indicator" id="voiceLockIndicator">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                    </svg>
-                    <span>Запись закреплена</span>
-                </div>
-            </div>
-            
-            <button class="voice-control-btn send" id="voiceSendBtn" style="display:none;" onclick="sendVoiceRecord()" title="Отправить">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-            </button>
-        </div>
-        
-        <div class="voice-hint">Удерживайте для записи • Свайп вверх — закрепить</div>
     </div>
 </div>
 
@@ -646,73 +538,28 @@
 </div>
 
 <!-- Скрипты -->
-<script src="js/firebase-config.js?v=20260222a"></script>
-<script src="js/auth-alternative.js?v=20260222b"></script>
-<script src="js/storage.js?v=20260222a"></script>
+<script src="js/firebase-config.js?v=20260219d"></script>
 <script src="js/utils.js?v=20260219d"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
-<script src="js/encryption.js?v=20260222a"></script>
-<script src="js/master-encryption.js?v=20260223a"></script>
 <script src="js/main.js?v=20260219d"></script>
 <script src="js/ui.js?v=20260219d"></script>
 <script src="js/sounds.js?v=20260219d"></script>
 <script src="js/auth.js?v=20260219d"></script>
-<script src="js/master-encryption.js?v=20260223b"></script>
-<script src="js/encryption.js?v=20260222a"></script>
-<script src="js/status.js?v=20260222a"></script>
-<script src="js/chat.js?v=20260222b"></script>
-<script src="js/media.js?v=20260222e"></script>
+<script src="js/status.js?v=20260219d"></script>
+<script src="js/chat.js?v=20260219d"></script>
+<script src="js/media.js?v=20260219d"></script>
 <script src="js/emoji.js?v=20260219d"></script>
 <script src="js/stickers.js?v=20260219d"></script>
 <script src="js/groups.js?v=20260219d"></script>
-<script src="js/mobile.js?v=20260222a"></script>
-<script src="js/video-messages.js?v=20260222c"></script>
+<script src="js/mobile.js?v=20260219d"></script>
+<script src="js/video-messages.js?v=20260219d"></script>
 <script src="js/audio-call.js?v=20260219d"></script>
 <script src="js/settings.js?v=20260219d"></script>
-<script src="js/extras.js?v=20260223b"></script>
-<script src="js/video-call.js?v=20260223a"></script>
-<script src="js/stories-new.js?v=20260223a"></script>
-<script src="js/customization.js?v=20260223a"></script>
 
 <script>
     // Функция для проверки локального запуска
     window.isLocalFile = function() {
         return window.location.protocol === 'file:';
     };
-
-    // Исправление для Android - обработка ввода русских символов
-    document.addEventListener('DOMContentLoaded', function() {
-        const inputs = document.querySelectorAll('input[type="text"], textarea');
-
-        inputs.forEach(function(input) {
-            // Устанавливаем правильный тип ввода для Android
-            if (!input.hasAttribute('inputmode')) {
-                input.setAttribute('inputmode', 'text');
-            }
-
-            // Обработка composition events для корректного ввода
-            input.addEventListener('compositionstart', function() {
-                this.dataset.composing = 'true';
-            });
-
-            input.addEventListener('compositionend', function() {
-                this.dataset.composing = 'false';
-            });
-        });
-
-        // Специальная обработка для поля ввода номера телефона
-        const phoneInput = document.getElementById('phoneNumberInput');
-        if (phoneInput) {
-            phoneInput.setAttribute('autocomplete', 'tel');
-            phoneInput.setAttribute('inputmode', 'tel');
-        }
-        
-        // Запрос на push-уведомления через 5 секунд после загрузки
-        setTimeout(() => {
-            if (typeof requestNotificationPermission === 'function') {
-                requestNotificationPermission();
-            }
-        }, 5000);
-    });
     
     // Улучшенные уведомления для локального запуска
     window.showNotification = function(title, text, type = 'info') {

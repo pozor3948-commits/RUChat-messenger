@@ -215,17 +215,17 @@ function cancelEditMessage() {
 function forwardMessage(messageId) {
     const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
     if (!messageEl) return;
-    
+
     const messageText = messageEl.querySelector('.message-text')?.textContent;
     if (!messageText) return;
-    
+
     // Сохраняем для пересылки
     window.pendingForwardMessage = {
         id: messageId,
-        text: messageText,
+        text: sanitizeUiText(messageText, 'Пересланное сообщение'),
         time: Date.now()
     };
-    
+
     // Показываем список чатов для выбора
     showForwardDialog();
 }

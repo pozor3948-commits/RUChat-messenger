@@ -34,25 +34,4 @@ try {
 }
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const auth = firebase.auth();
-
-// Делаем переменные доступными глобально
 window.db = db;
-window.auth = auth;
-window.firebase = firebase;
-
-// Настраиваем persistence для Auth
-try {
-  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-} catch (e) {
-  console.warn('Auth persistence error:', e);
-}
-
-// Отслеживаем состояние аутентификации
-auth.onAuthStateChanged((user) => {
-  if (user) {
-    console.log('User authenticated:', user.uid);
-  } else {
-    console.log('User signed out');
-  }
-});

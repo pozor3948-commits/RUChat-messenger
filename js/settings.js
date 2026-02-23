@@ -135,13 +135,6 @@ function showSettingsMenu() {
                             </div>
                             <button class="settings-btn small" type="button" id="settingsAutoLoginBtn"></button>
                         </div>
-                        <div class="settings-row">
-                            <div class="settings-row-text">
-                                <div class="settings-row-title">Шифрование</div>
-                                <div class="settings-row-sub">Шифровать сообщения (AES-GCM)</div>
-                            </div>
-                            <button class="settings-btn small" type="button" id="settingsEncryptionBtn"></button>
-                        </div>
                     </div>
                 </div>
 
@@ -315,7 +308,6 @@ function showSettingsMenu() {
         const sysOn = localStorage.getItem('systemNotifications') !== 'false';
         const onlyHidden = localStorage.getItem('notifyOnlyHidden') !== 'false';
         const autoLogin = localStorage.getItem('ruchat_autologin') !== 'false';
-        const encryptionOn = localStorage.getItem('ruchat_encryption') === 'true';
 
         const setBtn = (id, text, on) => {
             const el = document.getElementById(id);
@@ -330,7 +322,6 @@ function showSettingsMenu() {
         setBtn('settingsOnlyHiddenBtn', onlyHidden ? 'Да' : 'Нет', onlyHidden);
         setBtn('settingsAutoLoginBtn', autoLogin ? 'Вкл' : 'Выкл', autoLogin);
         setBtn('settingsAutoLoginBtn2', autoLogin ? 'Вкл' : 'Выкл', autoLogin);
-        setBtn('settingsEncryptionBtn', encryptionOn ? 'Вкл' : 'Выкл', encryptionOn);
 
         const conn = document.getElementById('settingsInfoConn');
         if (conn) conn.textContent = (window.firebaseConnected === false) ? 'Firebase: нет соединения' : (navigator.onLine ? 'Интернет есть' : 'Нет интернета');
@@ -429,22 +420,6 @@ function showSettingsMenu() {
             unregisterDeviceToken((typeof username !== 'undefined' && username) ? username : (window.username || ''));
         }
         showNotification('Автовход', newValue === 'true' ? 'Автовход включен' : 'Автовход выключен', 'info');
-        renderDynamic();
-    };
-
-    window.toggleEncryption = function() {
-        const current = localStorage.getItem('ruchat_encryption');
-        const newValue = current === 'true' ? 'false' : 'true';
-        localStorage.setItem('ruchat_encryption', newValue);
-        
-        if (newValue === 'true' && typeof generateEncryptionKey === 'function') {
-            generateEncryptionKey().then(() => {
-                showNotification('Шифрование', 'Шифрование включено. Сообщения будут зашифрованы.', 'success');
-            });
-        } else {
-            showNotification('Шифрование', newValue === 'true' ? 'Шифрование включено' : 'Шифрование выключено', 'info');
-        }
-        
         renderDynamic();
     };
 
@@ -598,11 +573,6 @@ function showSettingsMenu() {
         if (el) el.addEventListener('click', fn);
     };
     bind('settingsSoundsBtn', window.toggleSounds);
-    bind('settingsSystemNotifBtn', window.toggleSystemNotifications);
-    bind('settingsOnlyHiddenBtn', window.toggleNotifyOnlyHidden);
-    bind('settingsAutoLoginBtn', window.toggleAutoLogin);
-    bind('settingsAutoLoginBtn2', window.toggleAutoLogin);
-    bind('settingsEncryptionBtn', window.toggleEncryption);
     bind('settingsAutoLoginBtn', window.toggleAutoLogin);
     bind('settingsAutoLoginBtn2', window.toggleAutoLogin);
     bind('settingsSystemNotifBtn', window.toggleSystemNotifications);

@@ -16,10 +16,10 @@ let lockActivatedAt = 0;
 let currentCamera = 'user';
 
 const videoConfig = {
-    maxDuration: 60000, // 60 секунд
+    maxDuration: 20000,
     format: 'webm',
-    maxSize: 100 * 1024 * 1024, // 100MB
-    quality: {
+    maxSize: 8 * 1024 * 1024,
+    quality: { 
         width: 480,
         height: 480,
         frameRate: 24
@@ -85,63 +85,40 @@ function pickSupportedVideoMimeType() {
 
 async function checkCameraPermissions() {
     try {
-        // Для APK/WebView пробуем разные варианты запроса разрешений
-        const constraints = {
-            video: { 
-                facingMode: 'user',
-                width: { ideal: 480 },
-                height: { ideal: 480 }
-            },
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true
-            }
-        };
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'user' },
+            audio: true 
+        });
         
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         stream.getTracks().forEach(track => track.stop());
+        
         return true;
     } catch (error) {
-        console.warn('Ошибка доступа к камере:', error.name, error.message);
-        
-        // Пробуем упрощённый запрос для APK
-        try {
-            const simpleStream = await navigator.mediaDevices.getUserMedia({ 
-                video: true, 
-                audio: true 
-            });
-            simpleStream.getTracks().forEach(track => track.stop());
-            return true;
-        } catch (e2) {
-            console.warn('Упрощённый запрос также не удался:', e2);
-            return false;
-        }
+        console.warn('Нет доступа к камере:', error);
+        return false;
     }
 }
 
 async function startVideoRecording() {
     applyVideoQualityFromSettings();
-    
-    // Для APK/WebView игнорируем isSecureContext
+    if (!window.isSecureContext) {
+        // В APK/WebView это может быть false даже при рабочей записи.
+        console.warn('Небезопасный контекст, продолжаем попытку записи для WebView/APK');
+    }
     if (!window.MediaRecorder) {
         showError('MediaRecorder не поддерживается. Используйте прикрепление видеофайла.');
-        setTimeout(() => attachVideo(), 500);
+        attachVideo();
         return;
     }
-    
     try {
         document.getElementById('recordTypeMenu').classList.remove('active');
-
-        // Для APK используем более простые ограничения
-        const isAndroidWebView = /Android/.test(navigator.userAgent) && /wv/.test(navigator.userAgent);
-        const isAndroid = /Android/i.test(navigator.userAgent);
         
         const constraints = {
-            video: {
-                facingMode: currentCamera === 'user' ? 'user' : 'environment',
-                width: isAndroid ? { exact: 480 } : { ideal: 480 },
-                height: isAndroid ? { exact: 480 } : { ideal: 480 },
-                frameRate: { ideal: 24 }
+            video: { 
+                facingMode: currentCamera,
+                width: { ideal: videoConfig.quality.width },
+                height: { ideal: videoConfig.quality.height },
+                frameRate: { ideal: videoConfig.quality.frameRate }
             },
             audio: {
                 echoCancellation: true,
@@ -149,112 +126,56 @@ async function startVideoRecording() {
                 sampleRate: 44100
             }
         };
-
-        // Для Android пробуем без exact значений если первая попытка не удалась
-        try {
-            videoStream = await navigator.mediaDevices.getUserMedia(constraints);
-        } catch (e1) {
-            console.warn('Первая попытка получения потока не удалась, пробуем упрощённую:', e1);
-            const simpleConstraints = {
-                video: { facingMode: currentCamera === 'user' ? 'user' : 'environment' },
-                audio: true
-            };
-            videoStream = await navigator.mediaDevices.getUserMedia(simpleConstraints);
-        }
-
+        
+        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+        
         const videoPreview = document.getElementById('videoPreview');
         videoPreview.srcObject = videoStream;
-        videoPreview.setAttribute('playsinline', 'true');
-        videoPreview.setAttribute('webkit-playsinline', 'true');
-        await videoPreview.play();
-
+        videoPreview.play();
+        
         document.getElementById('videoRecordOverlay').style.display = 'flex';
-
+        
         const mimeType = pickSupportedVideoMimeType();
         const options = {
             audioBitsPerSecond: 32000,
             videoBitsPerSecond: videoConfig.videoBitsPerSecond || 450000
         };
         if (mimeType) options.mimeType = mimeType;
-
+        
         try {
             videoRecorder = new MediaRecorder(videoStream, options);
         } catch (e) {
-            console.warn('MediaRecorder с опциями не удался, пробуем без:', e);
             videoRecorder = new MediaRecorder(videoStream);
         }
-
+        
         videoChunks = [];
         
         videoRecorder.ondataavailable = (event) => {
-            if (event.data && event.data.size > 0) {
+            if (event.data.size > 0) {
                 videoChunks.push(event.data);
-                console.log('Video chunk received:', event.data.size, 'total chunks:', videoChunks.length);
             }
         };
-
+        
         videoRecorder.onstop = async () => {
-            console.log('Video recorder stopped, chunks:', videoChunks.length);
             if (videoRecordCancelled) {
                 cleanupVideoRecording();
                 return;
             }
             const blob = new Blob(videoChunks, { type: videoRecorder.mimeType || 'video/webm' });
-            console.log('Video blob created, size:', blob.size);
-
+            
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const base64Video = reader.result;
-                console.log('Video converted to base64, length:', base64Video.length);
                 await sendVideoMessage(base64Video);
-                cleanupVideoRecording();
-            };
-            reader.onerror = (e) => {
-                console.error('FileReader error:', e);
-                showError('Ошибка чтения видео');
                 cleanupVideoRecording();
             };
             reader.readAsDataURL(blob);
         };
-
-        // Запускаем запись сразу после инициализации
-        console.log('Starting video recording...');
-        try {
-            videoRecorder.start(1000);
-            isRecordingVideo = true;
-            recordingStartTime = Date.now();
-            
-            // Обновляем UI
-            const recordingIndicator = document.getElementById('recordingIndicator');
-            const recordBtn = document.getElementById('videoRecordBtn');
-            const timer = document.getElementById('videoTimer');
-            
-            if (recordingIndicator) recordingIndicator.style.display = 'flex';
-            if (recordBtn) recordBtn.classList.add('recording');
-            if (timer) {
-                timer.textContent = '00:00';
-                timer.classList.add('visible');
-            }
-            
-            recordingTimer = setInterval(updateRecordingTimer, 1000);
-            console.log('Video recording started successfully');
-            
-            // Авто-остановка по максимальному времени
-            setTimeout(() => {
-                if (isRecordingVideo && !isVideoLocked) {
-                    stopVideoRecordingAction({ forceStop: true });
-                }
-            }, videoConfig.maxDuration);
-        } catch (startError) {
-            console.error('Error starting recorder:', startError);
-            showError('Не удалось начать запись: ' + startError.message);
-            cleanupVideoRecording();
-        }
-
+        
     } catch (error) {
         console.error('Ошибка при запуске камеры:', error);
         showError('Не удалось получить доступ к камере. Проверьте разрешения.');
-
+        
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
             const useAudioOnly = confirm('Нет доступа к камере. Записать только аудиосообщение?');
             if (useAudioOnly) {
@@ -268,12 +189,9 @@ function updateVideoLockUI(locked) {
     const lock = document.getElementById('videoLockIndicator');
     const hint = document.getElementById('videoLockHint');
     if (!lock) return;
-    
     lock.style.display = isRecordingVideo ? 'flex' : 'none';
-    lock.classList.add('visible');
     lock.classList.toggle('locked', !!locked);
     lock.classList.toggle('cancel', !!videoRecordCancelled);
-    
     if (hint) {
         if (videoRecordCancelled) hint.textContent = 'Отпустите чтобы отменить';
         else hint.textContent = locked ? 'Запись закреплена' : 'Свайп вверх — закрепить, влево — отмена';
@@ -301,43 +219,55 @@ function handleVideoRecordMove(event) {
     if (event.cancelable) event.preventDefault();
 }
 function startVideoRecordingAction(event) {
-    // Запись уже запущена в startVideoRecording
-    // Эта функция нужна только для обработки свайпов
-    if (!isRecordingVideo) return;
-    if (isVideoLocked) {
+    if (!videoRecorder) return;
+    if (isRecordingVideo && isVideoLocked) {
         stopVideoRecordingAction({ forceStop: true });
         return;
     }
+    if (isRecordingVideo) return;
 
     const touch = event && event.touches && event.touches[0];
     recordStartY = touch ? touch.clientY : (event ? event.clientY : 0);
     recordStartX = touch ? touch.clientX : (event ? event.clientX : 0);
+    isVideoLocked = false;
     videoRecordCancelled = false;
     updateVideoLockUI(false);
+
+    videoRecorder.start(1000);
+    isRecordingVideo = true;
+    recordingStartTime = Date.now();
+
+    document.getElementById('recordingIndicator').style.display = 'flex';
+    document.getElementById('videoRecordBtn').classList.add('recording');
+
+    recordingTimer = setInterval(updateRecordingTimer, 1000);
 
     document.addEventListener('mouseup', stopVideoRecordingAction);
     document.addEventListener('touchend', stopVideoRecordingAction);
     document.addEventListener('mousemove', handleVideoRecordMove);
     document.addEventListener('touchmove', handleVideoRecordMove, { passive: false });
+
+    setTimeout(() => {
+        if (isRecordingVideo) {
+            stopVideoRecordingAction({ forceStop: true });
+        }
+    }, videoConfig.maxDuration);
 }
 
 function updateRecordingTimer() {
     if (!isRecordingVideo) return;
-
+    
     const elapsed = Date.now() - recordingStartTime;
     const seconds = Math.floor(elapsed / 1000);
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-
-    const timer = document.getElementById('videoTimer');
-    if (timer) {
-        timer.textContent = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-        
-        // Последние 10 секунд мигаем красным
-        if (elapsed > videoConfig.maxDuration - 10000) {
-            timer.style.color = '#ef4444';
-            timer.style.animation = 'pulse 1s infinite';
-        }
+    
+    document.getElementById('videoTimer').textContent = 
+        `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    
+    if (elapsed > videoConfig.maxDuration - 10000) {
+        document.getElementById('videoTimer').style.color = '#ef4444';
+        document.getElementById('videoTimer').style.animation = 'pulse 1s infinite';
     }
 }
 
@@ -368,19 +298,9 @@ function stopVideoRecordingAction(event) {
         recordingTimer = null;
     }
 
-    // Очищаем UI нового интерфейса
-    const recordingIndicator = document.getElementById('recordingIndicator');
-    const recordBtn = document.getElementById('videoRecordBtn');
-    const timer = document.getElementById('videoTimer');
-    
-    if (recordingIndicator) recordingIndicator.style.display = 'none';
-    if (recordBtn) recordBtn.classList.remove('recording');
-    if (timer) {
-        timer.classList.remove('visible');
-        timer.style.color = '#fff';
-        timer.style.animation = 'none';
-    }
-
+    document.getElementById('recordingIndicator').style.display = 'none';
+    document.getElementById('videoRecordBtn').classList.remove('recording');
+    document.getElementById('videoRecordOverlay').style.display = 'none';
     updateVideoLockUI(false);
 
     document.removeEventListener('mouseup', stopVideoRecordingAction);
@@ -407,39 +327,23 @@ async function toggleCamera() {
         videoStream.getTracks().forEach(track => track.stop());
     } catch (e) {}
 
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    
     const constraints = {
         video: {
-            facingMode: currentCamera === 'user' ? 'user' : 'environment',
-            width: isAndroid ? { exact: 480 } : { ideal: 480 },
-            height: isAndroid ? { exact: 480 } : { ideal: 480 }
+            facingMode: currentCamera,
+            width: { ideal: videoConfig.quality.width },
+            height: { ideal: videoConfig.quality.height },
+            frameRate: { ideal: videoConfig.quality.frameRate }
         },
         audio: true
     };
 
-    try {
-        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
-    } catch (e1) {
-        console.warn('Переключение камеры не удалось, пробуем упрощённо:', e1);
-        const simpleConstraints = {
-            video: { facingMode: currentCamera === 'user' ? 'user' : 'environment' },
-            audio: true
-        };
-        videoStream = await navigator.mediaDevices.getUserMedia(simpleConstraints);
-    }
+    videoStream = await navigator.mediaDevices.getUserMedia(constraints);
 
     const videoPreview = document.getElementById('videoPreview');
     if (videoPreview) {
         videoPreview.srcObject = videoStream;
-        videoPreview.setAttribute('playsinline', 'true');
-        videoPreview.setAttribute('webkit-playsinline', 'true');
-        // Для фронтальной камеры зеркалим
-        videoPreview.style.transform = currentCamera === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
-        await videoPreview.play();
+        videoPreview.play();
     }
-    
-    showNotification('Камера переключена', '');
 }
 
 function cleanupVideoRecording() {
@@ -474,13 +378,6 @@ function cancelVideoRecording() {
     if (videoRecorder && videoRecorder.state !== 'inactive') {
         videoRecorder.stop();
     }
-
-    // Очищаем UI
-    const timer = document.getElementById('videoTimer');
-    if (timer) {
-        timer.classList.remove('visible');
-        timer.textContent = '00:00';
-    }
     
     cleanupVideoRecording();
     document.getElementById('videoRecordOverlay').style.display = 'none';
@@ -493,154 +390,70 @@ async function sendVideoMessage(videoData) {
         showError('Невозможно отправить сообщение');
         return;
     }
-
+    
     showLoading();
-
+    
     try {
-        // Конвертируем base64 в Blob
-        const response = await fetch(videoData);
-        const blob = await response.blob();
-        
-        // Проверяем размер
-        if (blob.size > videoConfig.maxSize) {
+        const payloadBytes = estimateDataUrlBytes(videoData) || (new Blob([videoData || '']).size);
+        if (payloadBytes > videoConfig.maxSize) {
             showError('Видеосообщение слишком большое. Запишите короче.');
-            hideLoading();
             return;
         }
+
+        const message = {
+            from: username,
+            text: '🎥 Видеосообщение',
+            video: videoData,
+            time: Date.now(),
+            sent: true,
+            delivered: false,
+            read: false,
+            status: 'sent',
+            clientMessageId: (typeof createClientMessageId === 'function') ? createClientMessageId() : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+            type: 'video_message',
+            duration: Math.floor((Date.now() - recordingStartTime) / 1000)
+        };
+        // Отправка без звука (настраивается для каждого чата отдельно)
+        if (typeof getSilentSend === 'function' && getSilentSend(currentChatId, isGroupChat)) {
+            message.silent = true;
+        }
+        const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
+        if (expiresAt) message.expiresAt = expiresAt;
+        if (typeof replyToMessage !== 'undefined' && replyToMessage) {
+            message.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
+        }
         
-        // Создаём File из Blob
-        const file = new File([blob], `video_${Date.now()}.webm`, { type: 'video/webm' });
-        
-        // Используем Firebase Storage если доступен
-        if (typeof sendMediaViaStorage === 'function' && typeof storage !== 'undefined') {
-            const timestamp = Date.now();
-            const randomId = Math.random().toString(36).slice(2, 10);
-            const storagePath = `video_messages/${currentChatId}/${timestamp}_${randomId}.webm`;
-            
-            // Загружаем в Storage
-            const downloadURL = await uploadFileToStorage(file, storagePath);
-            
-            const message = {
-                from: username,
-                text: '🎥 Видеосообщение',
-                video: downloadURL,
-                videoStoragePath: storagePath,
-                time: Date.now(),
-                sent: true,
-                delivered: false,
-                read: false,
-                status: 'sent',
-                clientMessageId: (typeof createClientMessageId === 'function') 
-                    ? createClientMessageId() 
-                    : `${timestamp}_${randomId}`,
-                type: 'video_message',
-                duration: Math.floor((Date.now() - recordingStartTime) / 1000)
-            };
-            
-            // Отправка без звука
-            if (typeof getSilentSend === 'function' && getSilentSend(currentChatId, isGroupChat)) {
-                message.silent = true;
-            }
-            
-            const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
-            if (expiresAt) message.expiresAt = expiresAt;
-            
-            if (typeof replyToMessage !== 'undefined' && replyToMessage) {
-                message.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
-            }
-            
-            const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
-            
-            // Оптимистичный UI
-            try {
-                const localMsg = { ...message, id: message.clientMessageId };
-                if (typeof addMessageToChat === 'function') addMessageToChat(localMsg, { notify: false });
-                if (typeof upsertChatCacheMessage === 'function') upsertChatCacheMessage(path, localMsg);
-                if (typeof newestLoadedKey !== 'undefined') newestLoadedKey = localMsg.id;
-            } catch (e) {
-                // ignore
-            }
-            
-            // Отправляем в Firebase
-            await db.ref(path).push(message);
-            
-            if (typeof clearReply === 'function') clearReply();
-            
-            if (typeof areSoundsEnabled === 'function' && areSoundsEnabled()) {
-                if (typeof playSendSound === 'function') playSendSound();
-            }
-            
-            showNotification('Успешно', 'Видеосообщение отправлено!');
-            
+        const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
+
+        // Оптимистичный UI: сразу добавляем в чат
+        try {
+            const localMsg = { ...message, id: message.clientMessageId };
+            if (typeof addMessageToChat === 'function') addMessageToChat(localMsg, { notify: false });
+            if (typeof upsertChatCacheMessage === 'function') upsertChatCacheMessage(path, localMsg);
+            if (typeof newestLoadedKey !== 'undefined') newestLoadedKey = localMsg.id;
+        } catch (e) {
+            // ignore
+        }
+
+        const sent = (typeof sendMessagePayload === 'function')
+            ? await sendMessagePayload(path, message)
+            : await chatRef.push(message).then(() => true).catch(() => false);
+        if (!sent && typeof enqueuePendingMessage === 'function') {
+            enqueuePendingMessage(path, message);
+            showNotification('Сеть', 'Видеосообщение в очереди отправки');
         } else {
-            // Fallback на старый метод (base64 в RTDB)
-            const payloadBytes = estimateDataUrlBytes(videoData) || blob.size;
-            if (payloadBytes > videoConfig.maxSize) {
-                showError('Видеосообщение слишком большое. Запишите короче.');
-                hideLoading();
-                return;
-            }
-            
-            const message = {
-                from: username,
-                text: '🎥 Видеосообщение',
-                video: videoData,
-                time: Date.now(),
-                sent: true,
-                delivered: false,
-                read: false,
-                status: 'sent',
-                clientMessageId: (typeof createClientMessageId === 'function') 
-                    ? createClientMessageId() 
-                    : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
-                type: 'video_message',
-                duration: Math.floor((Date.now() - recordingStartTime) / 1000)
-            };
-            
-            if (typeof getSilentSend === 'function' && getSilentSend(currentChatId, isGroupChat)) {
-                message.silent = true;
-            }
-            
-            const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
-            if (expiresAt) message.expiresAt = expiresAt;
-            
-            if (typeof replyToMessage !== 'undefined' && replyToMessage) {
-                message.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
-            }
-            
-            const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
-            
-            // Оптимистичный UI
-            try {
-                const localMsg = { ...message, id: message.clientMessageId };
-                if (typeof addMessageToChat === 'function') addMessageToChat(localMsg, { notify: false });
-                if (typeof upsertChatCacheMessage === 'function') upsertChatCacheMessage(path, localMsg);
-                if (typeof newestLoadedKey !== 'undefined') newestLoadedKey = localMsg.id;
-            } catch (e) {
-                // ignore
-            }
-            
-            const sent = (typeof sendMessagePayload === 'function')
-                ? await sendMessagePayload(path, message)
-                : await chatRef.push(message).then(() => true).catch(() => false);
-            
-            if (!sent && typeof enqueuePendingMessage === 'function') {
-                enqueuePendingMessage(path, message);
-                showNotification('Сеть', 'Видеосообщение в очереди отправки');
-            } else {
-                showNotification('Успешно', 'Видеосообщение отправлено!');
-            }
-            
-            if (typeof clearReply === 'function') clearReply();
-            
-            if (typeof areSoundsEnabled === 'function' && areSoundsEnabled()) {
-                if (typeof playSendSound === 'function') playSendSound();
-            }
+            showNotification('Успешно', 'Видеосообщение отправлено!');
+        }
+        if (typeof clearReply === 'function') clearReply();
+        
+        const soundsOn = (typeof areSoundsEnabled === 'function') ? areSoundsEnabled() : (localStorage.getItem('soundsEnabled') !== 'false');
+        if (soundsOn && typeof playSendSound === 'function') {
+            playSendSound();
         }
         
     } catch (error) {
         console.error('Ошибка отправки видеосообщения:', error);
-        showError('Не удалось отправить видеосообщение: ' + error.message);
+        showError('Не удалось отправить видеосообщение', () => sendVideoMessage(videoData));
     } finally {
         hideLoading();
     }

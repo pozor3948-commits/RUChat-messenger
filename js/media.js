@@ -14,14 +14,7 @@ let voiceRecordLocked = false;
 let voiceRecordCancelled = false;
 let voiceHoldActive = false;
 let voiceRecorderMimeType = 'audio/webm';
-// Новые переменные для обновлённого UI
-let voiceIsRecording = false;
-let voiceTimerInterval = null;
-let voiceStartTime = 0;
-let voiceVisualizerAnimationId = null;
-
-// Ограничение размера файлов для Firebase (10MB лимит на запись)
-const MAX_RTDM_MEDIA_BYTES = 10 * 1024 * 1024;
+const MAX_RTDM_MEDIA_BYTES = 8 * 1024 * 1024;
 const MAX_VOICE_DURATION_SEC = 45;
 
 function estimateDataUrlBytes(url) {
@@ -59,18 +52,7 @@ function createFilePicker(accept, multiple = false) {
     inp.style.position = 'fixed';
     inp.style.left = '-9999px';
     inp.style.top = '0';
-    inp.style.zIndex = '-9999';
-    inp.style.opacity = '0';
     document.body.appendChild(inp);
-    
-    // Для Android WebView добавляем задержку перед кликом
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    if (isAndroid) {
-        setTimeout(() => inp.click(), 50);
-    } else {
-        inp.click();
-    }
-    
     return inp;
 }
 
@@ -124,57 +106,76 @@ async function startVoiceRecord() {
     voiceRecordCancelled = false;
     voiceRecordLocked = false;
     setVoiceLockPill('idle');
-    
+    if (!window.isSecureContext) {
+        // В APK/WebView isSecureContext может быть false даже при рабочем микрофоне.
+        console.warn('Небезопасный контекст, продолжаем попытку записи для WebView/APK');
+    }
     if (!window.MediaRecorder) {
         showError('MediaRecorder не поддерживается. Используйте прикрепление файла.');
         attachAudio();
         return;
     }
-    
+    // Проверка поддержки браузером
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showError('Ваш браузер не поддерживает запись с микрофона.');
+        showError('Ваш браузер не поддерживает запись с микрофона. Пожалуйста, используйте современный браузер (Chrome, Firefox, Edge).');
         return;
     }
-
+    
     try {
         // Закрываем меню выбора типа записи
-        document.getElementById('recordTypeMenu').classList.remove('active');
-
+        if (document.getElementById('recordTypeMenu').classList.contains('active')) {
+            document.getElementById('recordTypeMenu').classList.remove('active');
+        }
+        
+        // Проверяем, находимся ли мы в режиме разработки
+        const isDevMode = window.isLocalFile && window.isLocalFile();
+        
+        if (isDevMode) {
+            // В режиме разработки предлагаем выбор
+            const useTest = confirm('Режим разработки:\n\n1. Использовать реальный микрофон\n2. Запустить тестовую запись\n\nВыберите "ОК" для реальной записи или "Отмена" для тестовой записи.');
+            
+            if (!useTest) {
+                testVoiceRecording();
+                return;
+            }
+        }
+        
         // Показываем оверлей записи
         document.getElementById('voiceRecordOverlay').style.display = 'flex';
-
+        
         // Получаем доступ к микрофону
-        voiceStream = await navigator.mediaDevices.getUserMedia({
+        voiceStream = await navigator.mediaDevices.getUserMedia({ 
             audio: {
                 echoCancellation: true,
                 noiseSuppression: true,
                 sampleRate: 44100
             }
         });
-
+        
         // Настраиваем MediaRecorder
         const mimeType = pickSupportedAudioMimeType();
         const options = {
             audioBitsPerSecond: 32000
         };
         if (mimeType) options.mimeType = mimeType;
-
+        
         try {
             voiceRecorder = new MediaRecorder(voiceStream, options);
             voiceRecorderMimeType = mimeType || voiceRecorder.mimeType || 'audio/webm';
         } catch (e) {
+            console.warn('Не удалось применить предпочитаемый mimeType, используем стандартный:', e);
             voiceRecorder = new MediaRecorder(voiceStream);
             voiceRecorderMimeType = voiceRecorder.mimeType || 'audio/webm';
         }
-
+        
         voiceChunks = [];
-
+        
         voiceRecorder.ondataavailable = (event) => {
-            if (event.data && event.data.size > 0) {
+            if (event.data.size > 0) {
                 voiceChunks.push(event.data);
             }
         };
-
+        
         voiceRecorder.onstop = async () => {
             if (voiceRecordCancelled) {
                 cleanupVoiceRecording();
@@ -184,167 +185,98 @@ async function startVoiceRecord() {
                 showError('Не удалось записать аудио. Пожалуйста, попробуйте снова.');
                 return;
             }
-
+            
             const blob = new Blob(voiceChunks, { type: voiceRecorderMimeType || 'audio/webm' });
-
+            
             const reader = new FileReader();
             reader.onloadend = async () => {
                 const base64Audio = reader.result;
                 await sendVoiceMessage(base64Audio);
                 cleanupVoiceRecording();
             };
-            reader.onerror = () => {
-                showError('Ошибка чтения аудио');
-                cleanupVoiceRecording();
-            };
             reader.readAsDataURL(blob);
         };
-
+        
         // Запускаем запись
-        voiceRecorder.start(100);
-        voiceIsRecording = true;
-        voiceStartTime = Date.now();
+        voiceRecorder.start(1000); // Собираем данные каждую секунду
+        voiceRecordingTime = 0;
         
         // Обновляем UI
-        updateVoiceRecordUI(true);
+        document.getElementById("voiceStartBtn").style.display = "none";
+        document.getElementById("voiceStopBtn").style.display = "flex";
         
-        // Запускаем визуализацию
-        startVoiceVisualizer();
-        
-        // Таймер записи
-        voiceTimerInterval = setInterval(updateVoiceTimer, 100);
-        
-        // Авто-остановка по времени
-        setTimeout(() => {
-            if (voiceIsRecording && !voiceRecordLocked) {
+        // Запускаем таймер
+        voiceRecordingTimer = setInterval(() => {
+            voiceRecordingTime++;
+            const minutes = Math.floor(voiceRecordingTime / 60).toString().padStart(2, '0');
+            const seconds = (voiceRecordingTime % 60).toString().padStart(2, '0');
+            document.getElementById("voiceTimer").textContent = `${minutes}:${seconds}`;
+            
+            // Анимация волны
+            animateVoiceWaveform();
+            if (voiceRecordingTime >= MAX_VOICE_DURATION_SEC) {
                 stopVoiceRecord();
             }
-        }, MAX_VOICE_DURATION_SEC * 1000);
-
+        }, 1000);
+        
+        showNotification("Запись", "Идёт запись голосового сообщения...");
+        
     } catch (error) {
-        console.error('Ошибка доступа к микрофону:', error);
-        showError('Не удалось получить доступ к микрофону. Проверьте разрешения.');
+        console.error('Ошибка при запуске записи:', error);
+        
+        // Скрываем оверлей
+        document.getElementById("voiceRecordOverlay").style.display = "none";
         
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            const useTest = confirm('Нет доступа к микрофону. Запустить тестовую запись для демонстрации?');
+            const useTest = confirm('Доступ к микрофону запрещен.\n\nРазрешите доступ к микрофону в настройках браузера или запустите тестовую запись для демонстрации.\n\nЗапустить тестовую запись?');
+            
             if (useTest) {
                 testVoiceRecording();
+            } else {
+                showError('Для записи голосовых сообщений необходимо разрешить доступ к микрофону.');
+            }
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+            const useTest = confirm('Микрофон не найден.\n\nПодключите микрофон или запустите тестовую запись для демонстрации.\n\nЗапустить тестовую запись?');
+            
+            if (useTest) {
+                testVoiceRecording();
+            } else {
+                showError('Микрофон не найден. Подключите микрофон и попробуйте снова.');
+            }
+        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+            const useTest = confirm('Микрофон уже используется другим приложением.\n\nЗакройте другие приложения, использующие микрофон, или запустите тестовую запись.\n\nЗапустить тестовую запись?');
+            
+            if (useTest) {
+                testVoiceRecording();
+            } else {
+                showError('Микрофон уже используется другим приложением.');
+            }
+        } else {
+            // Для других ошибок предлагаем тестовую запись
+            const useTest = confirm('Не удалось получить доступ к микрофону. Запустить тестовую запись для демонстрации?');
+            
+            if (useTest) {
+                testVoiceRecording();
+            } else {
+                showError('Не удалось получить доступ к микрофону. Проверьте разрешения браузера.');
             }
         }
     }
-}
-
-function updateVoiceRecordUI(isRecording) {
-    const timer = document.getElementById('voiceTimer');
-    const recordBtn = document.getElementById('voiceRecordBtn');
-    const sendBtn = document.getElementById('voiceSendBtn');
-    const lockIndicator = document.getElementById('voiceLockIndicator');
-    
-    if (timer) {
-        timer.textContent = '00:00';
-        timer.classList.toggle('recording', isRecording);
-    }
-    
-    if (recordBtn) {
-        recordBtn.classList.toggle('recording', isRecording);
-    }
-    
-    if (sendBtn) {
-        sendBtn.style.display = isRecording ? 'none' : 'flex';
-    }
-    
-    if (lockIndicator) {
-        lockIndicator.classList.toggle('visible', voiceRecordLocked);
-    }
-}
-
-function startVoiceRecordAction() {
-    if (voiceIsRecording) return;
-    startVoiceRecord();
-}
-
-function stopVoiceRecordAction() {
-    if (!voiceIsRecording || voiceRecordLocked) return;
-    stopVoiceRecord();
-}
-
-function sendVoiceRecord() {
-    stopVoiceRecord();
 }
 
 function setVoiceLockPill(state) {
-    const lockIndicator = document.getElementById('voiceLockIndicator');
-    if (lockIndicator) {
-        lockIndicator.classList.toggle('visible', state === 'locked');
+    const pill = document.querySelector('.voice-lock-pill');
+    const hint = document.querySelector('.voice-record-hint');
+    if (pill) {
+        pill.classList.remove('locked', 'cancel');
+        if (state === 'locked') pill.classList.add('locked');
+        if (state === 'cancel') pill.classList.add('cancel');
+        pill.textContent = state === 'cancel' ? '✖' : '🔒';
     }
-}
-
-function updateVoiceTimer() {
-    if (!voiceIsRecording) return;
-    const elapsed = Date.now() - voiceStartTime;
-    const seconds = Math.floor(elapsed / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    
-    const timer = document.getElementById('voiceTimer');
-    if (timer) {
-        timer.textContent = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-    }
-}
-
-function startVoiceVisualizer() {
-    const canvas = document.getElementById('voiceCanvas');
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    const analyser = null;
-    
-    // Устанавливаем размер canvas
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-    
-    const bars = 64;
-    const barWidth = canvas.width / bars;
-    
-    function draw() {
-        if (!voiceIsRecording) return;
-        
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Генерируем случайные значения для визуализации
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
-        gradient.addColorStop(0, '#0088cc');
-        gradient.addColorStop(0.5, '#00b4ff');
-        gradient.addColorStop(1, '#0088cc');
-        
-        ctx.fillStyle = gradient;
-        
-        for (let i = 0; i < bars; i++) {
-            const barHeight = Math.random() * canvas.height * 0.8 + canvas.height * 0.1;
-            const x = i * barWidth;
-            const y = (canvas.height - barHeight) / 2;
-            
-            ctx.beginPath();
-            ctx.roundRect(x + 2, y, barWidth - 4, barHeight, 4);
-            ctx.fill();
-        }
-        
-        voiceVisualizerAnimationId = requestAnimationFrame(draw);
-    }
-    
-    draw();
-}
-
-function stopVoiceVisualizer() {
-    if (voiceVisualizerAnimationId) {
-        cancelAnimationFrame(voiceVisualizerAnimationId);
-        voiceVisualizerAnimationId = null;
-    }
-    
-    const canvas = document.getElementById('voiceCanvas');
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (hint) {
+        if (state === 'locked') hint.textContent = 'Запись закреплена — нажмите ■';
+        else if (state === 'cancel') hint.textContent = 'Отпустите для отмены';
+        else hint.textContent = 'Свайп вверх — закрепить, влево — отмена';
     }
 }
 
@@ -499,55 +431,67 @@ function animateVoiceWaveform() {
 // Остановка записи голосового сообщения
 function stopVoiceRecord() {
     if (!voiceRecorder || voiceRecorder.state === 'inactive') {
+        // Если нет активного рекордера, просто скрываем оверлей
+        document.getElementById("voiceStartBtn").style.display = "flex";
+        document.getElementById("voiceStopBtn").style.display = "none";
+        document.getElementById("voiceTimer").textContent = "00:00";
         document.getElementById("voiceRecordOverlay").style.display = "none";
-        updateVoiceRecordUI(false);
+        setVoiceLockPill('idle');
         return;
     }
-
+    
+    // Останавливаем запись
     voiceRecordCancelled = false;
     voiceRecorder.stop();
-
-    // Останавливаем таймер и визуализацию
-    if (voiceTimerInterval) {
-        clearInterval(voiceTimerInterval);
-        voiceTimerInterval = null;
-    }
-    stopVoiceVisualizer();
     
-    voiceIsRecording = false;
+    // Останавливаем таймер
+    if (voiceRecordingTimer) {
+        clearInterval(voiceRecordingTimer);
+        voiceRecordingTimer = null;
+    }
     
     // Обновляем UI
-    updateVoiceRecordUI(false);
-
+    document.getElementById("voiceStartBtn").style.display = "flex";
+    document.getElementById("voiceStopBtn").style.display = "none";
+    document.getElementById("voiceTimer").textContent = "00:00";
+    
+    // Скрываем оверлей через небольшую задержку, чтобы успел обработаться onstop
     setTimeout(() => {
         document.getElementById("voiceRecordOverlay").style.display = "none";
     }, 100);
+    setVoiceLockPill('idle');
+    
+    if (voiceRecordingTime > 0) {
+        showNotification("Успешно", "Голосовое сообщение отправляется...");
+    }
 }
 
 // Отмена записи голосового сообщения
 function cancelVoiceRecord() {
     voiceRecordCancelled = true;
-    
+    // Останавливаем запись если она идет
     if (voiceRecorder && voiceRecorder.state !== 'inactive') {
         voiceRecorder.stop();
     }
-
+    
+    // Останавливаем поток
     if (voiceStream) {
         voiceStream.getTracks().forEach(track => track.stop());
         voiceStream = null;
     }
     
-    // Останавливаем таймер и визуализацию
-    if (voiceTimerInterval) {
-        clearInterval(voiceTimerInterval);
-        voiceTimerInterval = null;
+    // Останавливаем таймер
+    if (voiceRecordingTimer) {
+        clearInterval(voiceRecordingTimer);
+        voiceRecordingTimer = null;
     }
-    stopVoiceVisualizer();
     
-    voiceIsRecording = false;
-    
-    updateVoiceRecordUI(false);
+    // Сбрасываем UI
+    document.getElementById("voiceStartBtn").style.display = "flex";
+    document.getElementById("voiceStopBtn").style.display = "none";
+    document.getElementById("voiceTimer").textContent = "00:00";
     document.getElementById("voiceRecordOverlay").style.display = "none";
+    setVoiceLockPill('idle');
 }
 
 // Очистка ресурсов после записи
@@ -556,10 +500,10 @@ function cleanupVoiceRecording() {
         voiceStream.getTracks().forEach(track => track.stop());
         voiceStream = null;
     }
-
+    
     voiceRecorder = null;
     voiceChunks = [];
-    voiceIsRecording = false;
+    voiceRecordingTime = 0;
 }
 
 // Отправка голосового сообщения
@@ -667,52 +611,31 @@ function startAudioRecording() {
 window.testVoiceRecording = testVoiceRecording;
 
 /* ==========================================================
-   9. ПРИКРЕПЛЕНИЕ ФАЙЛОВ (ИСПРАВЛЕНО ДЛЯ APK)
+   9. ПРИКРЕПЛЕНИЕ ФАЙЛОВ (БЕЗ ИЗМЕНЕНИЙ)
    ========================================================== */
 function attachPhoto() {
     const inp = createFilePicker('image/*', true);
     inp.onchange = async e => {
         const files = Array.from(e.target.files);
         if (!files.length) {
-            setTimeout(() => inp.remove(), 100);
+            inp.remove();
             return;
         }
-        
-        // Используем Firebase Storage для загрузки
-        if (typeof sendMediaViaStorage === 'function') {
-            showLoading();
-            try {
-                for (const file of files) {
-                    await sendMediaViaStorage('photo', file);
-                }
-            } catch (err) {
-                console.error('Ошибка отправки фото:', err);
-                showError('Не удалось отправить фото: ' + err.message);
-            } finally {
-                hideLoading();
+        showLoading();
+        try {
+            for (const file of files) {
+                const raw = await fileToDataUrl(file);
+                const qs = getPhotoCompressionSettings();
+                const compressed = await compressImageDataUrl(raw, qs.maxSide, qs.quality);
+                await sendMediaMessage('photo', compressed, file.name);
             }
-        } else {
-            // Fallback на старый метод (base64 в RTDB)
-            showLoading();
-            try {
-                for (const file of files) {
-                    const raw = await fileToDataUrl(file);
-                    const qs = getPhotoCompressionSettings();
-                    const compressed = await compressImageDataUrl(raw, qs.maxSide, qs.quality);
-                    await sendMediaMessage('photo', compressed, file.name);
-                }
-            } finally {
-                hideLoading();
-            }
+        } finally {
+            hideLoading();
+            document.getElementById("attachmentMenu").classList.remove("active");
+            inp.remove();
         }
-        
-        document.getElementById("attachmentMenu").classList.remove("active");
-        setTimeout(() => inp.remove(), 100);
     };
-    inp.onerror = () => {
-        showError('Не удалось открыть выбор файлов');
-        inp.remove();
-    };
+    inp.click();
 }
 
 function attachVideo() {
@@ -720,38 +643,25 @@ function attachVideo() {
     inp.onchange = async e => {
         const file = e.target.files[0];
         if (!file) {
-            setTimeout(() => inp.remove(), 100);
+            inp.remove();
             return;
         }
-        
-        // Firebase Storage поддерживает файлы до 5GB
-        if (typeof sendMediaViaStorage === 'function') {
-            await sendMediaViaStorage('video', file);
-        } else {
-            // Fallback на старый метод
-            if (file.size > MAX_RTDM_MEDIA_BYTES) {
-                showError('Видео слишком большое (макс. 10MB).');
-                inp.remove();
-                return;
-            }
-            showLoading();
-            try {
-                const raw = await fileToDataUrl(file);
-                await sendMediaMessage('video', raw, file.name, file.size);
-            } catch (err) {
-                showError('Не удалось отправить видео: ' + err.message);
-            } finally {
-                hideLoading();
-            }
+        if (file.size > MAX_RTDM_MEDIA_BYTES) {
+            showError('Видео слишком большое для отправки в текущем формате.');
+            inp.remove();
+            return;
         }
-        
-        document.getElementById("attachmentMenu").classList.remove("active");
-        setTimeout(() => inp.remove(), 100);
+        showLoading();
+        try {
+            const raw = await fileToDataUrl(file);
+            await sendMediaMessage('video', raw, file.name, file.size);
+        } finally {
+            hideLoading();
+            document.getElementById("attachmentMenu").classList.remove("active");
+            inp.remove();
+        }
     };
-    inp.onerror = () => {
-        showError('Не удалось открыть выбор файлов');
-        inp.remove();
-    };
+    inp.click();
 }
 
 function attachDocument() {
@@ -759,38 +669,25 @@ function attachDocument() {
     inp.onchange = async e => {
         const file = e.target.files[0];
         if (!file) {
-            setTimeout(() => inp.remove(), 100);
+            inp.remove();
             return;
         }
-        
-        // Firebase Storage поддерживает файлы до 5GB
-        if (typeof sendMediaViaStorage === 'function') {
-            await sendMediaViaStorage('document', file);
-        } else {
-            // Fallback на старый метод
-            if (file.size > MAX_RTDM_MEDIA_BYTES) {
-                showError('Файл слишком большой (макс. 10MB).');
-                inp.remove();
-                return;
-            }
-            showLoading();
-            try {
-                const raw = await fileToDataUrl(file);
-                await sendMediaMessage('document', raw, file.name, file.size);
-            } catch (err) {
-                showError('Не удалось отправить файл: ' + err.message);
-            } finally {
-                hideLoading();
-            }
+        if (file.size > MAX_RTDM_MEDIA_BYTES) {
+            showError('Файл слишком большой для отправки.');
+            inp.remove();
+            return;
         }
-        
-        document.getElementById("attachmentMenu").classList.remove("active");
-        setTimeout(() => inp.remove(), 100);
+        showLoading();
+        try {
+            const raw = await fileToDataUrl(file);
+            await sendMediaMessage('document', raw, file.name, file.size);
+        } finally {
+            hideLoading();
+            document.getElementById("attachmentMenu").classList.remove("active");
+            inp.remove();
+        }
     };
-    inp.onerror = () => {
-        showError('Не удалось открыть выбор файлов');
-        inp.remove();
-    };
+    inp.click();
 }
 
 function attachAudio() {
@@ -798,60 +695,46 @@ function attachAudio() {
     inp.onchange = async e => {
         const file = e.target.files[0];
         if (!file) {
-            setTimeout(() => inp.remove(), 100);
+            inp.remove();
             return;
         }
-        
-        // Firebase Storage поддерживает файлы до 5GB
-        if (typeof sendMediaViaStorage === 'function') {
-            await sendMediaViaStorage('audio', file);
-        } else {
-            // Fallback на старый метод
-            if (file.size > MAX_RTDM_MEDIA_BYTES) {
-                showError('Аудиофайл слишком большой (макс. 10MB).');
-                inp.remove();
-                return;
-            }
-            showLoading();
-            try {
-                const raw = await fileToDataUrl(file);
-                await sendMediaMessage('audio', raw, file.name, file.size);
-            } catch (err) {
-                showError('Не удалось отправить аудио: ' + err.message);
-            } finally {
-                hideLoading();
-            }
+        if (file.size > MAX_RTDM_MEDIA_BYTES) {
+            showError('Аудиофайл слишком большой для отправки.');
+            inp.remove();
+            return;
         }
-        
-        document.getElementById("attachmentMenu").classList.remove("active");
-        setTimeout(() => inp.remove(), 100);
+        showLoading();
+        try {
+            const raw = await fileToDataUrl(file);
+            await sendMediaMessage('audio', raw, file.name, file.size);
+        } finally {
+            hideLoading();
+            document.getElementById("attachmentMenu").classList.remove("active");
+            inp.remove();
+        }
     };
-    inp.onerror = () => {
-        showError('Не удалось открыть выбор файлов');
-        inp.remove();
-    };
+    inp.click();
 }
 
 async function sendMediaMessage(type, data, filename, filesize) {
-    if (!currentChatId || !chatRef || !username) {
-        showError("Выберите чат для отправки!");
-        return;
+    if (!currentChatId || !chatRef || !username) { 
+        showError("Выберите чат для отправки!"); 
+        return; 
     }
-
+    
     const payloadBytes = estimateDataUrlBytes(data) || (new Blob([data || '']).size);
-    // Firebase Realtime Database имеет лимит 10MB на запись
     if (payloadBytes > MAX_RTDM_MEDIA_BYTES) {
-        showError("Файл слишком большой для отправки (макс. 10MB). Используйте сжатие или выберите файл меньше.");
+        showError("Файл слишком большой для отправки.");
         return;
     }
-
+    
     try {
-        const msg = {
-            from: username,
-            time: Date.now(),
-            sent: true,
-            delivered: false,
-            read: false,
+        const msg = { 
+            from: username, 
+            time: Date.now(), 
+            sent: true, 
+            delivered: false, 
+            read: false, 
             status: 'sent',
             clientMessageId: (typeof createClientMessageId === 'function') ? createClientMessageId() : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
         };
@@ -864,30 +747,30 @@ async function sendMediaMessage(type, data, filename, filesize) {
         if (typeof replyToMessage !== 'undefined' && replyToMessage) {
             msg.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
         }
-
+        
         switch (type) {
-            case 'photo':
-                msg.photo = data;
-                msg.text = '📷 Фото';
+            case 'photo': 
+                msg.photo = data; 
+                msg.text = '📷 Фото'; 
                 break;
-            case 'video':
-                msg.video = data;
+            case 'video': 
+                msg.video = data; 
                 msg.filesize = filesize || payloadBytes;
-                msg.text = '🎥 Видео';
+                msg.text = '🎥 Видео'; 
                 break;
-            case 'audio':
-                msg.audio = data;
+            case 'audio': 
+                msg.audio = data; 
                 msg.filesize = filesize || payloadBytes;
-                msg.text = '🎵 Аудио';
+                msg.text = '🎵 Аудио'; 
                 break;
-            case 'document':
-                msg.document = data;
-                msg.filename = filename;
-                msg.filesize = filesize || payloadBytes;
-                msg.text = '📄 Документ';
+            case 'document': 
+                msg.document = data; 
+                msg.filename = filename; 
+                msg.filesize = filesize || payloadBytes; 
+                msg.text = '📄 Документ'; 
                 break;
         }
-
+        
         const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
 
         // Оптимистичный UI: показываем медиа сразу
@@ -910,27 +793,13 @@ async function sendMediaMessage(type, data, filename, filesize) {
             showNotification("Успешно", "Файл отправлен!");
         }
         if (typeof clearReply === 'function') clearReply();
-
+        
     } catch (e) {
-        console.error('sendMediaMessage error:', e);
-        // Обработка специфичных ошибок для APK/WebView
-        if (e.message && e.message.includes('greater than')) {
+        console.error(e);
+        if (e.message && e.message.includes('greater than 10485760')) {
             showError("Файл слишком большой для отправки.");
-        } else if (e.message && e.message.includes('network')) {
-            showError("Нет соединения. Файл добавлен в очередь.");
-            const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
-            if (typeof enqueuePendingMessage === 'function') {
-                enqueuePendingMessage(path, {
-                    from: username,
-                    time: Date.now(),
-                    [type]: data,
-                    filename: filename,
-                    filesize: filesize,
-                    clientMessageId: `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
-                });
-            }
         } else {
-            showError("Не удалось отправить файл: " + e.message);
+            showError("Не удалось отправить файл", () => sendMediaMessage(type, data, filename, filesize));
         }
     }
 }

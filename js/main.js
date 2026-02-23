@@ -1,5 +1,5 @@
 ﻿/* ==========================================================
-   2. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (ОСТАВЛЯЕМ ТОЛЬКО УНИКАЛЬНЫЕ)
+   2. Р“Р›РћР‘РђР›Р¬РќР«Р• РџР•Р Р•РњР•РќРќР«Р• (РћРЎРўРђР’Р›РЇР•Рњ РўРћР›Р¬РљРћ РЈРќРРљРђР›Р¬РќР«Р•)
    ========================================================== */
 let username = "";
 let currentChatId = null;
@@ -15,21 +15,18 @@ let isTyping = false;
 let voiceRecordInterval = null;
 let voiceRecordTime = 0;
 
-// для медиа и голосовых
+// РґР»СЏ РјРµРґРёР° Рё РіРѕР»РѕСЃРѕРІС‹С…
 let mediaRecorder = null;
 let audioChunks = [];
 let recordingStream = null;
 
 /* ==========================================================
-   ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
+   РРќРР¦РРђР›РР—РђР¦РРЇ РџР РР›РћР–Р•РќРРЇ
    ========================================================== */
 document.addEventListener('DOMContentLoaded', () => {
-    // Обновляем глобальную переменную isMobile
+    // РћР±РЅРѕРІР»СЏРµРј РіР»РѕР±Р°Р»СЊРЅСѓСЋ РїРµСЂРµРјРµРЅРЅСѓСЋ isMobile
     isMobile = window.innerWidth <= 768;
-
-    // Проверка блокировки при загрузке (если пользователь уже в системе)
-    checkBlockOnLoad();
-
+    
     setupNetworkMonitoring();
     document.getElementById('callButton').classList.remove('active');
     document.getElementById("text").addEventListener("input", updateSendButton);
@@ -43,35 +40,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
-
-// Проверка блокировки при загрузке страницы
-async function checkBlockOnLoad() {
-    // Ждём немного пока инициализируется username
-    setTimeout(async () => {
-        const currentUser = username || localStorage.getItem('ruchat_device_user');
-        if (!currentUser) return;
-
-        try {
-            // Проверяем blockedUsers
-            const blockedSnap = await db.ref("blockedUsers/" + currentUser).get();
-            if (blockedSnap.exists() && blockedSnap.val().blocked === true) {
-                if (typeof blockAppInterface === 'function') blockAppInterface();
-                if (typeof showBlockedMessage === 'function') showBlockedMessage(blockedSnap.val());
-                return;
-            }
-
-            // Проверяем accounts.blocked
-            const accountSnap = await db.ref("accounts/" + currentUser).get();
-            const accountData = accountSnap.val();
-            if (accountData && accountData.blocked && accountData.blocked.admin === true) {
-                if (typeof blockAppInterface === 'function') blockAppInterface();
-                if (typeof showBlockedMessage === 'function') {
-                    showBlockedMessage({ reason: "Нарушение правил пользования мессенджером", blockedAt: Date.now() });
-                }
-                return;
-            }
-        } catch (e) {
-            console.warn("Ошибка проверки блокировки при загрузке:", e.message);
-        }
-    }, 500);
-}

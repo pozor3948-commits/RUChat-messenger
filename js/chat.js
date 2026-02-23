@@ -563,27 +563,7 @@ function subscribeUnreadForFriend(friendName) {
 function loadFriends() {
   const friendsRef = db.ref("accounts/" + username + "/friends");
   friendsRef.on("value", snap => {
-    const rawFriends = snap.exists() ? (snap.val() || {}) : {};
-    // Дедупликация друзей по canonical имени
-    const dedupedFriends = {};
-    const seenCanonical = new Map();
-    Object.keys(rawFriends || {}).forEach(key => {
-      const canonical = canonicalFriendIdentity(key) || String(key || '');
-      const existing = seenCanonical.get(canonical);
-      if (!existing) {
-        seenCanonical.set(canonical, key);
-        dedupedFriends[key] = rawFriends[key];
-        return;
-      }
-      // Оставляем ключ с меньшим penalty (более "чистый")
-      if (friendKeyPenalty(key) < friendKeyPenalty(existing)) {
-        delete dedupedFriends[existing];
-        seenCanonical.set(canonical, key);
-        dedupedFriends[key] = rawFriends[key];
-      }
-      // Иначе игнорируем дубликат
-    });
-    friendsCache = dedupedFriends;
+    friendsCache = snap.exists() ? (snap.val() || {}) : {};
     renderFriends();
   });
   const blockedRef = db.ref("accounts/" + username + "/blocked");
@@ -1044,7 +1024,7 @@ function loadChat(path) {
     newestLoadedKey = cachedMessages[cachedMessages.length - 1].id || null;
   }
 
-  chatRef.orderByChild('time').limitToLast(CHAT_INITIAL_PAGE_SIZE).once("value").then(snap => {
+  chatRef.orderByKey().limitToLast(CHAT_INITIAL_PAGE_SIZE).once("value").then(snap => {
     if (currentChatPath !== expectedPath) return;
     const items = [];
     snap.forEach(ch => {
@@ -1053,12 +1033,6 @@ function loadChat(path) {
       m.id = ch.key;
       if (m.text === undefined || m.text === null) m.text = "";
       items.push(m);
-    });
-    // Сортируем сообщения по времени для корректного отображения
-    items.sort((a, b) => {
-      const timeA = Number(a.time) || 0;
-      const timeB = Number(b.time) || 0;
-      return timeA - timeB;
     });
     (async () => {
       await renderMessagesBatched(items, { autoScroll: false, animate: false, notify: false }, isMobile ? 10 : 18);
@@ -1178,24 +1152,6 @@ function addMessageToChat(m, options = {}) {
   const md = document.getElementById("messages");
   if (document.getElementById(`message_${m.id}`)) return;
   if (m.clientMessageId && renderedClientMessageIds.has(m.clientMessageId)) return;
-  
-  // РАСШИФРОВКА СООБЩЕНИЯ (если зашифровано)
-  let messageText = m.text || '';
-  if (m.encrypted === true && typeof decryptMessage === 'function') {
-    try {
-      // Асинхронная расшифровка
-      decryptMessage(messageText).then(decrypted => {
-        const msgEl = document.getElementById(`message_${m.id}`);
-        if (msgEl) {
-          const textEl = msgEl.querySelector('.message-text');
-          if (textEl) textEl.textContent = decrypted;
-        }
-      }).catch(e => console.warn('Ошибка расшифровки:', e));
-    } catch (e) {
-      console.warn('Не удалось расшифровать сообщение');
-    }
-  }
-  
   if (typeof m.text === 'string') m.text = sanitizeUiText(m.text, m.text);
   
   // meta-сообщения (закреп/откреп) не рендерим как обычные
@@ -1231,7 +1187,6 @@ function addMessageToChat(m, options = {}) {
   wrap.className = `message-wrapper ${m.from === username ? "me" : "other"}`;
   wrap.id = `message_${m.id}`;
   wrap.dataset.from = m.from || '';
-  wrap.dataset.messageId = m.id;
   const orderTuple = getMessageSortTuple(m);
   wrap.dataset.orderTime = String(orderTuple.time);
   wrap.dataset.orderId = orderTuple.id;
@@ -1240,33 +1195,6 @@ function addMessageToChat(m, options = {}) {
     wrap.style.opacity = 0;
     wrap.style.transform = 'translateY(10px)';
   }
-  
-  // Добавляем обработчики для контекстного меню
-  wrap.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    if (typeof showMessageActions === 'function') {
-      showMessageActions(m.id, e);
-    }
-  });
-  
-  // Длительное нажатие для мобильных
-  let longPressTimer;
-  wrap.addEventListener('touchstart', (e) => {
-    longPressTimer = setTimeout(() => {
-      if (typeof showMessageActions === 'function') {
-        const touch = e.touches[0];
-        showMessageActions(m.id, { 
-          clientX: touch.clientX, 
-          clientY: touch.clientY, 
-          preventDefault: () => {},
-          stopPropagation: () => {}
-        });
-      }
-    }, 500);
-  }, { passive: true });
-  
-  wrap.addEventListener('touchend', () => clearTimeout(longPressTimer));
-  wrap.addEventListener('touchmove', () => clearTimeout(longPressTimer));
   const msg = document.createElement("div");
   msg.className = `message ${m.from === username ? "me" : "other"}`;
   let status = 'sent';
@@ -2581,23 +2509,8 @@ async function sendMessage() {
       return;
     }
     const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
-    
-    // ШИФРОВАНИЕ СООБЩЕНИЯ (если включено)
-    let textToSend = txt;
-    const useEncryption = localStorage.getItem('ruchat_encryption') === 'true';
-    let isEncrypted = false;
-    
-    if (useEncryption && typeof encryptMessage === 'function') {
-      try {
-        textToSend = await encryptMessage(txt);
-        isEncrypted = true;
-      } catch (e) {
-        console.warn('Не удалось зашифровать сообщение, отправляем открытым текстом');
-      }
-    }
-    
-    const msg = { from: username, text: textToSend, time: Date.now(), sent: true, delivered: false, read: false, status: 'sent', clientMessageId: createClientMessageId() };
-    if (isEncrypted) msg.encrypted = true;
+    const msg = { from: username, text: txt, time: Date.now(), sent: true, delivered: false, read: false, status: 'sent', clientMessageId: createClientMessageId() };
+    if (getSilentSend(currentChatId, isGroupChat)) msg.silent = true;
     if (expiresAt) msg.expiresAt = expiresAt;
     if (replyToMessage) {
       msg.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
@@ -2970,51 +2883,7 @@ function renderMediaLibrary() {
   });
 }
 
-// ==========================================================
-// ОПТИМИЗАЦИЯ ПРОКРУТКИ ДЛЯ 60 FPS
-// ==========================================================
-let scrollThrottleRaf = 0;
-let isScrolling = false;
-let scrollTimeout = null;
-
-function setupScrollOptimization() {
-  const messagesContainer = document.getElementById('messages');
-  if (!messagesContainer) return;
-  
-  // Убираем анимации во время скролла для производительности
-  messagesContainer.addEventListener('scroll', () => {
-    if (!isScrolling) {
-      isScrolling = true;
-      messagesContainer.classList.add('scrolling');
-    }
-    
-    if (scrollThrottleRaf) return;
-    
-    scrollThrottleRaf = requestAnimationFrame(() => {
-      scrollThrottleRaf = 0;
-      // Здесь можно добавить логику для ленивой подгрузки
-    });
-    
-    // Прекращаем считать скролл через 150мс после последнего события
-    if (scrollTimeout) clearTimeout(scrollTimeout);
-    scrollTimeout = setTimeout(() => {
-      isScrolling = false;
-      messagesContainer.classList.remove('scrolling');
-    }, 150);
-  }, { passive: true });
-}
-
-// Вызываем после загрузки DOM
-if (typeof document !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setupScrollOptimization);
-  } else {
-    setupScrollOptimization();
-  }
-}
-
 window.sendMessagePayload = sendMessagePayload;
 window.enqueuePendingMessage = enqueuePendingMessage;
 window.flushPendingQueue = flushPendingQueue;
 window.createClientMessageId = createClientMessageId;
-window.setupScrollOptimization = setupScrollOptimization;
