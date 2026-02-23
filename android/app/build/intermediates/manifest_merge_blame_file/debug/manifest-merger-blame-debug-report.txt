@@ -1,0 +1,186 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.ruchat.messenger"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="24"
+8-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml
+9        android:targetSdkVersion="34" />
+9-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml
+10
+11    <!-- Разрешения для интернета -->
+12    <uses-permission android:name="android.permission.INTERNET" />
+12-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:6:5-67
+12-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:6:22-64
+13    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+13-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:7:5-79
+13-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:7:22-76
+14    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+14-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:8:5-76
+14-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:8:22-73
+15
+16    <!-- Разрешения для камеры -->
+17    <uses-permission android:name="android.permission.CAMERA" />
+17-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:11:5-65
+17-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:11:22-62
+18
+19    <uses-feature
+19-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:12:5-85
+20        android:name="android.hardware.camera"
+20-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:12:19-57
+21        android:required="false" />
+21-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:12:58-82
+22    <uses-feature
+22-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:13:5-95
+23        android:name="android.hardware.camera.autofocus"
+23-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:13:19-67
+24        android:required="false" />
+24-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:13:68-92
+25
+26    <!-- Разрешения для микрофона (аудиозвонки, голосовые сообщения) -->
+27    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+27-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:16:5-71
+27-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:16:22-68
+28    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+28-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:17:5-80
+28-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:17:22-77
+29
+30    <!-- Разрешения для файлов -->
+31    <uses-permission
+31-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:20:5-21:38
+32        android:name="android.permission.READ_EXTERNAL_STORAGE"
+32-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:20:22-77
+33        android:maxSdkVersion="32" />
+33-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:21:9-35
+34    <uses-permission
+34-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:22:5-24:40
+35        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+35-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:22:22-78
+36        android:maxSdkVersion="32" />
+36-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:23:9-35
+37    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+37-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:25:5-76
+37-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:25:22-73
+38    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+38-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:26:5-75
+38-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:26:22-72
+39    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+39-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:27:5-75
+39-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:27:22-72
+40
+41    <!-- Разрешения для уведомлений -->
+42    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+42-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:30:5-77
+42-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:30:22-74
+43    <uses-permission android:name="android.permission.VIBRATE" />
+43-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:31:5-66
+43-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:31:22-63
+44
+45    <!-- Разрешения для фоновой работы -->
+46    <uses-permission android:name="android.permission.WAKE_LOCK" />
+46-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:34:5-68
+46-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:34:22-65
+47    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+47-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:35:5-77
+47-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:35:22-74
+48
+49    <permission
+49-->[androidx.core:core:1.9.0] C:\Users\Владос\.gradle\caches\transforms-3\ebcc01801558a7131546317bf5596cb6\transformed\core-1.9.0\AndroidManifest.xml:22:5-24:47
+50        android:name="com.ruchat.messenger.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+50-->[androidx.core:core:1.9.0] C:\Users\Владос\.gradle\caches\transforms-3\ebcc01801558a7131546317bf5596cb6\transformed\core-1.9.0\AndroidManifest.xml:23:9-81
+51        android:protectionLevel="signature" />
+51-->[androidx.core:core:1.9.0] C:\Users\Владос\.gradle\caches\transforms-3\ebcc01801558a7131546317bf5596cb6\transformed\core-1.9.0\AndroidManifest.xml:24:9-44
+52
+53    <uses-permission android:name="com.ruchat.messenger.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+53-->[androidx.core:core:1.9.0] C:\Users\Владос\.gradle\caches\transforms-3\ebcc01801558a7131546317bf5596cb6\transformed\core-1.9.0\AndroidManifest.xml:26:5-97
+53-->[androidx.core:core:1.9.0] C:\Users\Владос\.gradle\caches\transforms-3\ebcc01801558a7131546317bf5596cb6\transformed\core-1.9.0\AndroidManifest.xml:26:22-94
+54
+55    <application
+55-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:37:5-71:19
+56        android:allowBackup="true"
+56-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:38:9-35
+57        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+57-->[androidx.core:core:1.9.0] C:\Users\Владос\.gradle\caches\transforms-3\ebcc01801558a7131546317bf5596cb6\transformed\core-1.9.0\AndroidManifest.xml:28:18-86
+58        android:debuggable="true"
+59        android:extractNativeLibs="false"
+60        android:hardwareAccelerated="true"
+60-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:45:9-43
+61        android:icon="@mipmap/ic_launcher"
+61-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:39:9-43
+62        android:label="@string/app_name"
+62-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:40:9-41
+63        android:roundIcon="@mipmap/ic_launcher_round"
+63-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:41:9-54
+64        android:supportsRtl="true"
+64-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:42:9-35
+65        android:theme="@style/Theme.RuChat"
+65-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:43:9-44
+66        android:usesCleartextTraffic="true" >
+66-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:44:9-44
+67        <activity
+67-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:48:9-58:20
+68            android:name="com.ruchat.messenger.MainActivity"
+68-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:49:13-41
+69            android:configChanges="orientation|screenSize|keyboardHidden|keyboard|screenLayout|uiMode"
+69-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:52:13-103
+70            android:exported="true"
+70-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:50:13-36
+71            android:launchMode="singleTask"
+71-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:51:13-44
+72            android:windowSoftInputMode="adjustResize" >
+72-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:53:13-55
+73            <intent-filter>
+73-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:54:13-57:29
+74                <action android:name="android.intent.action.MAIN" />
+74-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:55:17-69
+74-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:55:25-66
+75
+76                <category android:name="android.intent.category.LAUNCHER" />
+76-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:56:17-77
+76-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:56:27-74
+77            </intent-filter>
+78        </activity>
+79
+80        <!-- FileProvider для доступа к файлам -->
+81        <provider
+82            android:name="androidx.core.content.FileProvider"
+82-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:62:13-62
+83            android:authorities="com.ruchat.messenger.fileprovider"
+83-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:63:13-64
+84            android:exported="false"
+84-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:64:13-37
+85            android:grantUriPermissions="true" >
+85-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:65:13-47
+86            <meta-data
+86-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:66:13-68:54
+87                android:name="android.support.FILE_PROVIDER_PATHS"
+87-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:67:17-67
+88                android:resource="@xml/file_paths" />
+88-->C:\RUCHATMESSEN\android\app\src\main\AndroidManifest.xml:68:17-51
+89        </provider>
+90        <provider
+90-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Владос\.gradle\caches\transforms-3\8b06aa6e9a77db041038b7731b098d8a\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:24:9-32:20
+91            android:name="androidx.startup.InitializationProvider"
+91-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Владос\.gradle\caches\transforms-3\8b06aa6e9a77db041038b7731b098d8a\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:25:13-67
+92            android:authorities="com.ruchat.messenger.androidx-startup"
+92-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Владос\.gradle\caches\transforms-3\8b06aa6e9a77db041038b7731b098d8a\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:26:13-68
+93            android:exported="false" >
+93-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Владос\.gradle\caches\transforms-3\8b06aa6e9a77db041038b7731b098d8a\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:27:13-37
+94            <meta-data
+94-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Владос\.gradle\caches\transforms-3\8b06aa6e9a77db041038b7731b098d8a\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:29:13-31:52
+95                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+95-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Владос\.gradle\caches\transforms-3\8b06aa6e9a77db041038b7731b098d8a\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:30:17-75
+96                android:value="androidx.startup" />
+96-->[androidx.emoji2:emoji2:1.2.0] C:\Users\Владос\.gradle\caches\transforms-3\8b06aa6e9a77db041038b7731b098d8a\transformed\jetified-emoji2-1.2.0\AndroidManifest.xml:31:17-49
+97            <meta-data
+97-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\Владос\.gradle\caches\transforms-3\f9b3545c24b113cebf3bb06cd1d41c02\transformed\jetified-lifecycle-process-2.4.1\AndroidManifest.xml:31:13-33:52
+98                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+98-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\Владос\.gradle\caches\transforms-3\f9b3545c24b113cebf3bb06cd1d41c02\transformed\jetified-lifecycle-process-2.4.1\AndroidManifest.xml:32:17-78
+99                android:value="androidx.startup" />
+99-->[androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\Владос\.gradle\caches\transforms-3\f9b3545c24b113cebf3bb06cd1d41c02\transformed\jetified-lifecycle-process-2.4.1\AndroidManifest.xml:33:17-49
+100        </provider>
+101    </application>
+102
+103</manifest>

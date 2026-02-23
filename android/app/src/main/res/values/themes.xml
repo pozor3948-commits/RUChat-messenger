@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme -->
+    <style name="Theme.RuChat" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">#0088cc</item>
+        <item name="colorPrimaryVariant">#006699</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">#0088cc</item>
+        <item name="colorSecondaryVariant">#006699</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">#006699</item>
+        <item name="android:navigationBarColor">#006699</item>
+        <!-- Window background -->
+        <item name="android:windowBackground">#FFFFFF</item>
+    </style>
+
+    <!-- Splash screen theme -->
+    <style name="Theme.RuChat.Splash" parent="Theme.RuChat">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+</resources>

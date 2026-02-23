@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RuChat</string>
+    <string name="permission_camera_rationale">Разрешите доступ к камере для видеозвонков и фото</string>
+    <string name="permission_microphone_rationale">Разрешите доступ к микрофону для звонков и голосовых сообщений</string>
+    <string name="permission_storage_rationale">Разрешите доступ к файлам для отправки фото и документов</string>
+    <string name="permission_denied">Разрешение отклонено</string>
+</resources>

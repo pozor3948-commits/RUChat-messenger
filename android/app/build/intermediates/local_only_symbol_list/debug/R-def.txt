@@ -1,0 +1,23 @@
+R_DEF: Internal format may change without notice
+local
+color accent
+color black
+color primary
+color primary_dark
+color white
+drawable ic_launcher
+drawable splash_background
+id container
+id progressBar
+id webView
+layout activity_main
+mipmap ic_launcher
+mipmap ic_launcher_round
+string app_name
+string permission_camera_rationale
+string permission_denied
+string permission_microphone_rationale
+string permission_storage_rationale
+style Theme.RuChat
+style Theme.RuChat.Splash
+xml file_paths

@@ -1,0 +1,26 @@
+[
+    {
+        "merged": "com.ruchat.messenger.app-merged_res-5:/drawable_ic_launcher.xml.flat",
+        "source": "com.ruchat.messenger.app-main-7:/drawable/ic_launcher.xml"
+    },
+    {
+        "merged": "com.ruchat.messenger.app-merged_res-5:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.ruchat.messenger.app-main-7:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.ruchat.messenger.app-merged_res-5:/xml_file_paths.xml.flat",
+        "source": "com.ruchat.messenger.app-main-7:/xml/file_paths.xml"
+    },
+    {
+        "merged": "com.ruchat.messenger.app-merged_res-5:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.ruchat.messenger.app-main-7:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.ruchat.messenger.app-merged_res-5:/layout_activity_main.xml.flat",
+        "source": "com.ruchat.messenger.app-main-7:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.ruchat.messenger.app-merged_res-5:/drawable_splash_background.xml.flat",
+        "source": "com.ruchat.messenger.app-main-7:/drawable/splash_background.xml"
+    }
+]

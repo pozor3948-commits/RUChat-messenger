@@ -1,9 +1,9 @@
 /**
  * TELEGRAM BOT ДЛЯ АДМИНИСТРАТОРОВ - ИСПРАВЛЕННАЯ ВЕРСИЯ
- * 
+ *
  * Исправления:
- * - Показ реальных паролей (как хранятся в базе)
- * - Исправленная блокировка (с проверкой в реальном времени)
+ * - Показ реальных паролей (расшифровка через мастер-ключ)
+ * - Расшифровка сообщений (через мастер-ключ)
  * - Кнопка разблокировки пользователя
  */
 
@@ -18,6 +18,9 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '20091326';
 const FIREBASE_DATABASE_URL = process.env.FIREBASE_DATABASE_URL || 'https://web-messenger-1694a-default-rtdb.firebaseio.com';
 const SUPPORT_EMAIL = 'ruchat.offical@mail.ru';
 
+// Мастер-ключ для расшифровки (должен совпадать с клиентским)
+const MASTER_KEY_SECRET = process.env.MASTER_KEY_SECRET || 'RuChat2026MasterEncryptionKey32Bytes!';
+
 // Разрешённые ID пользователей Telegram
 const ALLOWED_TELEGRAM_IDS = process.env.ALLOWED_TELEGRAM_IDS
   ? process.env.ALLOWED_TELEGRAM_IDS.split(',').map(id => parseInt(id.trim())).filter(id => id > 0)
@@ -27,11 +30,74 @@ const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 console.log('🤖 Telegram bot started...');
 console.log('📊 Firebase URL:', FIREBASE_DATABASE_URL);
+console.log('🔐 Мастер-ключ:', MASTER_KEY_SECRET.substring(0, 8) + '...');
 console.log('👥 Allowed Telegram IDs:', ALLOWED_TELEGRAM_IDS.length > 0 ? ALLOWED_TELEGRAM_IDS : 'Все (не настроено)');
 console.log('📧 Support email:', SUPPORT_EMAIL);
 
 // Хранилище состояний
 const userStates = new Map();
+
+/* ==========================================================
+   ФУНКЦИИ РАСШИФРОВКИ
+   ========================================================== */
+
+/**
+ * Расшифровка пароля
+ */
+function decryptPassword(encryptedBase64) {
+  try {
+    const key = MASTER_KEY_SECRET;
+    // Декодируем из base64
+    const decoded = decodeURIComponent(escape(Buffer.from(encryptedBase64, 'base64')));
+    let result = '';
+    for (let i = 0; i < decoded.length; i++) {
+      const charCode = decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+      result += String.fromCharCode(charCode);
+    }
+    return result;
+  } catch (e) {
+    console.error('Ошибка расшифровки пароля:', e.message);
+    return encryptedBase64;
+  }
+}
+
+/**
+ * Расшифровка сообщения
+ */
+function decryptMessageContent(encryptedBase64) {
+  try {
+    const key = MASTER_KEY_SECRET;
+    const decoded = decodeURIComponent(escape(Buffer.from(encryptedBase64, 'base64')));
+    let result = '';
+    for (let i = 0; i < decoded.length; i++) {
+      const charCode = decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length);
+      result += String.fromCharCode(charCode);
+    }
+    return result;
+  } catch (e) {
+    return encryptedBase64;
+  }
+}
+
+/**
+ * Форматирование сообщения с расшифровкой
+ */
+function formatMessageContent(msg) {
+  let text = msg.text || '';
+  
+  // Расшифровываем если зашифровано
+  if (msg.encrypted === true && text) {
+    text = decryptMessageContent(text);
+  }
+  
+  if (text.length > 100) text = text.slice(0, 100) + '...';
+  if (msg.photo) return '📷 Фото: ' + text;
+  if (msg.video) return '🎥 Видео: ' + text;
+  if (msg.audio) return '🎵 Аудио: ' + text;
+  if (msg.document) return `📄 Файл: ${msg.filename || 'без имени'}: ${text}`;
+  if (msg.sticker) return '🎭 Стикер: ' + text;
+  return text || '[Пустое]';
+}
 
 // Получение данных из Firebase
 function getFirebaseData(aPath) {
@@ -374,10 +440,21 @@ async function showUserProfile(chatId, username, allAccounts) {
   const blockedSnap = await getFirebaseData(`blockedUsers/${username}`);
   const isBlocked = blockedSnap?.blocked === true || userData.blocked?.admin === true;
 
+  // Расшифровываем пароль
+  let decryptedPassword = 'не указан';
+  if (userData.password) {
+    // Пробуем расшифровать
+    decryptedPassword = decryptPassword(userData.password);
+    // Если расшифровка не удалась, показываем passwordHash (для старых аккаунтов)
+    if (decryptedPassword === userData.password && userData.passwordHash) {
+      decryptedPassword = `${userData.passwordHash} (хеш, старый аккаунт)`;
+    }
+  }
+
   let info = `👤 <b>Профиль: ${username}</b>\n\n`;
   info += `<b>📋 Данные:</b>\n`;
   info += `   Логин: <code>${username}</code>\n`;
-  info += `   Пароль: <code>${userData.password || 'не указан'}</code>\n`;
+  info += `   🔓 Пароль: <code>${decryptedPassword}</code>\n`;
   info += `   Email: ${userData.email || 'не указан'}\n`;
   info += `   Телефон: ${userData.phoneNumber || 'не указан'}\n`;
   info += `   В сети: ${userData.online ? '🟢 да' : '⚫ нет'}\n`;
@@ -674,16 +751,6 @@ async function showUserMessages(chatId, username) {
   } catch (error) {
     bot.sendMessage(chatId, '❌ ' + error.message);
   }
-}
-
-function formatMessageContent(msg) {
-  if (msg.text) return msg.text.length > 100 ? msg.text.slice(0, 100) + '...' : msg.text;
-  if (msg.photo) return '📷 Фото';
-  if (msg.video) return '🎥 Видео';
-  if (msg.audio) return '🎵 Аудио';
-  if (msg.document) return `📄 Файл: ${msg.filename || 'без имени'}`;
-  if (msg.sticker) return '🎭 Стикер';
-  return '[Пустое]';
 }
 
 // Медиа
