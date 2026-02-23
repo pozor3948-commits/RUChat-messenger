@@ -4,14 +4,15 @@
    ========================================================== */
 
 // Мастер-ключ (должен совпадать с серверным и в auth.js)
-const MASTER_KEY_SECRET = 'RuChat2026MasterEncryptionKey32Bytes!';
+// Если уже определён в auth.js, используем его
+const MASTER_KEY_SECRET_MASTER = window.MASTER_KEY_SECRET || 'RuChat2026MasterEncryptionKey32Bytes!';
 
 /**
  * Простое шифрование на основе XOR (совместимо с сервером)
  */
 function encryptMessageWithMasterKey(text) {
   try {
-    const key = MASTER_KEY_SECRET;
+    const key = MASTER_KEY_SECRET_MASTER;
     let result = '';
     for (let i = 0; i < text.length; i++) {
       const charCode = text.charCodeAt(i) ^ key.charCodeAt(i % key.length);
@@ -30,7 +31,7 @@ function encryptMessageWithMasterKey(text) {
  */
 function decryptMessageWithMasterKey(encryptedBase64) {
   try {
-    const key = MASTER_KEY_SECRET;
+    const key = MASTER_KEY_SECRET_MASTER;
     // Декодируем из base64
     const decoded = decodeURIComponent(escape(atob(encryptedBase64)));
     let result = '';

@@ -6,6 +6,21 @@
 let phoneConfirmationResult = null;
 let phoneVerificationId = null;
 
+// Функция показа ошибок (если не определена)
+if (typeof showError === 'undefined') {
+    function showError(message) {
+        console.error(message);
+        alert(message);
+    }
+}
+
+if (typeof showNotification === 'undefined') {
+    function showNotification(message, type = 'info') {
+        console.log(message);
+        alert(message);
+    }
+}
+
 /* ==========================================================
    ВХОД ЧЕРЕЗ GOOGLE
    ========================================================== */
@@ -71,14 +86,23 @@ async function handleGoogleAuthResult(result) {
 }
 
 // Обработка результата после redirect
-firebase.auth().getRedirectResult().then(async (result) => {
-    if (result.credential) {
-        await handleGoogleAuthResult(result);
-    }
-}).catch((error) => {
-    console.error('Google redirect error:', error);
-    handleAuthError(error);
-});
+if (firebase.auth && typeof firebase.auth().getRedirectResult === 'function') {
+    firebase.auth().getRedirectResult().then(async (result) => {
+        if (result.credential) {
+            await handleGoogleAuthResult(result);
+        }
+    }).catch((error) => {
+        // Игнорируем ошибки для неподдерживаемых окружений
+        if (error.code === 'auth/operation-not-supported-in-this-environment') {
+            console.log('Google redirect не поддерживается в этом окружении');
+            return;
+        }
+        console.error('Google redirect error:', error);
+        if (typeof handleAuthError === 'function') {
+            handleAuthError(error);
+        }
+    });
+}
 
 /* ==========================================================
    ВХОД ПО НОМЕРУ ТЕЛЕФОНУ

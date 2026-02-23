@@ -2,6 +2,14 @@
    RUCHAT - ДОПОЛНИТЕЛЬНЫЕ ФУНКЦИИ (CONFEТКА)
    ========================================================== */
 
+// Глобальные переменные (если ещё не объявлены)
+if (typeof window.editingMessageId === 'undefined') {
+    window.editingMessageId = null;
+}
+if (typeof window.editingOriginalText === 'undefined') {
+    window.editingOriginalText = '';
+}
+
 /* ==========================================================
    1. УДАЛЕНИЕ СООБЩЕНИЙ
    ========================================================== */
@@ -123,8 +131,8 @@ function showMessageActions(messageId, event) {
    2. РЕДАКТИРОВАНИЕ СООБЩЕНИЙ
    ========================================================== */
 
-let editingMessageId = null;
-let editingOriginalText = '';
+// Используем глобальные переменные
+// editingMessageId и editingOriginalText объявлены выше
 
 function editMessage(messageId) {
     const messageEl = document.querySelector(`[data-message-id="${messageId}"]`);
