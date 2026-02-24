@@ -101,6 +101,9 @@ async function startAudioCall() {
             });
             console.log('Микрофон получен:', localStream);
             console.log('Треки:', localStream.getTracks());
+            
+            // Включаем индикатор записи
+            updateMicIndicator(true);
         } catch (mediaError) {
             console.error('Ошибка доступа к микрофону:', mediaError);
             let errorMsg = 'Не удалось получить доступ к микрофону. ';
@@ -664,16 +667,16 @@ function startCallTimer() {
 // Переключить микрофон
 function toggleMute() {
     if (!localStream) return;
-    
+
     isMuted = !isMuted;
     const audioTrack = localStream.getAudioTracks()[0];
-    
+
     if (audioTrack) {
         audioTrack.enabled = !isMuted;
     }
-    
+
     const muteBtn = document.getElementById('muteBtn');
-    
+
     if (isMuted) {
         muteBtn.classList.add('active');
         muteBtn.innerHTML = `
@@ -685,6 +688,7 @@ function toggleMute() {
                 <line x1="8" y1="23" x2="16" y2="23"></line>
             </svg>
         `;
+        updateMicIndicator(false);
         showNotification('Микрофон', 'Микрофон выключен', 'info');
     } else {
         muteBtn.classList.remove('active');
@@ -696,7 +700,24 @@ function toggleMute() {
                 <line x1="8" y1="23" x2="16" y2="23"></line>
             </svg>
         `;
+        updateMicIndicator(true);
         showNotification('Микрофон', 'Микрофон включен', 'info');
+    }
+}
+
+// Обновить индикатор микрофона
+function updateMicIndicator(isActive) {
+    const muteBtn = document.getElementById('muteBtn');
+    if (!muteBtn) return;
+    
+    if (isActive) {
+        // Зелёная пульсация когда микрофон активен
+        muteBtn.style.boxShadow = '0 0 0 0 rgba(34, 197, 94, 0.7)';
+        muteBtn.style.animation = 'pulse-green 2s infinite';
+    } else {
+        // Красный когда выключен
+        muteBtn.style.boxShadow = '0 0 0 0 rgba(239, 68, 68, 0.7)';
+        muteBtn.style.animation = 'pulse-red 2s infinite';
     }
 }
 
@@ -738,8 +759,14 @@ async function populateAudioDevices() {
     const select = document.getElementById('audioOutputSelect');
     if (!select) return;
     
+    select.innerHTML = '<option>Загрузка...</option>';
+    
     try {
-        // Запросим разрешение на использование устройств
+        // Сначала запросим доступ к медиа - это нужно для получения списка устройств
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop()); // Сразу останавливаем
+        
+        // Теперь получаем список устройств
         const devices = await navigator.mediaDevices.enumerateDevices();
         const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
         
@@ -750,26 +777,35 @@ async function populateAudioDevices() {
             option.textContent = 'Устройство по умолчанию';
             option.value = 'default';
             select.appendChild(option);
+            console.log('Нет аудиоустройств вывода, используем по умолчанию');
             return;
         }
         
+        console.log('Найдено аудиоустройств:', audioOutputs.length);
+        
         audioOutputs.forEach((device, index) => {
             const option = document.createElement('option');
-            option.textContent = device.label || `Аудиоустройство ${index + 1}`;
+            const label = device.label || `Аудиоустройство ${index + 1}`;
+            console.log('Устройство:', label, device.deviceId);
+            option.textContent = label;
             option.value = device.deviceId;
             select.appendChild(option);
         });
         
         // Выберем текущее устройство
         if (remoteAudioEl && remoteAudioEl.setSinkId) {
-            select.value = remoteAudioEl.sinkId || 'default';
+            const currentSink = remoteAudioEl.sinkId || 'default';
+            select.value = currentSink;
+            console.log('Текущее устройство:', currentSink);
         }
     } catch (error) {
         console.error('Ошибка получения устройств:', error);
+        select.innerHTML = '';
         const option = document.createElement('option');
-        option.textContent = 'Устройство по умолчанию';
+        option.textContent = 'Разрешите доступ к микрофону';
         option.value = 'default';
         select.appendChild(option);
+        showError('Нужен доступ к микрофону для выбора устройств');
     }
 }
 
