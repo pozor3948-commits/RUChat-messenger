@@ -62,7 +62,18 @@ const rtcConfiguration = {
             urls: 'turn:openrelay.metered.ca:443',
             username: 'openrelayproject',
             credential: 'openrelayproject'
-        }
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        // Ваш ngrok TURN сервер (замените на свой)
+        // {
+        //     urls: 'turn:0.tcp.ngrok.io:12345',
+        //     username: 'test',
+        //     credential: 'test'
+        // }
     ]
 };
 
