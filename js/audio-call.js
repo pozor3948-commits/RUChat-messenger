@@ -56,6 +56,12 @@ const rtcConfiguration = {
 
 // Инициировать аудиозвонок
 async function startAudioCall() {
+    console.log('=== НАЧАЛО ЗВОНКА ===');
+    console.log('isGroupChat:', isGroupChat);
+    console.log('currentChatId:', currentChatId);
+    console.log('currentChatPartner:', currentChatPartner);
+    console.log('username:', username);
+    
     if (isGroupChat) {
         showNotification('Ошибка', 'Групповые звонки пока не поддерживаются', 'warning');
         return;
@@ -64,13 +70,13 @@ async function startAudioCall() {
         showNotification('Ошибка', 'Выберите контакт для звонка', 'error');
         return;
     }
-    
+
     // Проверка поддержки WebRTC
     if (!window.RTCPeerConnection) {
         showError('WebRTC не поддерживается в этом браузере');
         return;
     }
-    
+
     // Проверка поддержки getUserMedia
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         showError('Ваш браузер не поддерживает аудиозвонки');
@@ -84,6 +90,7 @@ async function startAudioCall() {
 
         // Получаем доступ к микрофону
         try {
+            console.log('Запрос доступа к микрофону...');
             localStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     echoCancellation: true,
@@ -92,6 +99,8 @@ async function startAudioCall() {
                 },
                 video: false
             });
+            console.log('Микрофон получен:', localStream);
+            console.log('Треки:', localStream.getTracks());
         } catch (mediaError) {
             console.error('Ошибка доступа к микрофону:', mediaError);
             let errorMsg = 'Не удалось получить доступ к микрофону. ';
