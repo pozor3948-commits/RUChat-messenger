@@ -107,6 +107,9 @@ async function startAudioCall() {
         const existingCallSnap = await db.ref(`calls/${currentChatId}`).once('value');
         const existingCallData = existingCallSnap.val();
         
+        // Сбрасываем флаг answer
+        answerReceived = false;
+        
         if (existingCallData && existingCallData.status === 'calling' && existingCallData.from !== username) {
             // Собеседник уже звонит нам - принимаем звонок вместо создания нового
             console.log('Собеседник уже звонит, принимаем вместо создания нового');
@@ -323,6 +326,8 @@ function hideCallUI() {
 }
 
 // Слушать ответ на звонок
+let answerReceived = false; // Флаг что answer уже получен
+
 function listenForCallAnswer() {
     if (!currentChatId) return;
     
@@ -334,7 +339,14 @@ function listenForCallAnswer() {
 
         // Обработка ответа (answer) - только если мы инициатор звонка
         if (callData.answer && callData.status === 'connected') {
+            // Предотвращаем повторную обработку
+            if (answerReceived) {
+                console.log('Answer уже получен, пропускаем');
+                return;
+            }
+            
             console.log('Получен answer от собеседника');
+            answerReceived = true;
             
             if (peerConnection) {
                 try {
@@ -622,6 +634,9 @@ async function endCall() {
         console.log('Звонок уже завершен');
         return;
     }
+    
+    // Сбрасываем флаг answer
+    answerReceived = false;
     
     try {
         // Останавливаем таймер
