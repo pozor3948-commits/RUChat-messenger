@@ -32,8 +32,15 @@ function ensureRemoteAudioEl() {
         remoteAudioEl.playsInline = true;
         remoteAudioEl.setAttribute('playsinline', 'true');
         remoteAudioEl.setAttribute('autoplay', 'true');
+        // Устанавливаем максимальную громкость
         remoteAudioEl.volume = 1.0;
+        remoteAudioEl.muted = false;
+        // Важно для Safari
+        remoteAudioEl.setAttribute('x-webkit-airplay', 'allow');
         document.body.appendChild(remoteAudioEl);
+        console.log('Создан remote audio элемент');
+    } else {
+        console.log('Remote audio элемент уже существует');
     }
 }
 
@@ -120,11 +127,27 @@ async function startAudioCall() {
 
         // Обработка удаленного потока
         peerConnection.ontrack = (event) => {
+            console.log('Получен удаленный трек (outgoing):', event);
+            if (!event.streams || !event.streams[0]) {
+                console.warn('Нет потоков в событии ontrack (outgoing)');
+                return;
+            }
+            
             ensureRemoteAudioEl();
             remoteAudioEl.srcObject = event.streams[0];
             remoteAudioEl.volume = 1.0;
             remoteAudioEl.muted = false;
-            remoteAudioEl.play().catch(() => {});
+            
+            remoteAudioEl.play().then(() => {
+                console.log('Воспроизведение удаленного аудио началось (outgoing)');
+            }).catch(e => {
+                console.error('Ошибка воспроизведения (outgoing):', e);
+                setTimeout(() => {
+                    remoteAudioEl.play().catch(e2 => {
+                        console.error('Повторная попыка (outgoing):', e2);
+                    });
+                }, 500);
+            });
         };
 
         peerConnection.onconnectionstatechange = () => {
@@ -370,22 +393,46 @@ async function acceptIncomingCall(callData) {
 
         // Обработка удаленного потока
         peerConnection.ontrack = (event) => {
-            console.log('Получен удаленный трек');
+            console.log('Получен удаленный трек:', event);
+            if (!event.streams || !event.streams[0]) {
+                console.warn('Нет потоков в событии ontrack');
+                return;
+            }
+            
             ensureRemoteAudioEl();
+            
+            // Устанавливаем источник аудио
             remoteAudioEl.srcObject = event.streams[0];
             remoteAudioEl.volume = 1.0;
             remoteAudioEl.muted = false;
-            remoteAudioEl.play().catch(e => console.warn('Ошибка воспроизведения:', e));
+            
+            // Пытаемся воспроизвести
+            remoteAudioEl.play().then(() => {
+                console.log('Воспроизведение удаленного аудио началось');
+            }).catch(e => {
+                console.error('Ошибка воспроизведения удаленного аудио:', e);
+                // Пытаемся еще раз с задержкой
+                setTimeout(() => {
+                    remoteAudioEl.play().catch(e2 => {
+                        console.error('Повторная попыка воспроизведения не удалась:', e2);
+                    });
+                }, 500);
+            });
         };
 
         // Обработка состояния соединения
         peerConnection.onconnectionstatechange = () => {
-            console.log('Состояние соединения:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'disconnected') {
+            const state = peerConnection.connectionState;
+            console.log('Состояние соединения:', state);
+            
+            if (state === 'failed' || state === 'disconnected') {
                 showNotification('Звонок', 'Соединение разорвано', 'warning');
                 endCall();
-            } else if (peerConnection.connectionState === 'connected') {
+            } else if (state === 'connected') {
                 document.getElementById('callStatus').textContent = 'Соединено';
+                console.log('Соединение установлено!');
+            } else if (state === 'connecting') {
+                document.getElementById('callStatus').textContent = 'Соединение...';
             }
         };
 
@@ -529,7 +576,9 @@ async function endCall() {
 
         // Очищаем аудио элемент
         if (remoteAudioEl) {
+            console.log('Очищаем remote audio элемент');
             remoteAudioEl.srcObject = null;
+            remoteAudioEl.pause();
             remoteAudioEl.remove();
             remoteAudioEl = null;
         }
