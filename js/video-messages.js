@@ -85,16 +85,31 @@ function pickSupportedVideoMimeType() {
 
 async function checkCameraPermissions() {
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            console.warn('getUserMedia не поддерживается в этом браузере');
+            return false;
+        }
+        
+        const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: 'user' },
-            audio: true 
+            audio: true
         });
-        
+
         stream.getTracks().forEach(track => track.stop());
-        
+
         return true;
     } catch (error) {
-        console.warn('Нет доступа к камере:', error);
+        console.warn('Нет доступа к камере:', error.name, error.message);
+        
+        // Показываем пользователю понятное сообщение об ошибке
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            console.warn('Пользователь запретил доступ к камере');
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+            console.warn('Камера не найдена');
+        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+            console.warn('Камера занята другим приложением');
+        }
+        
         return false;
     }
 }
@@ -112,9 +127,9 @@ async function startVideoRecording() {
     }
     try {
         document.getElementById('recordTypeMenu').classList.remove('active');
-        
+
         const constraints = {
-            video: { 
+            video: {
                 facingMode: currentCamera,
                 width: { ideal: videoConfig.quality.width },
                 height: { ideal: videoConfig.quality.height },
@@ -126,36 +141,58 @@ async function startVideoRecording() {
                 sampleRate: 44100
             }
         };
-        
-        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
-        
+
+        try {
+            videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (mediaError) {
+            console.error('Ошибка доступа к медиа:', mediaError);
+            let errorMsg = 'Не удалось получить доступ к камере/микрофону. ';
+            if (mediaError.name === 'NotAllowedError') {
+                errorMsg += 'Разрешите доступ в настройках браузера.';
+            } else if (mediaError.name === 'NotFoundError') {
+                errorMsg += 'Камера не найдена.';
+            } else if (mediaError.name === 'NotReadableError') {
+                errorMsg += 'Камера занята другим приложением.';
+            } else {
+                errorMsg += mediaError.message;
+            }
+            showError(errorMsg);
+            document.getElementById('videoRecordOverlay').style.display = 'none';
+            return;
+        }
+
         const videoPreview = document.getElementById('videoPreview');
+        if (!videoPreview) {
+            showError('Ошибка интерфейса: элемент предпросмотра не найден');
+            return;
+        }
         videoPreview.srcObject = videoStream;
-        videoPreview.play();
-        
+        videoPreview.play().catch(e => console.warn('Не удалось запустить preview:', e));
+
         document.getElementById('videoRecordOverlay').style.display = 'flex';
-        
+
         const mimeType = pickSupportedVideoMimeType();
         const options = {
             audioBitsPerSecond: 32000,
             videoBitsPerSecond: videoConfig.videoBitsPerSecond || 450000
         };
         if (mimeType) options.mimeType = mimeType;
-        
+
         try {
             videoRecorder = new MediaRecorder(videoStream, options);
         } catch (e) {
+            console.warn('Ошибка создания MediaRecorder, использую настройки по умолчанию:', e);
             videoRecorder = new MediaRecorder(videoStream);
         }
-        
+
         videoChunks = [];
-        
+
         videoRecorder.ondataavailable = (event) => {
             if (event.data.size > 0) {
                 videoChunks.push(event.data);
             }
         };
-        
+
         videoRecorder.onstop = async () => {
             if (videoRecordCancelled) {
                 cleanupVideoRecording();

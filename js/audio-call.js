@@ -52,24 +52,61 @@ async function startAudioCall() {
         showNotification('Ошибка', 'Выберите контакт для звонка', 'error');
         return;
     }
+    
+    // Проверка поддержки WebRTC
+    if (!window.RTCPeerConnection) {
+        showError('WebRTC не поддерживается в этом браузере');
+        return;
+    }
+    
+    // Проверка поддержки getUserMedia
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showError('Ваш браузер не поддерживает аудиозвонки');
+        return;
+    }
 
     try {
         // Показываем UI звонка
         showCallUI(currentChatPartner, 'outgoing');
         ensureRemoteAudioEl();
-        
+
         // Получаем доступ к микрофону
-        localStream = await navigator.mediaDevices.getUserMedia({ 
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-            },
-            video: false
-        });
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                },
+                video: false
+            });
+        } catch (mediaError) {
+            console.error('Ошибка доступа к микрофону:', mediaError);
+            let errorMsg = 'Не удалось получить доступ к микрофону. ';
+            if (mediaError.name === 'NotAllowedError') {
+                errorMsg += 'Разрешите доступ в настройках браузера.';
+            } else if (mediaError.name === 'NotFoundError') {
+                errorMsg += 'Микрофон не найден.';
+            } else {
+                errorMsg += mediaError.message;
+            }
+            showError(errorMsg);
+            hideCallUI();
+            return;
+        }
 
         // Создаем PeerConnection
-        peerConnection = new RTCPeerConnection(rtcConfiguration);
+        try {
+            peerConnection = new RTCPeerConnection(rtcConfiguration);
+        } catch (pcError) {
+            console.error('Ошибка создания PeerConnection:', pcError);
+            showError('Не удалось создать соединение: ' + pcError.message);
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            hideCallUI();
+            return;
+        }
 
         // Добавляем локальный поток
         localStream.getTracks().forEach(track => {
@@ -84,11 +121,13 @@ async function startAudioCall() {
             remoteAudioEl.muted = false;
             remoteAudioEl.play().catch(() => {});
         };
-        
+
         peerConnection.onconnectionstatechange = () => {
             if (peerConnection.connectionState === 'failed') {
                 showNotification('Звонок', 'Соединение не удалось', 'error');
                 endCall();
+            } else if (peerConnection.connectionState === 'disconnected') {
+                showNotification('Звонок', 'Соединение разорвано', 'warning');
             }
         };
 
@@ -99,13 +138,21 @@ async function startAudioCall() {
                 db.ref(`calls/${currentChatId}/candidates`).push({
                     candidate: event.candidate,
                     from: username
-                });
+                }).catch(e => console.warn('Не удалось отправить ICE candidate:', e));
             }
         };
 
         // Создаем offer
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
+        let offer;
+        try {
+            offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+        } catch (sdpError) {
+            console.error('Ошибка создания SDP:', sdpError);
+            showError('Ошибка при создании звонка: ' + sdpError.message);
+            endCall();
+            return;
+        }
 
         // Сохраняем информацию о звонке в Firebase
         const callData = {
