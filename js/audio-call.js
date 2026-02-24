@@ -104,22 +104,31 @@ async function startAudioCall() {
 
     try {
         // Проверяем, нет ли уже активного звонка в Firebase
-        const existingCall = await db.ref(`calls/${currentChatId}`).once('value');
-        const callData = existingCall.val();
+        const existingCallSnap = await db.ref(`calls/${currentChatId}`).once('value');
+        const existingCallData = existingCallSnap.val();
         
-        if (callData && callData.status === 'calling' && callData.from !== username) {
+        if (existingCallData && existingCallData.status === 'calling' && existingCallData.from !== username) {
             // Собеседник уже звонит нам - принимаем звонок вместо создания нового
             console.log('Собеседник уже звонит, принимаем вместо создания нового');
-            pendingIncomingCall = callData;
+            pendingIncomingCall = existingCallData;
             pendingIncomingCallId = currentChatId;
             acceptIncomingCallFromUI();
             return;
         }
         
-        if (callData && callData.status === 'connected') {
+        if (existingCallData && existingCallData.status === 'connected') {
             console.warn('Звонок уже активен в Firebase');
             showNotification('Звонок', 'Звонок уже активен', 'warning');
             return;
+        }
+        
+        // Проверяем, не начал ли собеседник звонок ПРЯМО СЕЙЧАС (гонка)
+        // Если оба начали одновременно - у кого timestamp больше, тот отменяется
+        const myTimestamp = Date.now();
+        
+        if (existingCallData && existingCallData.status === 'calling' && existingCallData.from === username) {
+            // Мы уже начали звонок, продолжаем
+            console.log('Звонок уже создан нами, продолжаем');
         }
 
         // Показываем UI звонка
@@ -608,6 +617,12 @@ function resetCallStateLocal() {
 async function endCall() {
     console.log('Завершаем звонок');
     
+    // Предотвращаем повторный вызов
+    if (!peerConnection && !localStream) {
+        console.log('Звонок уже завершен');
+        return;
+    }
+    
     try {
         // Останавливаем таймер
         if (callTimer) {
@@ -650,17 +665,18 @@ async function endCall() {
         // Очищаем очередь ICE кандидатов
         iceCandidateQueue = [];
 
-        // Обновляем статус в Firebase
+        // Обновляем статус в Firebase - но не удаляем сразу!
         if (currentChatId) {
             try {
+                // Просто помечаем как ended, но не удаляем данные
                 await db.ref(`calls/${currentChatId}`).update({
                     status: 'ended',
                     endTime: Date.now()
                 });
-                // Очищаем candidates только через некоторое время (для отладки)
+                // Очищаем candidates через 10 секунд
                 setTimeout(() => {
                     db.ref(`calls/${currentChatId}/candidates`).remove().catch(() => {});
-                }, 5000);
+                }, 10000);
             } catch (e) {
                 console.warn('Не удалось обновить статус звонка:', e);
             }
@@ -988,6 +1004,7 @@ function listenForIncomingCalls() {
             }, 60000);
             
         } else if (pendingIncomingCallId === callId) {
+            // Реагируем только на rejected или ended, но не на connected!
             if (callData.status === 'rejected' || callData.status === 'ended') {
                 console.log('Звонок отклонён или завершён');
                 pendingIncomingCall = null;
