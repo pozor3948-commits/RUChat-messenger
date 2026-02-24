@@ -663,7 +663,6 @@ function toggleSpeaker() {
 }
 
 // Звук вызова
-let callSoundInterval = null;
 
 function ensureLoopAudio(existing, src, volume) {
     if (existing) return existing;
@@ -833,11 +832,13 @@ function rejectIncomingCallFromUI() {
 // Инициализация при загрузке
 if (typeof window !== 'undefined') {
     window.startAudioCall = startAudioCall;
+    window.startVoiceCall = startAudioCall; // Алиас для совместимости с HTML
     window.endCall = endCall;
     window.toggleMute = toggleMute;
     window.toggleSpeaker = toggleSpeaker;
     window.acceptIncomingCallFromUI = acceptIncomingCallFromUI;
     window.rejectIncomingCallFromUI = rejectIncomingCallFromUI;
+    window.listenForIncomingCalls = listenForIncomingCalls; // Для вызова из auth.js
 }
 
 console.log('Audio call module loaded');
