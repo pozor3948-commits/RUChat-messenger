@@ -62,6 +62,13 @@ async function startAudioCall() {
     console.log('currentChatPartner:', currentChatPartner);
     console.log('username:', username);
     
+    // Проверка: не идёт ли уже звонок
+    if (peerConnection) {
+        console.warn('Звонок уже идёт!');
+        showNotification('Звонок', 'Звонок уже активен', 'warning');
+        return;
+    }
+    
     if (isGroupChat) {
         showNotification('Ошибка', 'Групповые звонки пока не поддерживаются', 'warning');
         return;
@@ -84,6 +91,25 @@ async function startAudioCall() {
     }
 
     try {
+        // Проверяем, нет ли уже активного звонка в Firebase
+        const existingCall = await db.ref(`calls/${currentChatId}`).once('value');
+        const callData = existingCall.val();
+        
+        if (callData && callData.status === 'calling' && callData.from !== username) {
+            // Собеседник уже звонит нам - принимаем звонок вместо создания нового
+            console.log('Собеседник уже звонит, принимаем вместо создания нового');
+            pendingIncomingCall = callData;
+            pendingIncomingCallId = currentChatId;
+            acceptIncomingCallFromUI();
+            return;
+        }
+        
+        if (callData && callData.status === 'connected') {
+            console.warn('Звонок уже активен в Firebase');
+            showNotification('Звонок', 'Звонок уже активен', 'warning');
+            return;
+        }
+
         // Показываем UI звонка
         showCallUI(currentChatPartner, 'outgoing');
         ensureRemoteAudioEl();
@@ -285,8 +311,10 @@ function listenForCallAnswer() {
 
         if (!callData) return;
 
-        // Обработка ответа (answer)
+        // Обработка ответа (answer) - только если мы инициатор звонка
         if (callData.answer && callData.status === 'connected') {
+            console.log('Получен answer от собеседника');
+            
             if (peerConnection) {
                 try {
                     const current = peerConnection.remoteDescription;
@@ -298,6 +326,8 @@ function listenForCallAnswer() {
                         
                         // Обрабатываем очередь ICE кандидатов
                         await processIceCandidateQueue();
+                    } else {
+                        console.log('Remote description уже установлен, пропускаем');
                     }
                 } catch (error) {
                     console.error('Ошибка установки remote answer:', error);
