@@ -50,7 +50,19 @@ const rtcConfiguration = {
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' }
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        // Бесплатные TURN серверы для тестирования
+        {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        }
     ]
 };
 
@@ -221,7 +233,7 @@ async function startAudioCall() {
         }
 
         // Сохраняем информацию о звонке в Firebase
-        const callData = {
+        const newCallData = {
             from: username,
             to: currentChatPartner,
             offer: {
@@ -232,14 +244,14 @@ async function startAudioCall() {
             timestamp: Date.now()
         };
 
-        await db.ref(`calls/${currentChatId}`).set(callData);
-        
+        await db.ref(`calls/${currentChatId}`).set(newCallData);
+
         // Слушаем ответ
         listenForCallAnswer();
-        
+
         // Воспроизводим гудки
         playCallSound();
-        
+
     } catch (error) {
         console.error('Ошибка при инициации звонка:', error);
         
