@@ -476,6 +476,12 @@
                     <line x1="12" y1="18" x2="12.01" y2="18"></line>
                 </svg>
             </button>
+            <button class="call-control-btn" onclick="testAudio()" title="Тест звука">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                </svg>
+            </button>
         </div>
         <div class="call-device-selector" id="callDeviceSelector" style="display:none;">
             <select id="audioOutputSelect" onchange="changeAudioOutput(this.value)"></select>
@@ -561,7 +567,7 @@
 <script src="js/groups.js?v=20260219d"></script>
 <script src="js/mobile.js?v=20260219d"></script>
 <script src="js/video-messages.js?v=20260224a"></script>
-<script src="js/audio-call.js?v=20260224q"></script>
+<script src="js/audio-call.js?v=20260224r"></script>
 <script src="js/settings.js?v=20260219d"></script>
 
 <script>
@@ -570,7 +576,7 @@
         return window.location.protocol === 'file:';
     };
 
-    console.log('Build 2026-02-24q (логирование endCall)');
+    console.log('Build 2026-02-24r (тест аудио)');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {

@@ -927,6 +927,49 @@ async function changeAudioOutput(deviceId) {
     }
 }
 
+// Тест аудио
+function testAudio() {
+    console.log('=== ТЕСТ АУДИО ===');
+    
+    if (!remoteAudioEl) {
+        console.log('remoteAudioEl не создан');
+        showError('Аудио элемент не создан');
+        return;
+    }
+    
+    console.log('remoteAudioEl:', remoteAudioEl);
+    console.log('srcObject:', remoteAudioEl.srcObject);
+    console.log('volume:', remoteAudioEl.volume);
+    console.log('muted:', remoteAudioEl.muted);
+    console.log('paused:', remoteAudioEl.paused);
+    
+    if (remoteAudioEl.srcObject) {
+        const tracks = remoteAudioEl.srcObject.getTracks();
+        console.log('Треки:', tracks);
+        tracks.forEach((track, i) => {
+            console.log(`Трек ${i}:`, {
+                kind: track.kind,
+                enabled: track.enabled,
+                muted: track.muted,
+                readyState: track.readyState
+            });
+        });
+        
+        // Пытаемся воспроизвести
+        remoteAudioEl.play().then(() => {
+            console.log('✅ Воспроизведение началось');
+            showNotification('Тест', 'Звук должен идти!', 'success');
+        }).catch(e => {
+            console.error('❌ Ошибка воспроизведения:', e);
+            showError('Ошибка: ' + e.message);
+        });
+    } else {
+        showError('Нет аудио потока (srcObject пуст)');
+    }
+    
+    console.log('=== КОНЕЦ ТЕСТА ===');
+}
+
 // Звук вызова
 
 function ensureLoopAudio(existing, src, volume) {
@@ -1104,6 +1147,7 @@ if (typeof window !== 'undefined') {
     window.toggleSpeaker = toggleSpeaker;
     window.toggleDeviceSelector = toggleDeviceSelector;
     window.changeAudioOutput = changeAudioOutput;
+    window.testAudio = testAudio;
     window.acceptIncomingCallFromUI = acceptIncomingCallFromUI;
     window.rejectIncomingCallFromUI = rejectIncomingCallFromUI;
     window.listenForIncomingCalls = listenForIncomingCalls;
