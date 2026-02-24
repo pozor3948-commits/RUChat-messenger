@@ -52,7 +52,7 @@ const rtcConfiguration = {
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
-        // Бесплатные TURN серверы для тестирования
+        // Бесплатные TURN серверы (публичные)
         {
             urls: 'turn:openrelay.metered.ca:80',
             username: 'openrelayproject',
@@ -68,12 +68,16 @@ const rtcConfiguration = {
             username: 'openrelayproject',
             credential: 'openrelayproject'
         },
-        // Ваш ngrok TURN сервер (замените на свой)
-        // {
-        //     urls: 'turn:0.tcp.ngrok.io:12345',
-        //     username: 'test',
-        //     credential: 'test'
-        // }
+        {
+            urls: 'turn:openrelay.metered.ca:3478',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:3478?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        }
     ]
 };
 
