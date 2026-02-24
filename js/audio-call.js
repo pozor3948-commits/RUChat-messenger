@@ -651,7 +651,8 @@ function resetCallStateLocal() {
 
 // Завершить звонок
 async function endCall() {
-    console.log('Завершаем звонок');
+    console.log('=== endCall ВЫЗВАН ===');
+    console.trace('Стек вызова endCall:');
     
     // Предотвращаем повторный вызов
     if (!peerConnection && !localStream) {
