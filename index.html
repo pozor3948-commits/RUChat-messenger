@@ -470,6 +470,15 @@
                     <path d="M16 8a4 4 0 0 1 0 8"></path>
                 </svg>
             </button>
+            <button class="call-control-btn" id="deviceBtn" onclick="toggleDeviceSelector()" title="Устройство вывода">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="call-device-selector" id="callDeviceSelector" style="display:none;">
+            <select id="audioOutputSelect" onchange="changeAudioOutput(this.value)"></select>
         </div>
         <div class="call-incoming-controls" id="callIncomingControls">
             <button class="call-action-btn accept" onclick="acceptIncomingCallFromUI()">Принять</button>
@@ -552,7 +561,7 @@
 <script src="js/groups.js?v=20260219d"></script>
 <script src="js/mobile.js?v=20260219d"></script>
 <script src="js/video-messages.js?v=20260224a"></script>
-<script src="js/audio-call.js?v=20260224f"></script>
+<script src="js/audio-call.js?v=20260224g"></script>
 <script src="js/settings.js?v=20260219d"></script>
 
 <script>
@@ -561,7 +570,7 @@
         return window.location.protocol === 'file:';
     };
 
-    console.log('Build 2026-02-24f (добавлены логи)');
+    console.log('Build 2026-02-24g (выбор устройства)');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {

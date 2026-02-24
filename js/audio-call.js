@@ -703,9 +703,9 @@ function toggleMute() {
 // Переключить динамик
 function toggleSpeaker() {
     isSpeakerOn = !isSpeakerOn;
-    
+
     const speakerBtn = document.getElementById('speakerBtn');
-    
+
     if (isSpeakerOn) {
         speakerBtn.classList.remove('active');
         showNotification('Динамик', 'Динамик включен', 'info');
@@ -713,10 +713,83 @@ function toggleSpeaker() {
         speakerBtn.classList.add('active');
         showNotification('Динамик', 'Динамик выключен', 'info');
     }
-    
+
     // Изменяем громкость удаленного аудио
     if (remoteAudioEl) {
         remoteAudioEl.volume = isSpeakerOn ? 1.0 : 0.3;
+    }
+}
+
+// Показать/скрыть выбор устройства
+function toggleDeviceSelector() {
+    const selector = document.getElementById('callDeviceSelector');
+    if (!selector) return;
+    
+    if (selector.style.display === 'none') {
+        selector.style.display = 'block';
+        populateAudioDevices();
+    } else {
+        selector.style.display = 'none';
+    }
+}
+
+// Получить список аудио устройств
+async function populateAudioDevices() {
+    const select = document.getElementById('audioOutputSelect');
+    if (!select) return;
+    
+    try {
+        // Запросим разрешение на использование устройств
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+        
+        select.innerHTML = '';
+        
+        if (audioOutputs.length === 0) {
+            const option = document.createElement('option');
+            option.textContent = 'Устройство по умолчанию';
+            option.value = 'default';
+            select.appendChild(option);
+            return;
+        }
+        
+        audioOutputs.forEach((device, index) => {
+            const option = document.createElement('option');
+            option.textContent = device.label || `Аудиоустройство ${index + 1}`;
+            option.value = device.deviceId;
+            select.appendChild(option);
+        });
+        
+        // Выберем текущее устройство
+        if (remoteAudioEl && remoteAudioEl.setSinkId) {
+            select.value = remoteAudioEl.sinkId || 'default';
+        }
+    } catch (error) {
+        console.error('Ошибка получения устройств:', error);
+        const option = document.createElement('option');
+        option.textContent = 'Устройство по умолчанию';
+        option.value = 'default';
+        select.appendChild(option);
+    }
+}
+
+// Изменить устройство вывода
+async function changeAudioOutput(deviceId) {
+    if (!remoteAudioEl) return;
+    
+    try {
+        if (deviceId === 'default' || !remoteAudioEl.setSinkId) {
+            // Устройство по умолчанию
+            remoteAudioEl.volume = 1.0;
+            showNotification('Аудио', 'Устройство по умолчанию', 'info');
+        } else {
+            // Переключаем на выбранное устройство
+            await remoteAudioEl.setSinkId(deviceId);
+            showNotification('Аудио', 'Устройство переключено', 'info');
+        }
+    } catch (error) {
+        console.error('Ошибка переключения устройства:', error);
+        showError('Не удалось переключить устройство');
     }
 }
 
@@ -890,13 +963,15 @@ function rejectIncomingCallFromUI() {
 // Инициализация при загрузке
 if (typeof window !== 'undefined') {
     window.startAudioCall = startAudioCall;
-    window.startVoiceCall = startAudioCall; // Алиас для совместимости с HTML
+    window.startVoiceCall = startAudioCall;
     window.endCall = endCall;
     window.toggleMute = toggleMute;
     window.toggleSpeaker = toggleSpeaker;
+    window.toggleDeviceSelector = toggleDeviceSelector;
+    window.changeAudioOutput = changeAudioOutput;
     window.acceptIncomingCallFromUI = acceptIncomingCallFromUI;
     window.rejectIncomingCallFromUI = rejectIncomingCallFromUI;
-    window.listenForIncomingCalls = listenForIncomingCalls; // Для вызова из auth.js
+    window.listenForIncomingCalls = listenForIncomingCalls;
 }
 
 console.log('Audio call module loaded');

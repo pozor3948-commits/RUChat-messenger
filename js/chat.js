@@ -697,6 +697,7 @@ function createFriendItem(fn) {
   fl.appendChild(item);
   db.ref("accounts/" + fn + "/avatar").on("value", s => {
     const av = document.getElementById(`avatar_${fn}`);
+    if (!av) return; // Элемент удалён
     const url = s.val();
     if (s.exists() && url && (typeof isValidMediaUrl !== 'function' || isValidMediaUrl(url))) {
       av.src = url;
