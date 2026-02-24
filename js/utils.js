@@ -9,12 +9,24 @@ let isMobile = window.innerWidth <= 768;
 let userStatuses = {};
 window._ruchatBootAt = window._ruchatBootAt || Date.now();
 
+// Кэш для fixMojibakeCp1251
+const mojibakeCache = new Map();
+
 function fixMojibakeCp1251(str) {
     if (!str) return str;
-    // Если текст уже нормальный (кириллица в Unicode), возвращаем как есть
-    if (/^[\u0400-\u04FF\s\p{P}\p{S}\p{N}\p{L}]*$/u.test(str) && str.length > 0) {
+    if (typeof str !== 'string') return str;
+    
+    // Проверяем кэш
+    if (mojibakeCache.has(str)) {
+        return mojibakeCache.get(str);
+    }
+    
+    // Быстрая проверка: если строка короткая и содержит только обычные символы, пропускаем
+    if (str.length < 100 && /^[\u0400-\u04FF\s\p{P}\p{S}\p{N}\p{L}]*$/u.test(str)) {
+        mojibakeCache.set(str, str);
         return str;
     }
+    
     const bytes = [];
     for (let i = 0; i < str.length; i++) {
         const c = str.charCodeAt(i);
@@ -36,19 +48,41 @@ function fixMojibakeCp1251(str) {
             bytes.push(c);
             continue;
         }
-        // Сохраняем оригинальный символ вместо замены на ?
+        // Сохраняем оригинальный символ
         bytes.push(c);
     }
+    
+    let result;
     try {
-        return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
+        result = new TextDecoder('utf-8').decode(new Uint8Array(bytes));
     } catch {
-        return str;
+        result = str;
     }
+    
+    // Кэшируем результат
+    mojibakeCache.set(str, result);
+    return result;
 }
+
+// Кэш для normalizeText
+const normalizeCache = new Map();
 
 function normalizeText(text) {
     if (typeof text !== 'string') return text === null || text === undefined ? '' : text;
     if (!text) return text;
+    
+    // Проверяем кэш
+    if (normalizeCache.has(text)) {
+        return normalizeCache.get(text);
+    }
+    
+    // Быстрая проверка для коротких строк без mojibake
+    if (text.length < 50 && /^[\u0400-\u04FF\s\p{P}\p{S}\p{N}\p{L}\n\t]*$/u.test(text)) {
+        const trimmed = text.trim();
+        normalizeCache.set(text, trimmed);
+        return trimmed;
+    }
+    
     const vowels = /[аеёиоуыэюя]/gi;
     const countVowels = (str) => (str.match(vowels) || []).length;
     const countRS = (str) => (str.match(/[РС]/g) || []).length;
@@ -57,18 +91,24 @@ function normalizeText(text) {
     const fixed = fixMojibakeCp1251(text);
     if (fixed && fixed !== text) {
         if (score(fixed) >= score(text) + 1 || countRS(fixed) < countRS(text)) {
-            return fixed;
+            const trimmed = fixed.trim();
+            normalizeCache.set(text, trimmed);
+            return trimmed;
         }
     }
 
     const fixedTwice = fixMojibakeCp1251(fixed);
     if (fixedTwice && fixedTwice !== text) {
         if (score(fixedTwice) >= score(text) + 1 || countRS(fixedTwice) < countRS(text)) {
-            return fixedTwice;
+            const trimmed = fixedTwice.trim();
+            normalizeCache.set(text, trimmed);
+            return trimmed;
         }
     }
 
-    return text;
+    const trimmed = text.trim();
+    normalizeCache.set(text, trimmed);
+    return trimmed;
 }
 
 function isValidMediaUrl(url) {
@@ -263,17 +303,51 @@ function hideLoading() {
     document.getElementById('loadingOverlay').style.display = 'none';
 }
 
-// Функция уведомлений через глобальную
-function showNotification(title, text, type = 'info') {
-    title = normalizeText(title);
-    text = normalizeText(text);
-    if (typeof window.showNotification === 'function') {
-        window.showNotification(title, text, type);
-    } else {
-        // Fallback для старых вызовов
-        notificationQueue.push({ title, text });
+// Функция уведомлений - внутренняя реализация
+function showNotificationInternal(title, text, type = 'info') {
+    // Не используем normalizeText для избежания рекурсии при загрузке
+    const safeTitle = title ? String(title).slice(0, 200) : '';
+    const safeText = text ? String(text).slice(0, 500) : '';
+    
+    const n = document.getElementById('notification');
+    if (!n) {
+        // Fallback если элемент уведомления не найден
+        notificationQueue.push({ title: safeTitle, text: safeText });
         if (!isNotificationShowing) showNextNotification();
+        return;
     }
+
+    document.getElementById('notificationTitle').textContent = safeTitle;
+    document.getElementById('notificationText').textContent = safeText;
+
+    // Устанавливаем тип уведомления
+    n.className = 'notification';
+    if (type === 'error') {
+        n.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.95), rgba(220,38,38,0.95))';
+        n.style.boxShadow = '0 15px 35px rgba(239,68,68,0.4), 0 5px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
+    } else if (type === 'success') {
+        n.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.95), rgba(74,222,128,0.95))';
+        n.style.boxShadow = '0 15px 35px rgba(34,197,94,0.4), 0 5px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
+    } else if (type === 'warning') {
+        n.style.background = 'linear-gradient(135deg, rgba(245,158,11,0.95), rgba(217,119,6,0.95))';
+        n.style.boxShadow = '0 15px 35px rgba(245,158,11,0.4), 0 5px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
+    }
+
+    n.style.display = 'flex';
+
+    // Автоматическое скрытие
+    setTimeout(() => {
+        n.style.display = 'none';
+        // Сбрасываем стили
+        n.style.background = '';
+        n.style.boxShadow = '';
+    }, 3000);
+}
+
+// Публичная функция уведомлений
+function showNotification(title, text, type = 'info') {
+    // Используем внутреннюю реализацию напрямую
+    showNotificationInternal(title, text, type);
 }
 
 function isSystemNotificationsEnabled() {
@@ -286,20 +360,20 @@ function isNotifyOnlyHidden() {
 
 async function requestSystemNotifications() {
     if (!('Notification' in window)) {
-        showError('Уведомления не поддерживаются в этом браузере');
+        showNotificationInternal('Уведомления', 'Не поддерживаются в этом браузере', 'warning');
         return 'unsupported';
     }
     try {
         const perm = await Notification.requestPermission();
         if (perm === 'granted') {
             localStorage.setItem('systemNotifications', 'true');
-            showNotification('Уведомления', 'Разрешение получено', 'success');
+            showNotificationInternal('Уведомления', 'Разрешение получено', 'success');
         } else {
-            showNotification('Уведомления', 'Разрешение не получено', 'warning');
+            showNotificationInternal('Уведомления', 'Разрешение не получено', 'warning');
         }
         return perm;
     } catch (e) {
-        showError('Не удалось запросить разрешение');
+        showNotificationInternal('Не удалось запросить разрешение', 'Ошибка', 'error');
         return 'error';
     }
 }
@@ -328,20 +402,18 @@ function maybeShowSystemNotification(title, body, options = {}) {
 window.requestSystemNotifications = requestSystemNotifications;
 window.maybeShowSystemNotification = maybeShowSystemNotification;
 
-// Функция ошибок через глобальную
+// Функция ошибок - внутренняя реализация
+function showErrorInternal(msg, retry) {
+    // Не используем normalizeText для избежания рекурсии
+    const safeMsg = msg ? String(msg).slice(0, 500) : 'Ошибка';
+    showNotificationInternal(safeMsg, retry ? 'Нажмите повторить' : '', 'error');
+    if (retry) window.retryAction = retry;
+}
+
+// Публичная функция ошибок
 function showError(msg, retry) {
-    msg = normalizeText(msg);
-    if (typeof window.showError === 'function') {
-        window.showError(msg, retry);
-    } else {
-        // Fallback для старых вызовов
-        const err = document.createElement('div');
-        err.className = 'error-message';
-        err.innerHTML = `<span>${msg}</span>${retry ? '<button class="error-retry" onclick="retryAction()">Повторить</button>' : ''}`;
-        document.body.appendChild(err);
-        if (retry) window.retryAction = retry;
-        setTimeout(() => { err.remove(); window.retryAction = null; }, 5000);
-    }
+    // Используем внутреннюю реализацию напрямую
+    showErrorInternal(msg, retry);
 }
 
 function showNextNotification() {

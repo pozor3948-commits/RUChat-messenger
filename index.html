@@ -539,7 +539,7 @@
 
 <!-- Скрипты -->
 <script src="js/firebase-config.js?v=20260219d"></script>
-<script src="js/utils.js?v=20260219d"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/utils.js?v=20260224a"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
 <script src="js/main.js?v=20260219d"></script>
 <script src="js/ui.js?v=20260219d"></script>
 <script src="js/sounds.js?v=20260219d"></script>
@@ -547,12 +547,12 @@
 <script src="js/status.js?v=20260219d"></script>
 <script src="js/chat.js?v=20260219d"></script>
 <script src="js/media.js?v=20260219d"></script>
-<script src="js/emoji.js?v=20260219d"></script>
+<script src="js/emoji.js?v=20260224a"></script>
 <script src="js/stickers.js?v=20260219d"></script>
 <script src="js/groups.js?v=20260219d"></script>
 <script src="js/mobile.js?v=20260219d"></script>
-<script src="js/video-messages.js?v=20260219d"></script>
-<script src="js/audio-call.js?v=20260219d"></script>
+<script src="js/video-messages.js?v=20260224a"></script>
+<script src="js/audio-call.js?v=20260224a"></script>
 <script src="js/settings.js?v=20260219d"></script>
 
 <script>
@@ -561,49 +561,7 @@
         return window.location.protocol === 'file:';
     };
 
-    // Улучшенные уведомления для локального запуска (если ещё не определены)
-    if (typeof window.showNotification !== 'function') {
-        window.showNotification = function(title, text, type = 'info') {
-            const n = document.getElementById('notification');
-            if (!n) return;
-
-            document.getElementById('notificationTitle').textContent = title;
-            document.getElementById('notificationText').textContent = text;
-
-            // Устанавливаем тип уведомления
-            n.className = 'notification';
-            if (type === 'error') {
-                n.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.95), rgba(220,38,38,0.95))';
-                n.style.boxShadow = '0 15px 35px rgba(239,68,68,0.4), 0 5px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
-            } else if (type === 'success') {
-                n.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.95), rgba(74,222,128,0.95))';
-                n.style.boxShadow = '0 15px 35px rgba(34,197,94,0.4), 0 5px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
-            } else if (type === 'warning') {
-                n.style.background = 'linear-gradient(135deg, rgba(245,158,11,0.95), rgba(217,119,6,0.95))';
-                n.style.boxShadow = '0 15px 35px rgba(245,158,11,0.4), 0 5px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
-            }
-
-            n.style.display = 'flex';
-
-            // Автоматическое скрытие
-            setTimeout(() => {
-                n.style.display = 'none';
-                // Сбрасываем стили
-                n.style.background = '';
-                n.style.boxShadow = '';
-            }, 3000);
-        };
-    }
-
-    // Улучшенная функция ошибок (если ещё не определена)
-    if (typeof window.showError !== 'function') {
-        window.showError = function(msg, retry) {
-            showNotification(msg, 'Ошибка', 'error');
-            if (retry) window.retryAction = retry;
-        };
-    }
-
-    console.log('Build 2026-02-19d');
+    console.log('Build 2026-02-24a (исправлена рекурсия)');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {
