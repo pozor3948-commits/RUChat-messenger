@@ -346,9 +346,12 @@ let answerReceived = false; // Флаг что answer уже получен
 function listenForCallAnswer() {
     if (!currentChatId) return;
     
+    console.log('Слушаем ответ на звонок для:', currentChatId);
+    
     callAnswerRef = db.ref(`calls/${currentChatId}`);
     callAnswerRef.on('value', async (snapshot) => {
         const callData = snapshot.val();
+        console.log('Получены данные звонка:', callData);
 
         if (!callData) return;
 
@@ -383,6 +386,7 @@ function listenForCallAnswer() {
             }
 
             // Запускаем таймер
+            console.log('Запускаем таймер звонка');
             startCallTimer();
 
             document.getElementById('callStatus').textContent = 'Соединено';
@@ -392,11 +396,16 @@ function listenForCallAnswer() {
             // Останавливаем гудки
             stopCallSound();
             stopRingtone();
+            
+            console.log('Звонок соединён, таймер запущен');
         } else if (callData.status === 'rejected') {
+            console.log('Звонок отклонён');
             showNotification('Звонок', 'Собеседник отклонил звонок', 'warning');
             endCall();
         } else if (callData.status === 'ended') {
-            endCall();
+            // НЕ завершаем звонок если статус пришёл от Firebase - это может быть эхо!
+            console.log('Получен статус ended, игнорируем (это может быть эхо)');
+            // endCall(); // УБРАНО - не завершаем автоматически
         }
     });
 
