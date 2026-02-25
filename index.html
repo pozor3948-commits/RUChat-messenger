@@ -30,7 +30,8 @@
     
     <!-- Стили -->
     <link rel="stylesheet" href="css/style.css?v=20260223">
-    
+    <link rel="stylesheet" href="css/modern-ui.css?v=20260225">
+
     <style>
         /* Дополнительные стили для мобильных устройств */
         @media (max-width: 768px) {
@@ -557,8 +558,12 @@
 <script src="js/video-messages.js?v=20260224a"></script>
 <script src="js/audio-call.js?v=20260224s"></script>
 <script src="js/settings.js?v=20260219d"></script>
+<script src="js/modern-ui.js?v=20260225"></script>
 
 <script>
+    // Включаем современный UI
+    document.body.classList.add('modern-ui');
+
     // Функция для проверки локального запуска
     window.isLocalFile = function() {
         return window.location.protocol === 'file:';
@@ -616,8 +621,148 @@
     });
 </script>
 
-</body>
-</html>
+<!-- ==========  СОВРЕМЕННЫЙ UI (GLASSMORPHISM)  ========== -->
+<div class="app-background"></div>
+
+<!-- ЭКРАН ЧАТОВ -->
+<div class="chats-screen" id="chatsScreen">
+    <div class="chats-header">
+        <div class="header-title">HOME</div>
+        <div class="header-actions">
+            <button class="header-btn" onclick="showSettingsMenu()" title="Настройки">⚙️</button>
+        </div>
+    </div>
+    
+    <div class="search-container">
+        <div class="search-bar">
+            <span class="search-bar-icon">🔍</span>
+            <input type="text" class="search-input" placeholder="Search conversations" id="modernSearchInput" oninput="searchChats(this.value)">
+        </div>
+    </div>
+    
+    <div class="chats-list" id="modernChatsList">
+        <!-- Сюда будут добавляться чаты -->
+    </div>
+</div>
+
+<!-- ЭКРАН НАСТРОЕК -->
+<div class="settings-screen" id="settingsScreen">
+    <div class="settings-header">
+        <img src="" alt="Avatar" class="settings-avatar" id="settingsAvatar" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=User&background=0088cc&color=fff&size=100'">
+        <div class="settings-username" id="settingsUsername">User_123</div>
+        <div class="settings-status" id="settingsStatus">В сети</div>
+    </div>
+    
+    <div class="settings-section">
+        <div class="settings-section-title">Основные</div>
+        
+        <div class="settings-item" onclick="toggleTheme()">
+            <div class="settings-item-left">
+                <div class="settings-item-icon">🌙</div>
+                <div class="settings-item-label">Тёмная тема</div>
+            </div>
+            <div class="toggle-switch" id="darkModeToggle" onclick="event.stopPropagation(); toggleThemeSwitch()">
+                <div class="toggle-switch-knob"></div>
+            </div>
+        </div>
+        
+        <div class="settings-item">
+            <div class="settings-item-left">
+                <div class="settings-item-icon">🔔</div>
+                <div class="settings-item-label">Уведомления</div>
+            </div>
+            <div class="toggle-switch active" onclick="toggleSwitch(this)">
+                <div class="toggle-switch-knob"></div>
+            </div>
+        </div>
+        
+        <div class="settings-item">
+            <div class="settings-item-left">
+                <div class="settings-item-icon">🔒</div>
+                <div class="settings-item-label">Приватность</div>
+            </div>
+            <div class="settings-item-icon" style="background:none;font-size:14px;">›</div>
+        </div>
+    </div>
+    
+    <div class="settings-section">
+        <div class="settings-section-title">Приложение</div>
+        
+        <div class="settings-item">
+            <div class="settings-item-left">
+                <div class="settings-item-icon">🎨</div>
+                <div class="settings-item-label">Внешний вид</div>
+            </div>
+            <div class="settings-item-icon" style="background:none;font-size:14px;">›</div>
+        </div>
+        
+        <div class="settings-item">
+            <div class="settings-item-left">
+                <div class="settings-item-icon">ℹ️</div>
+                <div class="settings-item-label">О приложении</div>
+            </div>
+            <div class="settings-item-icon" style="background:none;font-size:14px;">›</div>
+        </div>
+        
+        <div class="settings-item" onclick="logout()">
+            <div class="settings-item-left">
+                <div class="settings-item-icon" style="background:rgba(239,68,68,0.2);color:#ef4444;">🚪</div>
+                <div class="settings-item-label" style="color:#ef4444;">Выйти</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ЭКРАН ЧАТА -->
+<div class="chat-screen" id="chatScreen">
+    <div class="chat-screen-header">
+        <button class="chat-back-btn" id="chatBackBtn" onclick="closeChatFromScreen()">←</button>
+        <div class="chat-header-info">
+            <img src="" alt="Avatar" class="chat-header-avatar" id="chatScreenAvatar" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=Chat&background=0088cc&color=fff&size=44'">
+            <div class="chat-header-details">
+                <div class="chat-header-name" id="chatScreenName">Чат</div>
+                <div class="chat-header-status" id="chatScreenStatus">В сети</div>
+            </div>
+        </div>
+        <div class="chat-header-actions">
+            <button class="chat-header-btn" onclick="startVoiceCall()" title="Звонок">📞</button>
+            <button class="chat-header-btn" onclick="showChatInfo()" title="Инфо">ℹ️</button>
+        </div>
+    </div>
+    
+    <div class="messages-container" id="modernMessages">
+        <!-- Сообщения будут здесь -->
+    </div>
+    
+    <div class="message-input-area">
+        <button class="input-btn" onclick="toggleAttachmentMenu()" title="Прикрепить">📎</button>
+        <div class="input-wrapper">
+            <button class="input-btn" onclick="toggleEmojiPicker()" title="Эмодзи">😊</button>
+            <input type="text" class="message-input" id="modernMessageInput" placeholder="Текст..." 
+                   onkeypress="handleModernKeyPress(event)" oninput="updateModernSendButton()">
+            <button class="input-btn" onclick="toggleStickerPanel()" title="Стикеры">🧩</button>
+        </div>
+        <button class="send-btn" id="modernSendBtn" onclick="sendModernMessage()" title="Отправить">➤</button>
+    </div>
+</div>
+
+<!-- НИЖНЯЯ НАВИГАЦИЯ -->
+<div class="bottom-nav">
+    <button class="nav-item active" id="navChats" onclick="switchTab('chats')">
+        <span class="nav-item-icon">💬</span>
+        <span class="nav-item-label">Чаты</span>
+    </button>
+    <button class="nav-item" id="navCalls" onclick="switchTab('calls')">
+        <span class="nav-item-icon">📞</span>
+        <span class="nav-item-label">Звонки</span>
+    </button>
+    <button class="nav-item" id="navSettings" onclick="switchTab('settings')">
+        <span class="nav-item-icon">⚙️</span>
+        <span class="nav-item-label">Настройки</span>
+    </button>
+</div>
+
+<script>
 
 
 

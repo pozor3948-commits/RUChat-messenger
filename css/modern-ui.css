@@ -1,0 +1,931 @@
+/* =====================================================
+   MODERN GLASSMORPHISM UI - RuChat 2026
+   ===================================================== */
+
+:root {
+    --glass-bg: rgba(20, 25, 35, 0.75);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-highlight: rgba(255, 255, 255, 0.12);
+    --primary-gradient: linear-gradient(135deg, #0088cc, #00b4ff);
+    --accent-blue: #0088cc;
+    --accent-green: #4ade80;
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.6);
+    --text-muted: rgba(255, 255, 255, 0.35);
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --success: #22c55e;
+    --radius-lg: 24px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
+    --radius-full: 9999px;
+}
+
+/* ========== ОБЩИЕ СТИЛИ ========== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0f172a;
+    color: var(--text-primary);
+}
+
+/* Фон - остаётся прежний */
+.app-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url('../assets/bg-main.jpg') center/cover no-repeat;
+    z-index: -1;
+}
+
+.app-background::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.7);
+}
+
+/* Эффект стекла */
+.glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+}
+
+.glass-card {
+    background: rgba(30, 35, 50, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+}
+
+/* ========== НАВИГАЦИЯ (НИЖНЯЯ ПАНЕЛЬ) ========== */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 70px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--glass-border);
+    z-index: 1000;
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+}
+
+.nav-item:hover {
+    color: var(--text-primary);
+}
+
+.nav-item.active {
+    color: var(--accent-blue);
+}
+
+.nav-item-icon {
+    font-size: 24px;
+}
+
+.nav-item-label {
+    font-size: 11px;
+    font-weight: 500;
+}
+
+/* ========== ГЛАВНЫЙ ЭКРАН (ЧАТЫ) ========== */
+.chats-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 70px;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.chats-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.header-title {
+    font-size: 28px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff, #a5b4fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.header-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    background: var(--glass-highlight);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.header-btn:hover {
+    background: var(--glass-highlight);
+    transform: scale(1.05);
+}
+
+/* Поиск */
+.search-container {
+    padding: 12px 20px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+.search-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--glass-highlight);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+}
+
+.search-bar-icon {
+    font-size: 18px;
+    color: var(--text-muted);
+}
+
+.search-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 15px;
+}
+
+.search-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* Список чатов */
+.chats-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 16px 16px;
+}
+
+.chat-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid transparent;
+}
+
+.chat-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--glass-border);
+    transform: translateX(4px);
+}
+
+.chat-item:active {
+    transform: scale(0.98);
+}
+
+.chat-item-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent-blue);
+    position: relative;
+}
+
+.avatar-online::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--success);
+    border-radius: 50%;
+    border: 2px solid #1e2736;
+}
+
+.avatar-offline::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    border: 2px solid #1e2736;
+}
+
+.chat-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.chat-item-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.chat-item-name {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--text-primary);
+}
+
+.chat-item-time {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.chat-item-preview {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-item-message {
+    font-size: 14px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: calc(100% - 60px);
+}
+
+.chat-item-unread {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 8px;
+    background: var(--primary-gradient);
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ========== ЭКРАН НАСТРОЕК ========== */
+.settings-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 70px;
+    display: none;
+    flex-direction: column;
+    z-index: 100;
+    overflow-y: auto;
+}
+
+.settings-screen.active {
+    display: flex;
+}
+
+.settings-header {
+    padding: 20px;
+    text-align: center;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.settings-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--accent-blue);
+    margin-bottom: 12px;
+}
+
+.settings-username {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.settings-status {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.settings-section {
+    padding: 20px;
+}
+
+.settings-section-title {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    font-weight: 600;
+}
+
+.settings-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.settings-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.settings-item-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.settings-item-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    background: var(--glass-highlight);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.settings-item-label {
+    font-size: 15px;
+    font-weight: 500;
+}
+
+/* Переключатель (toggle) */
+.toggle-switch {
+    position: relative;
+    width: 52px;
+    height: 28px;
+    background: var(--glass-highlight);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: background 0.3s ease;
+    border: 1px solid var(--glass-border);
+}
+
+.toggle-switch.active {
+    background: var(--primary-gradient);
+    border-color: transparent;
+}
+
+.toggle-switch-knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch.active .toggle-switch-knob {
+    transform: translateX(24px);
+}
+
+/* ========== ЭКРАН ЧАТА ========== */
+.chat-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 70px;
+    display: none;
+    flex-direction: column;
+    z-index: 200;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+.chat-screen.active {
+    display: flex;
+}
+
+/* Хедер чата */
+.chat-screen-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.chat-back-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    background: var(--glass-highlight);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.chat-back-btn:hover {
+    background: var(--glass-highlight);
+    transform: scale(1.05);
+}
+
+.chat-header-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.chat-header-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--accent-blue);
+}
+
+.chat-header-details {
+    flex: 1;
+}
+
+.chat-header-name {
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--text-primary);
+}
+
+.chat-header-status {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.chat-header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.chat-header-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    background: var(--glass-highlight);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.chat-header-btn:hover {
+    background: var(--glass-highlight);
+    transform: scale(1.05);
+}
+
+/* Сообщения */
+.messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.message {
+    display: flex;
+    flex-direction: column;
+    max-width: 75%;
+    animation: messageAppear 0.3s ease;
+}
+
+@keyframes messageAppear {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message.incoming {
+    align-self: flex-start;
+}
+
+.message.outgoing {
+    align-self: flex-end;
+    align-items: flex-end;
+}
+
+.message-bubble {
+    padding: 12px 16px;
+    border-radius: var(--radius-lg);
+    font-size: 15px;
+    line-height: 1.4;
+    position: relative;
+}
+
+.message.incoming .message-bubble {
+    background: var(--glass-highlight);
+    border: 1px solid var(--glass-border);
+    border-bottom-left-radius: 4px;
+}
+
+.message.outgoing .message-bubble {
+    background: var(--primary-gradient);
+    border-bottom-right-radius: 4px;
+}
+
+.message-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.message-status {
+    font-size: 14px;
+}
+
+/* Поле ввода */
+.message-input-area {
+    padding: 12px 16px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.input-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--glass-highlight);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-full);
+}
+
+.message-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 15px;
+}
+
+.message-input::placeholder {
+    color: var(--text-muted);
+}
+
+.input-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.input-btn:hover {
+    color: var(--text-primary);
+    background: var(--glass-border);
+}
+
+.send-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-full);
+    background: var(--primary-gradient);
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.send-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(0, 136, 204, 0.4);
+}
+
+.send-btn:active {
+    transform: scale(0.95);
+}
+
+/* ========== АНИМАЦИИ ПЕРЕХОДОВ ========== */
+.screen-transition {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+/* Свайп для выхода из чата */
+.chat-screen.swiping {
+    transition: transform 0.1s ease;
+}
+
+.chat-screen.swipe-out {
+    transform: translateX(100%);
+    opacity: 0;
+}
+
+/* ========== МОБИЛЬНАЯ АДАПТАЦИЯ ========== */
+@media (max-width: 768px) {
+    .header-title {
+        font-size: 22px;
+    }
+
+    .chat-item-avatar {
+        width: 50px;
+        height: 50px;
+    }
+
+    .message {
+        max-width: 85%;
+    }
+}
+
+/* ========== СКРЫТИЕ СТАРЫХ ЭЛЕМЕНТОВ ========== */
+/* Скрываем старый UI только если включен новый И пользователь авторизован */
+body.modern-ui.logged-in .main-container,
+body.modern-ui.logged-in .mobile-header,
+body.modern-ui.logged-in .sidebar,
+body.modern-ui.logged-in .chat-container {
+    display: none !important;
+}
+
+/* Показываем новый интерфейс только после авторизации */
+body.modern-ui.logged-in .chats-screen {
+    display: flex;
+}
+
+body.modern-ui.logged-in .bottom-nav {
+    display: flex;
+}
+
+body.modern-ui.logged-in .settings-screen {
+    display: none;
+}
+
+body.modern-ui.logged-in .settings-screen.active {
+    display: flex;
+}
+
+body.modern-ui.logged-in .chat-screen {
+    display: none;
+}
+
+body.modern-ui.logged-in .chat-screen.active {
+    display: flex;
+}
+
+/* Страница авторизации всегда видима если не logged-in */
+body:not(.logged-in) .auth-page {
+    display: block !important;
+}
+
+body:not(.logged-in) .main-container,
+body:not(.logged-in) .chats-screen,
+body:not(.logged-in) .bottom-nav {
+    display: none !important;
+}
+
+/* ========== ДОПОЛНИТЕЛЬНЫЕ ЭЛЕМЕНТЫ ========== */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+
+.empty-state-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.empty-state-text {
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+/* Стили для сообщений в новом UI */
+body.modern-ui #modernMessages .message {
+    max-width: 75%;
+    padding: 12px 16px;
+    border-radius: 20px;
+    position: relative;
+    word-wrap: break-word;
+    margin-bottom: 12px;
+    animation: messageAppear 0.3s ease;
+}
+
+body.modern-ui #modernMessages .message.incoming {
+    align-self: flex-start;
+    background: var(--glass-highlight);
+    border: 1px solid var(--glass-border);
+    border-bottom-left-radius: 4px;
+}
+
+body.modern-ui #modernMessages .message.outgoing {
+    align-self: flex-end;
+    background: var(--primary-gradient);
+    border-bottom-right-radius: 4px;
+}
+
+body.modern-ui #modernMessages .message-body {
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--text-primary);
+}
+
+body.modern-ui #modernMessages .message-time {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    text-align: right;
+}
+
+body.modern-ui #modernMessages .message.outgoing .message-time {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Стикеры и эмодзи */
+.sticker-panel,
+.emoji-picker {
+    position: fixed;
+    bottom: 70px;
+    left: 0;
+    right: 0;
+    max-height: 60vh;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    z-index: 999;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+}
+
+.sticker-panel.active,
+.emoji-picker.active {
+    transform: translateY(0);
+}
+
+/* Меню вложений */
+.attachment-menu {
+    position: fixed;
+    bottom: 80px;
+    left: 16px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 8px;
+    z-index: 999;
+    transform: translateY(20px);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s ease;
+}
+
+.attachment-menu.active {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.attachment-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: background 0.2s ease;
+}
+
+.attachment-item:hover {
+    background: var(--glass-highlight);
+}
+
+.attachment-item-icon {
+    font-size: 20px;
+}
+
+.attachment-item-label {
+    font-size: 14px;
+    font-weight: 500;
+}
