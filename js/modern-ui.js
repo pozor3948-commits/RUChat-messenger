@@ -10,6 +10,29 @@ let modernSwipeState = {
     dx: 0
 };
 
+// ========== ПЕРЕКЛЮЧЕНИЕ НА НОВЫЙ UI ==========
+function toggleModernUI() {
+    const body = document.body;
+    const isModern = body.classList.contains('modern-ui');
+    
+    if (isModern) {
+        // Выключаем новый UI
+        body.classList.remove('modern-ui');
+        localStorage.setItem('ruchat_modern_ui', 'false');
+        console.log('Старый UI включен');
+    } else {
+        // Включаем новый UI
+        body.classList.add('modern-ui');
+        localStorage.setItem('ruchat_modern_ui', 'true');
+        console.log('Новый UI включен');
+        
+        // Обновляем список чатов
+        setTimeout(() => {
+            renderModernChatsList();
+        }, 100);
+    }
+}
+
 // ========== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ==========
 function switchTab(tab) {
     currentModernTab = tab;
@@ -442,3 +465,21 @@ window.updateModernSendButton = updateModernSendButton;
 window.toggleSwitch = toggleSwitch;
 window.toggleThemeSwitch = toggleThemeSwitch;
 window.showNotification = showNotification;
+window.toggleModernUI = toggleModernUI;
+
+// ========== АВТОМАТИЧЕСКАЯ ЗАГРУЗКА НАСТРОЕК ==========
+// Проверяем, был ли включен новый UI ранее
+document.addEventListener('DOMContentLoaded', function() {
+    const savedModernUI = localStorage.getItem('ruchat_modern_ui');
+    if (savedModernUI === 'true') {
+        document.body.classList.add('modern-ui');
+    }
+    
+    // Инициализация при загрузке
+    console.log('Modern UI initialized');
+    
+    // Обновляем список чатов
+    if (typeof renderModernChatsList === 'function') {
+        setTimeout(renderModernChatsList, 500);
+    }
+});

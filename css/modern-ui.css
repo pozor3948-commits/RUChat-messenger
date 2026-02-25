@@ -750,48 +750,58 @@ html, body {
 }
 
 /* ========== СКРЫТИЕ СТАРЫХ ЭЛЕМЕНТОВ ========== */
-/* Скрываем старый UI только если включен новый И пользователь авторизован */
-body.modern-ui.logged-in .main-container,
-body.modern-ui.logged-in .mobile-header,
-body.modern-ui.logged-in .sidebar,
-body.modern-ui.logged-in .chat-container {
+/* Скрываем старый UI когда включен новый */
+body.modern-ui .main-container,
+body.modern-ui .mobile-header,
+body.modern-ui .sidebar,
+body.modern-ui .chat-container,
+body.modern-ui .call-button,
+body.modern-ui .emoji-picker,
+body.modern-ui .sticker-panel,
+body.modern-ui .attachment-menu,
+body.modern-ui .record-type-menu,
+body.modern-ui .chat-settings-menu,
+body.modern-ui .chat-bg-overlay,
+body.modern-ui .chat-notify-overlay,
+body.modern-ui .group-admin-overlay,
+body.modern-ui .media-library-overlay,
+body.modern-ui .sticker-bot-overlay,
+body.modern-ui .group-modal-overlay,
+body.modern-ui .record-overlay,
+body.modern-ui .call-overlay {
     display: none !important;
 }
 
-/* Показываем новый интерфейс только после авторизации */
-body.modern-ui.logged-in .chats-screen {
-    display: flex;
+/* Показываем новый интерфейс */
+body.modern-ui .chats-screen {
+    display: flex !important;
 }
 
-body.modern-ui.logged-in .bottom-nav {
-    display: flex;
+body.modern-ui .bottom-nav {
+    display: flex !important;
 }
 
-body.modern-ui.logged-in .settings-screen {
-    display: none;
-}
-
-body.modern-ui.logged-in .settings-screen.active {
-    display: flex;
-}
-
-body.modern-ui.logged-in .chat-screen {
-    display: none;
-}
-
-body.modern-ui.logged-in .chat-screen.active {
-    display: flex;
-}
-
-/* Страница авторизации всегда видима если не logged-in */
-body:not(.logged-in) .auth-page {
-    display: block !important;
-}
-
-body:not(.logged-in) .main-container,
-body:not(.logged-in) .chats-screen,
-body:not(.logged-in) .bottom-nav {
+body.modern-ui .settings-screen {
     display: none !important;
+}
+
+body.modern-ui .settings-screen.active {
+    display: flex !important;
+}
+
+body.modern-ui .chat-screen {
+    display: none !important;
+}
+
+body.modern-ui .chat-screen.active {
+    display: flex !important;
+}
+
+/* Новый UI для менюшек */
+body.modern-ui .emoji-picker,
+body.modern-ui .sticker-panel,
+body.modern-ui .attachment-menu {
+    z-index: 1001;
 }
 
 /* ========== ДОПОЛНИТЕЛЬНЫЕ ЭЛЕМЕНТЫ ========== */

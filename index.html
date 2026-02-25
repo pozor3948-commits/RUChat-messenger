@@ -161,6 +161,7 @@
         <div class="menu-section sidebar-actions">
             <button class="sidebar-action-btn" onclick="showAddFriend()" title="Добавить друга">➕👤</button>
             <button class="sidebar-action-btn" onclick="showCreateGroupModal()" title="Создать группу">➕👥</button>
+            <button class="sidebar-action-btn" onclick="toggleModernUI()" title="Новый UI">🎨</button>
         </div>
 
         <div class="menu-section sidebar-section-hidden">
@@ -561,8 +562,9 @@
 <script src="js/modern-ui.js?v=20260225"></script>
 
 <script>
-    // Включаем современный UI
-    document.body.classList.add('modern-ui');
+    // Новый UI пока отключен - используется старый проверенный интерфейс
+    // Для включения нового UI раскомментируйте строку ниже:
+    // document.body.classList.add('modern-ui');
 
     // Функция для проверки локального запуска
     window.isLocalFile = function() {
