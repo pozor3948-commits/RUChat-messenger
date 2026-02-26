@@ -29,9 +29,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260223">
-    <link rel="stylesheet" href="css/modern-ui.css?v=20260225">
-
+    <link rel="stylesheet" href="css/style.css?v=20260219d">
+    
     <style>
         /* Дополнительные стили для мобильных устройств */
         @media (max-width: 768px) {
@@ -161,7 +160,6 @@
         <div class="menu-section sidebar-actions">
             <button class="sidebar-action-btn" onclick="showAddFriend()" title="Добавить друга">➕👤</button>
             <button class="sidebar-action-btn" onclick="showCreateGroupModal()" title="Создать группу">➕👥</button>
-            <button class="sidebar-action-btn" onclick="toggleModernUI()" title="Новый UI">🎨</button>
         </div>
 
         <div class="menu-section sidebar-section-hidden">
@@ -473,9 +471,6 @@
                 </svg>
             </button>
         </div>
-        <div class="call-device-selector" id="callDeviceSelector" style="display:none;">
-            <select id="audioOutputSelect" onchange="changeAudioOutput(this.value)"></select>
-        </div>
         <div class="call-incoming-controls" id="callIncomingControls">
             <button class="call-action-btn accept" onclick="acceptIncomingCallFromUI()">Принять</button>
             <button class="call-action-btn reject" onclick="rejectIncomingCallFromUI()">Отклонить</button>
@@ -544,7 +539,7 @@
 
 <!-- Скрипты -->
 <script src="js/firebase-config.js?v=20260219d"></script>
-<script src="js/utils.js?v=20260224a"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/utils.js?v=20260219d"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
 <script src="js/main.js?v=20260219d"></script>
 <script src="js/ui.js?v=20260219d"></script>
 <script src="js/sounds.js?v=20260219d"></script>
@@ -552,26 +547,59 @@
 <script src="js/status.js?v=20260219d"></script>
 <script src="js/chat.js?v=20260219d"></script>
 <script src="js/media.js?v=20260219d"></script>
-<script src="js/emoji.js?v=20260224a"></script>
+<script src="js/emoji.js?v=20260219d"></script>
 <script src="js/stickers.js?v=20260219d"></script>
 <script src="js/groups.js?v=20260219d"></script>
 <script src="js/mobile.js?v=20260219d"></script>
-<script src="js/video-messages.js?v=20260224a"></script>
-<script src="js/audio-call.js?v=20260224s"></script>
+<script src="js/video-messages.js?v=20260219d"></script>
+<script src="js/audio-call.js?v=20260219d"></script>
 <script src="js/settings.js?v=20260219d"></script>
-<script src="js/modern-ui.js?v=20260225"></script>
 
 <script>
-    // Новый UI пока отключен - используется старый проверенный интерфейс
-    // Для включения нового UI раскомментируйте строку ниже:
-    // document.body.classList.add('modern-ui');
-
     // Функция для проверки локального запуска
     window.isLocalFile = function() {
         return window.location.protocol === 'file:';
     };
-
-    console.log('Build 2026-02-24s (авто диагностика)');
+    
+    // Улучшенные уведомления для локального запуска
+    window.showNotification = function(title, text, type = 'info') {
+        const n = document.getElementById('notification');
+        if (!n) return;
+        
+        document.getElementById('notificationTitle').textContent = title;
+        document.getElementById('notificationText').textContent = text;
+        
+        // Устанавливаем тип уведомления
+        n.className = 'notification';
+        if (type === 'error') {
+            n.style.background = 'linear-gradient(135deg, rgba(239,68,68,0.95), rgba(220,38,38,0.95))';
+            n.style.boxShadow = '0 15px 35px rgba(239,68,68,0.4), 0 5px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
+        } else if (type === 'success') {
+            n.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.95), rgba(74,222,128,0.95))';
+            n.style.boxShadow = '0 15px 35px rgba(34,197,94,0.4), 0 5px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
+        } else if (type === 'warning') {
+            n.style.background = 'linear-gradient(135deg, rgba(245,158,11,0.95), rgba(217,119,6,0.95))';
+            n.style.boxShadow = '0 15px 35px rgba(245,158,11,0.4), 0 5px 15px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)';
+        }
+        
+        n.style.display = 'flex';
+        
+        // Автоматическое скрытие
+        setTimeout(() => {
+            n.style.display = 'none';
+            // Сбрасываем стили
+            n.style.background = '';
+            n.style.boxShadow = '';
+        }, 3000);
+    };
+    
+    // Улучшенная функция ошибок
+    window.showError = function(msg, retry) {
+        showNotification(msg, 'Ошибка', 'error');
+        if (retry) window.retryAction = retry;
+    };
+    
+    console.log('Build 2026-02-19d');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {
@@ -623,148 +651,8 @@
     });
 </script>
 
-<!-- ==========  СОВРЕМЕННЫЙ UI (GLASSMORPHISM)  ========== -->
-<div class="app-background"></div>
-
-<!-- ЭКРАН ЧАТОВ -->
-<div class="chats-screen" id="chatsScreen">
-    <div class="chats-header">
-        <div class="header-title">HOME</div>
-        <div class="header-actions">
-            <button class="header-btn" onclick="showSettingsMenu()" title="Настройки">⚙️</button>
-        </div>
-    </div>
-    
-    <div class="search-container">
-        <div class="search-bar">
-            <span class="search-bar-icon">🔍</span>
-            <input type="text" class="search-input" placeholder="Search conversations" id="modernSearchInput" oninput="searchChats(this.value)">
-        </div>
-    </div>
-    
-    <div class="chats-list" id="modernChatsList">
-        <!-- Сюда будут добавляться чаты -->
-    </div>
-</div>
-
-<!-- ЭКРАН НАСТРОЕК -->
-<div class="settings-screen" id="settingsScreen">
-    <div class="settings-header">
-        <img src="" alt="Avatar" class="settings-avatar" id="settingsAvatar" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=User&background=0088cc&color=fff&size=100'">
-        <div class="settings-username" id="settingsUsername">User_123</div>
-        <div class="settings-status" id="settingsStatus">В сети</div>
-    </div>
-    
-    <div class="settings-section">
-        <div class="settings-section-title">Основные</div>
-        
-        <div class="settings-item" onclick="toggleTheme()">
-            <div class="settings-item-left">
-                <div class="settings-item-icon">🌙</div>
-                <div class="settings-item-label">Тёмная тема</div>
-            </div>
-            <div class="toggle-switch" id="darkModeToggle" onclick="event.stopPropagation(); toggleThemeSwitch()">
-                <div class="toggle-switch-knob"></div>
-            </div>
-        </div>
-        
-        <div class="settings-item">
-            <div class="settings-item-left">
-                <div class="settings-item-icon">🔔</div>
-                <div class="settings-item-label">Уведомления</div>
-            </div>
-            <div class="toggle-switch active" onclick="toggleSwitch(this)">
-                <div class="toggle-switch-knob"></div>
-            </div>
-        </div>
-        
-        <div class="settings-item">
-            <div class="settings-item-left">
-                <div class="settings-item-icon">🔒</div>
-                <div class="settings-item-label">Приватность</div>
-            </div>
-            <div class="settings-item-icon" style="background:none;font-size:14px;">›</div>
-        </div>
-    </div>
-    
-    <div class="settings-section">
-        <div class="settings-section-title">Приложение</div>
-        
-        <div class="settings-item">
-            <div class="settings-item-left">
-                <div class="settings-item-icon">🎨</div>
-                <div class="settings-item-label">Внешний вид</div>
-            </div>
-            <div class="settings-item-icon" style="background:none;font-size:14px;">›</div>
-        </div>
-        
-        <div class="settings-item">
-            <div class="settings-item-left">
-                <div class="settings-item-icon">ℹ️</div>
-                <div class="settings-item-label">О приложении</div>
-            </div>
-            <div class="settings-item-icon" style="background:none;font-size:14px;">›</div>
-        </div>
-        
-        <div class="settings-item" onclick="logout()">
-            <div class="settings-item-left">
-                <div class="settings-item-icon" style="background:rgba(239,68,68,0.2);color:#ef4444;">🚪</div>
-                <div class="settings-item-label" style="color:#ef4444;">Выйти</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ЭКРАН ЧАТА -->
-<div class="chat-screen" id="chatScreen">
-    <div class="chat-screen-header">
-        <button class="chat-back-btn" id="chatBackBtn" onclick="closeChatFromScreen()">←</button>
-        <div class="chat-header-info">
-            <img src="" alt="Avatar" class="chat-header-avatar" id="chatScreenAvatar" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=Chat&background=0088cc&color=fff&size=44'">
-            <div class="chat-header-details">
-                <div class="chat-header-name" id="chatScreenName">Чат</div>
-                <div class="chat-header-status" id="chatScreenStatus">В сети</div>
-            </div>
-        </div>
-        <div class="chat-header-actions">
-            <button class="chat-header-btn" onclick="startVoiceCall()" title="Звонок">📞</button>
-            <button class="chat-header-btn" onclick="showChatInfo()" title="Инфо">ℹ️</button>
-        </div>
-    </div>
-    
-    <div class="messages-container" id="modernMessages">
-        <!-- Сообщения будут здесь -->
-    </div>
-    
-    <div class="message-input-area">
-        <button class="input-btn" onclick="toggleAttachmentMenu()" title="Прикрепить">📎</button>
-        <div class="input-wrapper">
-            <button class="input-btn" onclick="toggleEmojiPicker()" title="Эмодзи">😊</button>
-            <input type="text" class="message-input" id="modernMessageInput" placeholder="Текст..." 
-                   onkeypress="handleModernKeyPress(event)" oninput="updateModernSendButton()">
-            <button class="input-btn" onclick="toggleStickerPanel()" title="Стикеры">🧩</button>
-        </div>
-        <button class="send-btn" id="modernSendBtn" onclick="sendModernMessage()" title="Отправить">➤</button>
-    </div>
-</div>
-
-<!-- НИЖНЯЯ НАВИГАЦИЯ -->
-<div class="bottom-nav">
-    <button class="nav-item active" id="navChats" onclick="switchTab('chats')">
-        <span class="nav-item-icon">💬</span>
-        <span class="nav-item-label">Чаты</span>
-    </button>
-    <button class="nav-item" id="navCalls" onclick="switchTab('calls')">
-        <span class="nav-item-icon">📞</span>
-        <span class="nav-item-label">Звонки</span>
-    </button>
-    <button class="nav-item" id="navSettings" onclick="switchTab('settings')">
-        <span class="nav-item-icon">⚙️</span>
-        <span class="nav-item-label">Настройки</span>
-    </button>
-</div>
-
-<script>
+</body>
+</html>
 
 
 
