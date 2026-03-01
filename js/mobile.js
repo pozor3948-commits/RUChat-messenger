@@ -12,8 +12,8 @@ function checkMobile() {
 
 let mobileInputFixInitialized = false;
 let mobileSwipeBackInitialized = false;
-const MOBILE_SWIPE_EDGE_PX = 56;
-const MOBILE_SWIPE_TRIGGER_PX = 80;
+const MOBILE_SWIPE_EDGE_PX = 80;
+const MOBILE_SWIPE_TRIGGER_PX = 60;
 const mobileSwipeState = {
     tracking: false,
     startX: 0,
@@ -70,7 +70,7 @@ function setupMobileSwipeBack() {
         const dy = Math.abs(touch.clientY - mobileSwipeState.startY);
 
         if (!mobileSwipeState.lockedAxis) {
-            if (Math.abs(dx) < 8 && dy < 8) return;
+            if (Math.abs(dx) < 6 && dy < 6) return;
             mobileSwipeState.lockedAxis = Math.abs(dx) > dy ? 'x' : 'y';
         }
 
@@ -91,7 +91,7 @@ function setupMobileSwipeBack() {
     const finishSwipe = () => {
         if (!mobileSwipeState.tracking && mobileSwipeState.dx === 0) return;
         const distance = mobileSwipeState.dx;
-        const threshold = Math.max(MOBILE_SWIPE_TRIGGER_PX, window.innerWidth * 0.24);
+        const threshold = Math.max(MOBILE_SWIPE_TRIGGER_PX, window.innerWidth * 0.18);
         chatContainer.style.transition = 'transform 0.18s cubic-bezier(.22,.61,.36,1)';
 
         if (distance >= threshold && currentChatId && isMobile) {
@@ -361,7 +361,5 @@ if (typeof window.toggleStickerPanel === 'function') {
         setTimeout(adjustMenuPositionForMobile, 50);
     };
 }
-
-
 
 

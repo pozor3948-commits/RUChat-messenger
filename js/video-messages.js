@@ -14,6 +14,8 @@ let recordStartX = 0;
 let videoRecordCancelled = false;
 let lockActivatedAt = 0;
 let currentCamera = 'user';
+let videoRecordProcessed = null;
+let videoRecordStream = null;
 
 const videoConfig = {
     maxDuration: 20000,
@@ -80,6 +82,160 @@ function pickSupportedVideoMimeType() {
     return '';
 }
 
+function setVideoPreviewMirroring(facingMode) {
+    const videoPreview = document.getElementById('videoPreview');
+    if (!videoPreview) return;
+    videoPreview.classList.toggle('mirrored', facingMode === 'user');
+}
+
+function stopVideoRecordProcessing() {
+    if (!videoRecordProcessed) return;
+    try {
+        if (videoRecordProcessed.rafId) cancelAnimationFrame(videoRecordProcessed.rafId);
+    } catch {}
+    try {
+        if (videoRecordProcessed.sourceVideo) videoRecordProcessed.sourceVideo.srcObject = null;
+    } catch {}
+    try {
+        if (videoRecordProcessed.canvasStream) {
+            videoRecordProcessed.canvasStream.getTracks().forEach(t => t.stop());
+        }
+    } catch {}
+    videoRecordProcessed = null;
+}
+
+function drawVideoCoverFrame(ctx, videoEl, width, height, mirror) {
+    const vw = videoEl.videoWidth || 0;
+    const vh = videoEl.videoHeight || 0;
+    if (!vw || !vh) return;
+
+    const scale = Math.max(width / vw, height / vh);
+    const sw = vw * scale;
+    const sh = vh * scale;
+    const dx = (width - sw) / 2;
+    const dy = (height - sh) / 2;
+
+    ctx.save();
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, width, height);
+    if (mirror) {
+        ctx.translate(width, 0);
+        ctx.scale(-1, 1);
+    }
+    ctx.drawImage(videoEl, dx, dy, sw, sh);
+    ctx.restore();
+}
+
+function createVideoRecorderForStream(stream) {
+    if (!stream) return;
+    const mimeType = pickSupportedVideoMimeType();
+    const options = {
+        audioBitsPerSecond: 32000,
+        videoBitsPerSecond: videoConfig.videoBitsPerSecond || 450000
+    };
+    if (mimeType) options.mimeType = mimeType;
+
+    try {
+        videoRecorder = new MediaRecorder(stream, options);
+    } catch {
+        videoRecorder = new MediaRecorder(stream);
+    }
+
+    videoChunks = [];
+
+    videoRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+            videoChunks.push(event.data);
+        }
+    };
+
+    videoRecorder.onstop = async () => {
+        if (videoRecordCancelled) {
+            cleanupVideoRecording();
+            return;
+        }
+        const blob = new Blob(videoChunks, { type: videoRecorder.mimeType || 'video/webm' });
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            const base64Video = reader.result;
+            await sendVideoMessage(base64Video);
+            cleanupVideoRecording();
+        };
+        reader.readAsDataURL(blob);
+    };
+}
+
+async function buildVideoRecordStream(inputStream, facingMode) {
+    stopVideoRecordProcessing();
+    if (!inputStream || typeof inputStream.getVideoTracks !== 'function') return inputStream;
+    if (facingMode !== 'user') return inputStream;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = videoConfig.quality.width;
+    canvas.height = videoConfig.quality.height;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx || typeof canvas.captureStream !== 'function') return inputStream;
+
+    const sourceVideo = document.createElement('video');
+    sourceVideo.muted = true;
+    sourceVideo.playsInline = true;
+    sourceVideo.setAttribute('playsinline', '');
+    sourceVideo.setAttribute('webkit-playsinline', '');
+    sourceVideo.srcObject = inputStream;
+
+    try {
+        const playPromise = sourceVideo.play();
+        if (playPromise && typeof playPromise.then === 'function') await playPromise;
+    } catch {
+        // ignore
+    }
+
+    const frameRate = videoConfig.quality.frameRate || 24;
+    const frameInterval = 1000 / frameRate;
+
+    let canvasStream = null;
+    try {
+        canvasStream = canvas.captureStream(frameRate);
+    } catch {
+        canvasStream = canvas.captureStream();
+    }
+    if (!canvasStream || !canvasStream.getVideoTracks || canvasStream.getVideoTracks().length === 0) return inputStream;
+
+    videoRecordProcessed = {
+        canvas,
+        ctx,
+        sourceVideo,
+        canvasStream,
+        rafId: 0,
+        lastFrameAt: 0,
+        frameInterval
+    };
+
+    const draw = (now) => {
+        if (!videoRecordProcessed) return;
+        if (!videoRecordProcessed.lastFrameAt || (now - videoRecordProcessed.lastFrameAt) >= videoRecordProcessed.frameInterval) {
+            videoRecordProcessed.lastFrameAt = now;
+            try {
+                if (sourceVideo.readyState >= 2) {
+                    drawVideoCoverFrame(ctx, sourceVideo, canvas.width, canvas.height, true);
+                }
+            } catch {
+                // ignore
+            }
+        }
+        videoRecordProcessed.rafId = requestAnimationFrame(draw);
+    };
+    videoRecordProcessed.rafId = requestAnimationFrame(draw);
+
+    const out = new MediaStream();
+    out.addTrack(canvasStream.getVideoTracks()[0]);
+    try {
+        inputStream.getAudioTracks().forEach(t => out.addTrack(t));
+    } catch {}
+    return out;
+}
+
 
 async function checkCameraPermissions() {
     try {
@@ -128,47 +284,20 @@ async function startVideoRecording() {
         videoStream = await navigator.mediaDevices.getUserMedia(constraints);
         
         const videoPreview = document.getElementById('videoPreview');
-        videoPreview.srcObject = videoStream;
-        videoPreview.play();
-        
-        document.getElementById('videoRecordOverlay').style.display = 'flex';
-        
-        const mimeType = pickSupportedVideoMimeType();
-        const options = {
-            audioBitsPerSecond: 32000,
-            videoBitsPerSecond: videoConfig.videoBitsPerSecond || 450000
-        };
-        if (mimeType) options.mimeType = mimeType;
-        
-        try {
-            videoRecorder = new MediaRecorder(videoStream, options);
-        } catch (e) {
-            videoRecorder = new MediaRecorder(videoStream);
+        if (videoPreview) {
+            videoPreview.srcObject = videoStream;
+            videoPreview.playsInline = true;
+            videoPreview.setAttribute('playsinline', '');
+            videoPreview.setAttribute('webkit-playsinline', '');
+            setVideoPreviewMirroring(currentCamera);
+            videoPreview.play();
         }
         
-        videoChunks = [];
-        
-        videoRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
-                videoChunks.push(event.data);
-            }
-        };
-        
-        videoRecorder.onstop = async () => {
-            if (videoRecordCancelled) {
-                cleanupVideoRecording();
-                return;
-            }
-            const blob = new Blob(videoChunks, { type: videoRecorder.mimeType || 'video/webm' });
-            
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                const base64Video = reader.result;
-                await sendVideoMessage(base64Video);
-                cleanupVideoRecording();
-            };
-            reader.readAsDataURL(blob);
-        };
+        document.getElementById('videoRecordOverlay').style.display = 'flex';
+
+        videoRecordStream = await buildVideoRecordStream(videoStream, currentCamera);
+
+        createVideoRecorderForStream(videoRecordStream || videoStream);
         
     } catch (error) {
         console.error('Ошибка при запуске камеры:', error);
@@ -340,11 +469,20 @@ async function toggleCamera() {
     const videoPreview = document.getElementById('videoPreview');
     if (videoPreview) {
         videoPreview.srcObject = videoStream;
+        videoPreview.playsInline = true;
+        videoPreview.setAttribute('playsinline', '');
+        videoPreview.setAttribute('webkit-playsinline', '');
+        setVideoPreviewMirroring(currentCamera);
         videoPreview.play();
     }
+
+    videoRecordStream = await buildVideoRecordStream(videoStream, currentCamera);
+    createVideoRecorderForStream(videoRecordStream || videoStream);
 }
 
 function cleanupVideoRecording() {
+    stopVideoRecordProcessing();
+    videoRecordStream = null;
     if (videoStream) {
         videoStream.getTracks().forEach(track => track.stop());
         videoStream = null;
@@ -355,6 +493,7 @@ function cleanupVideoRecording() {
     isRecordingVideo = false;
     isVideoLocked = false;
     recordStartY = 0;
+    recordStartX = 0;
     
     if (recordingTimer) {
         clearInterval(recordingTimer);

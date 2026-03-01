@@ -11,7 +11,7 @@ const DEV_CODE = process.env.DEV_CODE || '20091326';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'ruchat.official@mail.ru';
 
 // Firebase REST API URL
-const DB_URL = 'https://ruchat-e1b0a-default-rtdb.firebaseio.com';
+const DB_URL = 'https://ruchat-e1b0a-default-rtdb.europe-west1.firebasedatabase.app';
 
 // Создаем бота
 const bot = new TelegramBot(TOKEN, { polling: true });
@@ -118,6 +118,18 @@ function checkDevAccess(userId) {
   return session && session.isDev === true;
 }
 
+function normalizeUsernameInput(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim().replace(/^@+/, '').trim();
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 async function getAllUsers() {
   const accounts = await firebaseGet('/accounts');
   const users = [];
@@ -162,14 +174,14 @@ async function blockUser(username, reason) {
     reason: reason || 'Нарушение правил мессенджера',
     blockedAt: Date.now()
   };
-  updates[`accounts/${username}/blocked`] = true;
+  updates[`accounts/${username}/banned`] = true;
   await firebaseUpdate('/', updates);
 }
 
 async function unblockUser(username) {
   const updates = {};
   updates[`blocked/${username}`] = null;
-  updates[`accounts/${username}/blocked`] = null;
+  updates[`accounts/${username}/banned`] = null;
   await firebaseUpdate('/', updates);
 }
 
@@ -472,28 +484,36 @@ async function handleInput(chatId, user, text, session) {
       await searchUser(chatId, text);
       break;
       
-    case 'block_username':
-      sessions.set(chatId, { ...session, awaiting: 'block_reason', tempData: { username: text } });
-      bot.sendMessage(chatId, 'Введите причину блокировки:', backKeyboard);
+    case 'block_username': {
+      const uname = normalizeUsernameInput(text);
+      sessions.set(chatId, { ...session, awaiting: 'block_reason', tempData: { username: uname } });
+      bot.sendMessage(chatId, `Введите причину блокировки для @${uname}:`, backKeyboard);
       break;
+    }
       
     case 'block_reason':
       await blockUserAction(chatId, session.tempData?.username || text, text);
       sessions.set(chatId, { isDev: true });
       break;
       
-    case 'unblock_username':
-      await unblockUserAction(chatId, text);
+    case 'unblock_username': {
+      const uname = normalizeUsernameInput(text);
+      await unblockUserAction(chatId, uname);
       break;
+    }
       
-    case 'messages_username':
-      await showUserMessages(chatId, text);
+    case 'messages_username': {
+      const uname = normalizeUsernameInput(text);
+      await showUserMessages(chatId, uname);
       break;
+    }
       
-    case 'complaint_username':
-      sessions.set(chatId, { ...session, awaiting: 'complaint_reason', tempData: { username: text } });
+    case 'complaint_username': {
+      const uname = normalizeUsernameInput(text);
+      sessions.set(chatId, { ...session, awaiting: 'complaint_reason', tempData: { username: uname } });
       bot.sendMessage(chatId, 'Введите причину жалобы:', backKeyboard);
       break;
+    }
       
     case 'complaint_reason':
       await sendComplaintAction(chatId, user, session.tempData?.username || text, text);
@@ -553,7 +573,7 @@ async function showBlockedList(chatId) {
     let message = `🚫 <b>Заблокированные: ${blocked.length}</b>\n\n`;
     
     blocked.forEach((user, index) => {
-      message += `<b>${index + 1}. @${user.username}</b>\n`;
+      message += `<b>${index + 1}. @${escapeHtml(user.username)}</b>\n`;
       message += `   Причина: ${user.reason}\n`;
       message += `   Дата: ${user.blockedAt}\n\n`;
     });
@@ -566,11 +586,21 @@ async function showBlockedList(chatId) {
 
 async function searchUser(chatId, query) {
   try {
-    const accounts = await firebaseGet('/accounts');
+    const q = normalizeUsernameInput(query);
+    const qLower = q.toLowerCase();
+    if (!qLower) {
+      bot.sendMessage(chatId, 'Введите имя пользователя для поиска (например: ivan или @ivan)', backKeyboard);
+      return;
+    }
+    const [accounts, blocked] = await Promise.all([
+      firebaseGet('/accounts'),
+      firebaseGet('/blocked')
+    ]);
     const found = [];
+    const blockedSet = new Set(Object.keys(blocked || {}));
     
     if (!accounts) {
-      bot.sendMessage(chatId, `🔍 Пользователи по запросу "${query}" не найдены`);
+      bot.sendMessage(chatId, `🔍 Пользователи по запросу "${q}" не найдены`);
       return;
     }
     
@@ -579,33 +609,51 @@ async function searchUser(chatId, query) {
       const uname = username.toLowerCase();
       const dname = (user.displayName || '').toLowerCase();
       
-      if (uname.includes(query.toLowerCase()) || dname.includes(query.toLowerCase())) {
+      if (uname.includes(qLower) || dname.includes(qLower)) {
         found.push({
           username: username,
           displayName: user.displayName || 'Без имени',
-          online: user.online || false,
-          blocked: user.blocked === true,
+          about: user.about || '',
+          lastSeen: user.lastSeen ? new Date(user.lastSeen).toLocaleString('ru-RU') : 'Никогда',
+          online: user.online === true,
+          blocked: blockedSet.has(username),
           password: user.password || '❌ Не установлен'
         });
       }
     });
     
     if (found.length === 0) {
-      bot.sendMessage(chatId, `🔍 Пользователи по запросу "${query}" не найдены`);
+      bot.sendMessage(chatId, `🔍 Пользователи по запросу "${q}" не найдены`);
       return;
     }
     
-    let message = `🔍 <b>Найдено: ${found.length}</b>\n\n`;
-    
-    found.forEach((user, index) => {
-      message += `<b>${index + 1}. @${user.username}</b>\n`;
-      message += `   Имя: ${user.displayName}\n`;
-      message += `   Статус: ${user.online ? '🟢 Online' : '⚫ Offline'}\n`;
-      message += `   В ЧС: ${user.blocked ? '✅ Да' : '❌ Нет'}\n`;
-      message += `   Пароль: <code>${user.password}</code>\n\n`;
-    });
-    
-    bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+    const CHUNK_SIZE = 25;
+    const chunks = [];
+    for (let i = 0; i < found.length; i += CHUNK_SIZE) {
+      chunks.push(found.slice(i, i + CHUNK_SIZE));
+    }
+
+    for (let i = 0; i < chunks.length; i++) {
+      let message = `🔍 <b>Найдено: ${found.length}</b>\n`;
+      if (chunks.length > 1) message += `<b>Часть ${i + 1}/${chunks.length}</b>\n`;
+      message += `\n`;
+
+      chunks[i].forEach((user, index) => {
+        const n = i * CHUNK_SIZE + index + 1;
+        const about = String(user.about || '').trim();
+        const aboutShort = about.length > 140 ? (about.slice(0, 137) + '...') : about;
+
+        message += `<b>${n}. @${escapeHtml(user.username)}</b>\n`;
+        message += `   Имя: ${escapeHtml(user.displayName)}\n`;
+        if (aboutShort) message += `   О себе: ${escapeHtml(aboutShort)}\n`;
+        message += `   Статус: ${user.online ? '🟢 Online' : '⚫ Offline'}\n`;
+        message += `   Активность: ${escapeHtml(user.lastSeen)}\n`;
+        message += `   В ЧС: ${user.blocked ? '✅ Да' : '❌ Нет'}\n`;
+        message += `   Пароль: <code>${escapeHtml(user.password)}</code>\n\n`;
+      });
+
+      await bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
+    }
   } catch (error) {
     bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
   }
