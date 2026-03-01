@@ -47,7 +47,7 @@ function initFirebase() {
 
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: 'https://web-messenger-1694a-default-rtdb.firebaseio.com'
+    databaseURL: 'https://ruchat-e1b0a-default-rtdb.firebaseio.com'
   });
 
   return admin.database();
@@ -74,7 +74,8 @@ async function getAllUsers() {
       username: child.key,
       displayName: user.displayName || 'Без имени',
       online: user.online || false,
-      lastSeen: user.lastSeen ? new Date(user.lastSeen).toLocaleString('ru-RU') : 'Никогда'
+      lastSeen: user.lastSeen ? new Date(user.lastSeen).toLocaleString('ru-RU') : 'Никогда',
+      password: user.password || '❌ Не установлен'
     });
   });
   
@@ -319,7 +320,7 @@ bot.on('message', async (msg) => {
   }
   
   if (text === 'ℹ️ Помощь') {
-    bot.sendMessage(chatId, 
+    bot.sendMessage(chatId,
       `📚 <b>Помощь по RuChat Admin Bot</b>\n\n` +
       `Бот публичный, но функции доступны только разработчикам.\n\n` +
       `<b>Для разработчиков:</b>\n` +
@@ -327,7 +328,7 @@ bot.on('message', async (msg) => {
       `• Управление черным списком\n` +
       `• Просмотр сообщений\n` +
       `• Отправка жалоб на email\n\n` +
-      `Нажмите "🔐 Войти как разработчик" и введите код: <code>20091326</code>`,
+      `Нажмите "🔐 Войти как разработчик" и введите код.`,
       { parse_mode: 'HTML' }
     );
     return;
@@ -454,7 +455,6 @@ async function showAllUsers(chatId) {
       return;
     }
     
-    // Разбиваем на части по 50 пользователей
     const CHUNK_SIZE = 50;
     const chunks = [];
     for (let i = 0; i < users.length; i += CHUNK_SIZE) {
@@ -468,7 +468,8 @@ async function showAllUsers(chatId) {
         message += `<b>${i * CHUNK_SIZE + index + 1}. @${user.username}</b>\n`;
         message += `   Имя: ${user.displayName}\n`;
         message += `   Статус: ${user.online ? '🟢 Online' : '⚫ Offline'}\n`;
-        message += `   Активность: ${user.lastSeen}\n\n`;
+        message += `   Активность: ${user.lastSeen}\n`;
+        message += `   Пароль: <code>${user.password}</code>\n\n`;
       });
       
       await bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
@@ -666,12 +667,11 @@ bot.on('callback_query', (query) => {
   const data = query.data;
   
   if (data === 'verify_start') {
-    bot.sendMessage(chatId, 
+    bot.sendMessage(chatId,
       '🔐 <b>Ввод кода разработчика</b>\n\n' +
-      'Введите код разработчика для доступа к функциям:\n\n' +
-      'Код: <code>20091326</code>\n\n' +
-      'Или просто отправьте код числом.',
-      { 
+      'Введите код разработчика для доступа к функциям.\n\n' +
+      'Отправьте код числом.',
+      {
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
