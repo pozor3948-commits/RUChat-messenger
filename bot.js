@@ -1,8 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
 const nodemailer = require('nodemailer');
-const admin = require('firebase-admin');
-const fs = require('fs');
-const path = require('path');
+const https = require('https');
 require('dotenv').config();
 
 // ==========================================================
@@ -11,6 +9,9 @@ require('dotenv').config();
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8163102252:AAERNSrcwDY5-jJ2oyo9KGsnFjugJdhcEa4';
 const DEV_CODE = process.env.DEV_CODE || '20091326';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'ruchat.official@mail.ru';
+
+// Firebase REST API URL
+const DB_URL = 'https://ruchat-e1b0a-default-rtdb.firebaseio.com';
 
 // Создаем бота
 const bot = new TelegramBot(TOKEN, { polling: true });
@@ -30,30 +31,83 @@ const transporter = nodemailer.createTransport({
 });
 
 // ==========================================================
-// FIREBASE
+// FIREBASE REST API ФУНКЦИИ
 // ==========================================================
-function initFirebase() {
-  const serviceAccountPath = path.join(__dirname, 'serviceAccountKey.json');
-  
-  if (!fs.existsSync(serviceAccountPath)) {
-    console.error('❌ Файл serviceAccountKey.json не найден!');
-    console.error('Скачайте его в Firebase Console:');
-    console.error('Project Settings → Service Accounts → Generate New Private Key');
-    console.error('Сохраните как serviceAccountKey.json в корне проекта');
-    process.exit(1);
-  }
 
-  const serviceAccount = require('./serviceAccountKey.json');
-
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: 'https://ruchat-e1b0a-default-rtdb.firebaseio.com'
+function firebaseGet(path) {
+  return new Promise((resolve, reject) => {
+    const url = `${DB_URL}${path}.json`;
+    https.get(url, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    }).on('error', reject);
   });
-
-  return admin.database();
 }
 
-const db = initFirebase();
+function firebaseSet(path, value) {
+  return new Promise((resolve, reject) => {
+    const url = `${DB_URL}${path}.json`;
+    const data = JSON.stringify(value);
+    
+    const req = https.request(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': data.length
+      }
+    }, (res) => {
+      let responseData = '';
+      res.on('data', chunk => responseData += chunk);
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(responseData));
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    });
+    
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
+
+function firebaseUpdate(path, updates) {
+  return new Promise((resolve, reject) => {
+    const url = `${DB_URL}${path}.json`;
+    const data = JSON.stringify(updates);
+    
+    const req = https.request(url, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': data.length
+      }
+    }, (res) => {
+      let responseData = '';
+      res.on('data', chunk => responseData += chunk);
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(responseData));
+        } catch (e) {
+          resolve(null);
+        }
+      });
+    });
+    
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
 
 // ==========================================================
 // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -65,13 +119,15 @@ function checkDevAccess(userId) {
 }
 
 async function getAllUsers() {
-  const snapshot = await db.ref('accounts').once('value');
+  const accounts = await firebaseGet('/accounts');
   const users = [];
   
-  snapshot.forEach(child => {
-    const user = child.val() || {};
+  if (!accounts) return users;
+  
+  Object.keys(accounts).forEach(username => {
+    const user = accounts[username] || {};
     users.push({
-      username: child.key,
+      username: username,
       displayName: user.displayName || 'Без имени',
       online: user.online || false,
       lastSeen: user.lastSeen ? new Date(user.lastSeen).toLocaleString('ru-RU') : 'Никогда',
@@ -83,18 +139,21 @@ async function getAllUsers() {
 }
 
 async function getBlockedUsers() {
-  const snapshot = await db.ref('blocked').once('value');
-  const blocked = [];
+  const blocked = await firebaseGet('/blocked');
+  const result = [];
   
-  snapshot.forEach(child => {
-    blocked.push({
-      username: child.key,
-      reason: child.val()?.reason || 'Причина не указана',
-      blockedAt: child.val()?.blockedAt ? new Date(child.val().blockedAt).toLocaleString('ru-RU') : 'Неизвестно'
+  if (!blocked) return result;
+  
+  Object.keys(blocked).forEach(username => {
+    const data = blocked[username] || {};
+    result.push({
+      username: username,
+      reason: data.reason || 'Причина не указана',
+      blockedAt: data.blockedAt ? new Date(data.blockedAt).toLocaleString('ru-RU') : 'Неизвестно'
     });
   });
   
-  return blocked;
+  return result;
 }
 
 async function blockUser(username, reason) {
@@ -104,30 +163,32 @@ async function blockUser(username, reason) {
     blockedAt: Date.now()
   };
   updates[`accounts/${username}/blocked`] = true;
-  await db.ref().update(updates);
+  await firebaseUpdate('/', updates);
 }
 
 async function unblockUser(username) {
   const updates = {};
   updates[`blocked/${username}`] = null;
   updates[`accounts/${username}/blocked`] = null;
-  await db.ref().update(updates);
+  await firebaseUpdate('/', updates);
 }
 
 async function getUserMessages(username, limit = 20) {
   const messages = [];
-  const privateChatsSnap = await db.ref('privateChats').once('value');
+  const privateChats = await firebaseGet('/privateChats');
   
-  privateChatsSnap.forEach(chatSnap => {
-    const chatId = chatSnap.key;
+  if (!privateChats) return messages;
+  
+  Object.keys(privateChats).forEach(chatId => {
     if (!chatId.includes(username)) return;
     
-    chatSnap.forEach(msgSnap => {
-      const msg = msgSnap.val() || {};
+    const chat = privateChats[chatId];
+    Object.keys(chat).forEach(messageId => {
+      const msg = chat[messageId] || {};
       if (msg.from === username) {
         messages.push({
-          chatId,
-          messageId: msgSnap.key,
+          chatId: chatId,
+          messageId: messageId,
           from: msg.from,
           text: msg.text || '[Медиа/Файл]',
           time: msg.time ? new Date(msg.time).toLocaleString('ru-RU') : 'Неизвестно',
@@ -142,20 +203,16 @@ async function getUserMessages(username, limit = 20) {
 }
 
 async function getUser(username) {
-  const snapshot = await db.ref(`accounts/${username}`).once('value');
-  if (!snapshot.exists()) return null;
+  const user = await firebaseGet(`/accounts/${username}`);
+  if (!user) return null;
   
-  const user = snapshot.val() || {};
   return {
-    username,
+    username: username,
     displayName: user.displayName || 'Без имени',
     about: user.about || '',
     online: user.online || false,
     lastSeen: user.lastSeen ? new Date(user.lastSeen).toLocaleString('ru-RU') : 'Никогда',
-    friendsCount: user.friends ? Object.keys(user.friends).length : 0,
-    blockedCount: user.blocked ? Object.keys(user.blocked).length : 0,
-    password: user.password || '❌ Не установлен',
-    avatar: user.avatar || null
+    password: user.password || '❌ Не установлен'
   };
 }
 
@@ -191,9 +248,10 @@ async function sendComplaintEmail(fromUser, reportedUser, reason) {
 const mainKeyboard = {
   reply_markup: {
     keyboard: [
+      ['🔐 Войти как разработчик', 'ℹ️ Помощь'],
       ['👥 Пользователи', '📊 Статистика'],
       ['🚫 Черный список', '📬 Жалоба'],
-      ['🔍 Поиск', 'ℹ️ Помощь']
+      ['🔍 Поиск']
     ],
     resize_keyboard: true
   }
@@ -231,15 +289,10 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(chatId, 
     `🤖 <b>RuChat Admin Bot</b>\n\n` +
     `Бот для модерации мессенджера RuChat.\n\n` +
-    `Бот публичный, но функции доступны только разработчикам.\n\n` +
-    `Нажмите "🔐 Войти как разработчик" чтобы получить доступ.`,
+    `Бот публичный, но функции доступны только разработчикам.`,
     { 
       parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🔐 Войти как разработчик', callback_data: 'verify_start' }]
-        ]
-      }
+      ...mainKeyboard
     }
   );
 });
@@ -261,15 +314,27 @@ bot.on('message', async (msg) => {
   }
   
   // Главное меню
-  if (text === '👥 Пользователи') {
-    if (!checkDevAccess(chatId)) {
-      bot.sendMessage(chatId, '🔒 Доступ только для разработчиков!\n\nВведите код разработчика или нажмите кнопку ниже.', {
+  if (text === '🔐 Войти как разработчик') {
+    bot.sendMessage(chatId, 
+      '🔐 <b>Ввод кода разработчика</b>\n\n' +
+      'Введите код разработчика для доступа к функциям.\n\n' +
+      'Отправьте код числом.',
+      { 
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🔐 Войти как разработчик', callback_data: 'verify_start' }]
+            [{ text: '◀️ Назад', callback_data: 'back_to_main' }]
           ]
         }
-      });
+      }
+    );
+    sessions.set(chatId, { awaiting: 'verify_code' });
+    return;
+  }
+  
+  if (text === '👥 Пользователи') {
+    if (!checkDevAccess(chatId)) {
+      bot.sendMessage(chatId, '🔒 Доступ только для разработчиков!\n\nВведите код разработчика.');
       return;
     }
     showAllUsers(chatId);
@@ -299,13 +364,8 @@ bot.on('message', async (msg) => {
       bot.sendMessage(chatId, '🔒 Доступ только для разработчиков!');
       return;
     }
-    bot.sendMessage(chatId, 'Выберите действие:', {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '📬 Отправить жалобу', callback_data: 'complaint_start' }]
-        ]
-      }
-    });
+    bot.sendMessage(chatId, 'Введите username пользователя для жалобы:', backKeyboard);
+    sessions.set(chatId, { ...sessions.get(chatId), awaiting: 'complaint_username' });
     return;
   }
   
@@ -320,7 +380,7 @@ bot.on('message', async (msg) => {
   }
   
   if (text === 'ℹ️ Помощь') {
-    bot.sendMessage(chatId,
+    bot.sendMessage(chatId, 
       `📚 <b>Помощь по RuChat Admin Bot</b>\n\n` +
       `Бот публичный, но функции доступны только разработчикам.\n\n` +
       `<b>Для разработчиков:</b>\n` +
@@ -382,23 +442,6 @@ bot.on('message', async (msg) => {
     await handleInput(chatId, msg.from, text, session);
     return;
   }
-  
-  // Код разработчика (если просто прислали числом)
-  if (/^\d+$/.test(text)) {
-    if (text === DEV_CODE) {
-      sessions.set(chatId, { isDev: true, verifiedAt: Date.now() });
-      bot.sendMessage(chatId, 
-        `✅ <b>Доступ разрешён!</b>\n\n` +
-        `Вы авторизованы как разработчик RuChat.`,
-        { 
-          parse_mode: 'HTML',
-          ...devKeyboard
-        }
-      );
-    } else {
-      bot.sendMessage(chatId, '❌ Неверный код разработчика!');
-    }
-  }
 });
 
 async function handleInput(chatId, user, text, session) {
@@ -408,6 +451,23 @@ async function handleInput(chatId, user, text, session) {
   sessions.set(chatId, { ...session, awaiting: null });
   
   switch (awaiting) {
+    case 'verify_code':
+      if (text === DEV_CODE) {
+        sessions.set(chatId, { isDev: true, verifiedAt: Date.now() });
+        bot.sendMessage(chatId, 
+          `✅ <b>Доступ разрешён!</b>\n\n` +
+          `Вы авторизованы как разработчик RuChat.`,
+          { 
+            parse_mode: 'HTML',
+            ...devKeyboard
+          }
+        );
+      } else {
+        bot.sendMessage(chatId, '❌ Неверный код разработчика!');
+        sessions.set(chatId, {});
+      }
+      break;
+      
     case 'search':
       await searchUser(chatId, text);
       break;
@@ -419,6 +479,7 @@ async function handleInput(chatId, user, text, session) {
       
     case 'block_reason':
       await blockUserAction(chatId, session.tempData?.username || text, text);
+      sessions.set(chatId, { isDev: true });
       break;
       
     case 'unblock_username':
@@ -436,6 +497,7 @@ async function handleInput(chatId, user, text, session) {
       
     case 'complaint_reason':
       await sendComplaintAction(chatId, user, session.tempData?.username || text, text);
+      sessions.set(chatId, { isDev: true });
       break;
   }
 }
@@ -488,19 +550,15 @@ async function showBlockedList(chatId) {
       return;
     }
     
-    let message = `🚫 <b>Заблокированные пользователи: ${blocked.length}</b>\n\n`;
+    let message = `🚫 <b>Заблокированные: ${blocked.length}</b>\n\n`;
     
     blocked.forEach((user, index) => {
       message += `<b>${index + 1}. @${user.username}</b>\n`;
       message += `   Причина: ${user.reason}\n`;
-      message += `   Заблокирован: ${user.blockedAt}\n\n`;
+      message += `   Дата: ${user.blockedAt}\n\n`;
     });
     
-    const parts = message.match(/[\s\S]{1,4000}/g) || [message];
-    
-    for (const part of parts) {
-      await bot.sendMessage(chatId, part, { parse_mode: 'HTML' });
-    }
+    bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
   } catch (error) {
     bot.sendMessage(chatId, `❌ Ошибка: ${error.message}`);
   }
@@ -508,20 +566,26 @@ async function showBlockedList(chatId) {
 
 async function searchUser(chatId, query) {
   try {
-    const snapshot = await db.ref('accounts').once('value');
+    const accounts = await firebaseGet('/accounts');
     const found = [];
     
-    snapshot.forEach(child => {
-      const user = child.val() || {};
-      const username = child.key.toLowerCase();
-      const displayName = (user.displayName || '').toLowerCase();
+    if (!accounts) {
+      bot.sendMessage(chatId, `🔍 Пользователи по запросу "${query}" не найдены`);
+      return;
+    }
+    
+    Object.keys(accounts).forEach(username => {
+      const user = accounts[username] || {};
+      const uname = username.toLowerCase();
+      const dname = (user.displayName || '').toLowerCase();
       
-      if (username.includes(query.toLowerCase()) || displayName.includes(query.toLowerCase())) {
+      if (uname.includes(query.toLowerCase()) || dname.includes(query.toLowerCase())) {
         found.push({
-          username: child.key,
+          username: username,
           displayName: user.displayName || 'Без имени',
           online: user.online || false,
-          blocked: user.blocked === true
+          blocked: user.blocked === true,
+          password: user.password || '❌ Не установлен'
         });
       }
     });
@@ -537,7 +601,8 @@ async function searchUser(chatId, query) {
       message += `<b>${index + 1}. @${user.username}</b>\n`;
       message += `   Имя: ${user.displayName}\n`;
       message += `   Статус: ${user.online ? '🟢 Online' : '⚫ Offline'}\n`;
-      message += `   В ЧС: ${user.blocked ? '✅ Да' : '❌ Нет'}\n\n`;
+      message += `   В ЧС: ${user.blocked ? '✅ Да' : '❌ Нет'}\n`;
+      message += `   Пароль: <code>${user.password}</code>\n\n`;
     });
     
     bot.sendMessage(chatId, message, { parse_mode: 'HTML' });
@@ -548,21 +613,22 @@ async function searchUser(chatId, query) {
 
 async function showStats(chatId) {
   try {
-    const [usersSnap, blockedSnap, groupsSnap] = await Promise.all([
-      db.ref('accounts').once('value'),
-      db.ref('blocked').once('value'),
-      db.ref('groups').once('value')
+    const [accounts, blocked, groups] = await Promise.all([
+      firebaseGet('/accounts'),
+      firebaseGet('/blocked'),
+      firebaseGet('/groups')
     ]);
     
-    const totalUsers = usersSnap.size;
-    const totalBlocked = blockedSnap.size;
-    const totalGroups = groupsSnap.size;
+    const totalUsers = accounts ? Object.keys(accounts).length : 0;
+    const totalBlocked = blocked ? Object.keys(blocked).length : 0;
+    const totalGroups = groups ? Object.keys(groups).length : 0;
     
     let onlineCount = 0;
-    usersSnap.forEach(child => {
-      const user = child.val() || {};
-      if (user.online === true) onlineCount++;
-    });
+    if (accounts) {
+      Object.keys(accounts).forEach(key => {
+        if (accounts[key]?.online === true) onlineCount++;
+      });
+    }
     
     bot.sendMessage(chatId, 
       `📊 <b>Статистика RuChat</b>\n\n` +
@@ -613,8 +679,7 @@ async function blockUserAction(chatId, username, reason) {
     await blockUser(username, reason);
     bot.sendMessage(chatId, 
       `✅ <b>Пользователь @${username} заблокирован!</b>\n\n` +
-      `Причина: ${reason}\n\n` +
-      `При попытке входа пользователь увидит сообщение о блокировке.`,
+      `Причина: ${reason}`,
       { parse_mode: 'HTML' }
     );
   } catch (error) {
@@ -666,29 +731,8 @@ bot.on('callback_query', (query) => {
   const chatId = query.message.chat.id;
   const data = query.data;
   
-  if (data === 'verify_start') {
-    bot.sendMessage(chatId,
-      '🔐 <b>Ввод кода разработчика</b>\n\n' +
-      'Введите код разработчика для доступа к функциям.\n\n' +
-      'Отправьте код числом.',
-      {
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '◀️ Назад', callback_data: 'back_to_main' }]
-          ]
-        }
-      }
-    );
-  }
-  
   if (data === 'back_to_main') {
     bot.sendMessage(chatId, 'Главное меню:', mainKeyboard);
-  }
-  
-  if (data === 'complaint_start') {
-    bot.sendMessage(chatId, 'Введите username пользователя для жалобы:', backKeyboard);
-    sessions.set(chatId, { isDev: sessions.get(chatId)?.isDev, awaiting: 'complaint_username' });
   }
   
   bot.answerCallbackQuery(query.id);
@@ -701,3 +745,4 @@ bot.on('callback_query', (query) => {
 console.log('✅ RuChat Admin Bot запущен!');
 console.log(`📧 Email для жалоб: ${ADMIN_EMAIL}`);
 console.log(`🔑 Код разработчика: ${DEV_CODE}`);
+console.log(`🔗 Firebase URL: ${DB_URL}`);
