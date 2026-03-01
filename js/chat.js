@@ -18,6 +18,7 @@ const friendPrivacyCache = {};
 window.friendPrivacyCache = friendPrivacyCache;
 const groupValueListeners = {};
 const unreadListenerByFriend = {};
+const friendProfileListeners = {};
 
 const lastMessageKeyByChat = {};
 const reactionOptions = ['👍','❤️','😂','😮','😢','😡'];
@@ -413,10 +414,7 @@ function updatePinnedBarUI(state) {
 async function syncPinnedFromDb() {
   if (!chatRef || !currentChatId) return;
   try {
-    const snap = await chatRef.orderByChild('meta').equalTo(true).limitToLast(1).once('value');
-    if (!snap.exists()) return;
-    let last = null;
-    snap.forEach(ch => { last = { id: ch.key, ...(ch.val() || {}) }; });
+    const last = await findLatestMetaEvent(chatRef);
     if (!last) return;
     if (String(last.type) === 'meta_pin' && last.pin && last.pin.id) {
       setPinnedState(currentChatId, isGroupChat, { id: last.pin.id, preview: last.pin.preview || 'Сообщение', at: last.time || Date.now(), from: last.pin.from || '' });
@@ -426,6 +424,45 @@ async function syncPinnedFromDb() {
   } catch {
     // ignore
   }
+}
+
+async function findLatestMetaEvent(ref, batchSize = 250, maxBatches = 50) {
+  let cursor = null;
+
+  for (let i = 0; i < maxBatches; i += 1) {
+    let queryRef;
+    if (!cursor) {
+      queryRef = ref.orderByKey().limitToLast(batchSize);
+    } else {
+      queryRef = ref.orderByKey().endAt(cursor).limitToLast(batchSize + 1);
+    }
+
+    const snap = await queryRef.once('value');
+    if (!snap.exists()) return null;
+
+    const rows = [];
+    snap.forEach(ch => {
+      rows.push({ id: ch.key, ...(ch.val() || {}) });
+    });
+    if (!rows.length) return null;
+
+    if (cursor && rows[rows.length - 1] && rows[rows.length - 1].id === cursor) {
+      rows.pop();
+    }
+    if (!rows.length) return null;
+
+    for (let j = rows.length - 1; j >= 0; j -= 1) {
+      const m = rows[j] || {};
+      if (m.meta === true || String(m.type) === 'meta_pin' || String(m.type) === 'meta_unpin') {
+        return m;
+      }
+    }
+
+    cursor = rows[0].id;
+    if (!cursor) return null;
+  }
+
+  return null;
 }
 
 // ===== Media settings (auto-render) =====
@@ -632,6 +669,13 @@ function renderFriends() {
   Object.keys(unreadListenerByFriend).forEach(fn => {
     if (!visibleKeys.includes(fn)) clearUnreadListener(fn);
   });
+  Object.keys(friendProfileListeners).forEach(fn => {
+    if (!visibleKeys.includes(fn)) clearFriendProfileListeners(fn);
+  });
+  Object.keys(friendStatusListeners).forEach(f => {
+    if (friendStatusListeners[f]) db.ref("userStatus/" + f).off('value', friendStatusListeners[f]);
+  });
+  friendStatusListeners = {};
   if (!visibleKeys.length) {
     friendList.innerHTML = `
       <div class="empty-state">
@@ -641,10 +685,6 @@ function renderFriends() {
       </div>`;
     return;
   }
-  Object.keys(friendStatusListeners).forEach(f => {
-    if (friendStatusListeners[f]) db.ref("userStatus/" + f).off('value', friendStatusListeners[f]);
-  });
-  friendStatusListeners = {};
   const delayStep = isMobile ? 0 : 50;
   visibleKeys.forEach((fn, idx) => {
     setTimeout(() => {
@@ -653,6 +693,15 @@ function renderFriends() {
       db.ref(`userStatus/${fn}`).once("value").then(s => updateFriendStatusInList(fn, s.val()));
     }, idx * delayStep);
   });
+}
+
+function clearFriendProfileListeners(fn) {
+  const listeners = friendProfileListeners[fn];
+  if (!listeners) return;
+  if (listeners.avatar) db.ref(`accounts/${fn}/avatar`).off('value', listeners.avatar);
+  if (listeners.displayName) db.ref(`accounts/${fn}/displayName`).off('value', listeners.displayName);
+  if (listeners.privacy) db.ref(`accounts/${fn}/privacy/showLastSeen`).off('value', listeners.privacy);
+  delete friendProfileListeners[fn];
 }
 
 function renderBlocked() {
@@ -715,34 +764,48 @@ function createFriendItem(fn) {
       <button class="contact-action-btn" title="Удалить" onclick="removeFriend('${fn}', event)">🗑</button>
       <button class="contact-action-btn" title="Блокировать" onclick="blockUser('${fn}', event)">🚫</button>
     </div>
-    <div class="unread-badge" id="unread_${fn}" style="display:none">0</div>`;
+	    <div class="unread-badge" id="unread_${fn}" style="display:none">0</div>`;
   fl.appendChild(item);
-  db.ref("accounts/" + fn + "/avatar").on("value", s => {
-    const av = document.getElementById(`avatar_${fn}`);
-    const url = s.val();
-    if (s.exists() && url && (typeof isValidMediaUrl !== 'function' || isValidMediaUrl(url))) {
-      av.src = url;
-    } else {
-      av.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=48`;
-    }
-  });
-  db.ref("accounts/" + fn + "/displayName").on("value", s => {
-    const dn = s.val();
-    const name = resolveUserLabel(fn);
-    displayNameCache[fn] = name;
-    const nameEl = document.getElementById(`contactName_${fn}`);
-    if (nameEl) nameEl.textContent = name;
-    if (currentChatPartner === fn) {
-      document.getElementById("chatWith").textContent = name;
-      document.getElementById("mobileChatTitle").textContent = name;
-    }
-  });
-  db.ref(`accounts/${fn}/privacy/showLastSeen`).on("value", s => {
-    friendPrivacyCache[fn] = s.val() || 'everyone';
-    if (typeof updateFriendStatusInList === 'function') {
-      updateFriendStatusInList(fn, userStatuses[fn] || null);
-    }
-  });
+
+  clearFriendProfileListeners(fn);
+
+  const avatarHandler = s => {
+	    const av = document.getElementById(`avatar_${fn}`);
+    if (!av) return;
+	    const url = s.val();
+	    if (s.exists() && url && (typeof isValidMediaUrl !== 'function' || isValidMediaUrl(url))) {
+	      av.src = url;
+	    } else {
+	      av.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=48`;
+	    }
+	  };
+  db.ref(`accounts/${fn}/avatar`).on("value", avatarHandler);
+
+  const displayNameHandler = s => {
+	    const name = resolveUserLabel(fn);
+	    displayNameCache[fn] = name;
+	    const nameEl = document.getElementById(`contactName_${fn}`);
+	    if (nameEl) nameEl.textContent = name;
+	    if (currentChatPartner === fn) {
+	      document.getElementById("chatWith").textContent = name;
+	      document.getElementById("mobileChatTitle").textContent = name;
+	    }
+	  };
+  db.ref(`accounts/${fn}/displayName`).on("value", displayNameHandler);
+
+  const privacyHandler = s => {
+	    friendPrivacyCache[fn] = s.val() || 'everyone';
+	    if (typeof updateFriendStatusInList === 'function') {
+	      updateFriendStatusInList(fn, userStatuses[fn] || null);
+	    }
+	  };
+  db.ref(`accounts/${fn}/privacy/showLastSeen`).on("value", privacyHandler);
+
+  friendProfileListeners[fn] = {
+    avatar: avatarHandler,
+    displayName: displayNameHandler,
+    privacy: privacyHandler
+  };
   subscribeUnreadForFriend(fn);
   loadLastMessage(fn);
 }
@@ -881,7 +944,8 @@ function createGroupItem(g, gid) {
       <div class="last-seen online">Группа • ${roleLabel}</div>
     </div>`;
   if (g.avatar && (typeof isValidMediaUrl !== 'function' || isValidMediaUrl(g.avatar))) {
-    document.getElementById(`group_avatar_${gid}`).src = g.avatar;
+    const groupAvatar = document.getElementById(`group_avatar_${gid}`);
+    if (groupAvatar) groupAvatar.src = g.avatar;
   }
 }
 
@@ -1252,6 +1316,7 @@ function addMessageToChat(m, options = {}) {
     ${m.from === username ? `<button class="reaction-btn" onclick="deleteMessage('${m.id}')" title="Удалить">🗑</button>` : ""}
   </div>`;
   let content = "";
+  let videoMessageOpenUrl = null;
   const replyFrom = m.replyTo && m.replyTo.from ? resolveUserLabel(m.replyTo.from) : '';
   const replyHtml = m.replyTo ? `<div class="message-reply">↩ ${escapeHtml(replyFrom)}: ${escapeHtml(sanitizeUiText(m.replyTo.text || '', ''))}</div>` : "";
   const fwdName = m.forwardedFrom ? resolveUserLabel(m.forwardedFrom) : '';
@@ -1310,9 +1375,10 @@ function addMessageToChat(m, options = {}) {
           </div>
         `;
       } else {
+        videoMessageOpenUrl = videoUrl;
         content = `
           ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
-          <div class="message-video" onclick="playVideoMessage('${videoUrl}')">
+          <div class="message-video js-video-message">
             <video src="${videoUrl}" preload="metadata"></video>
           </div>
           ${m.duration ? `<div class="video-duration">${m.duration} сек</div>` : ''}
@@ -1386,6 +1452,18 @@ function addMessageToChat(m, options = {}) {
       ${m.editedAt || m.edited ? `<span class="message-edited"> (изм.)</span>` : ''}
       ${m.from === username ? `<span class="message-status ${status}">${status === 'read' ? '✓✓' : status === 'sent' ? '✓' : ''}</span>` : ''}
     </div>`;
+  if (videoMessageOpenUrl) {
+    const videoBubble = msg.querySelector('.js-video-message');
+    if (videoBubble) {
+      videoBubble.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof playVideoMessage === 'function') playVideoMessage(videoMessageOpenUrl);
+        else if (typeof openMedia === 'function') openMedia(videoMessageOpenUrl);
+        else window.open(videoMessageOpenUrl, '_blank');
+      });
+    }
+  }
   wrap.appendChild(msg);
   if (m.clientMessageId) renderedClientMessageIds.add(m.clientMessageId);
   if (opts.prepend) {
@@ -2351,6 +2429,20 @@ window.leaveCurrentGroup = leaveCurrentGroup;
 window.updateGroupManageMenuVisibility = updateGroupManageMenuVisibility;
 
 document.addEventListener('click', (e) => {
+  const videoBubble = e.target.closest('.message-video');
+  if (videoBubble) {
+    const videoEl = videoBubble.querySelector('video');
+    const src = videoEl ? (videoEl.currentSrc || videoEl.getAttribute('src') || videoEl.src || '') : '';
+    if (src) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof playVideoMessage === 'function') playVideoMessage(src);
+      else if (typeof openMedia === 'function') openMedia(src);
+      else window.open(src, '_blank');
+      return;
+    }
+  }
+
   const reactionBtn = e.target.closest('.reaction-btn');
   if (reactionBtn) {
     showReactionPicker(reactionBtn);

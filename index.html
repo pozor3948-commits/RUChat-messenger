@@ -29,7 +29,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260301g">
+    <link rel="stylesheet" href="css/style.css?v=20260301i">
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -182,9 +182,9 @@
             <div class="chat-actions">
                 <button class="icon-btn" onclick="toggleMessageSearch()" title="Поиск в чате">🔍</button>
                 <button class="icon-btn" onclick="openMediaLibrary()" title="Медиа">🗂</button>
+                <button class="icon-btn" id="callButton" onclick="startVoiceCall()" title="Голосовой звонок" style="display:none;">📞</button>
                 <button class="icon-btn" onclick="toggleTheme()" title="Сменить тему">🌙</button>
-                <button class="icon-btn" onclick="showChatInfo()" title="Информация о чате">№️</button>
-                <button class="icon-btn" onclick="toggleEmojiPicker()" title="Эмодзи">😊</button>
+                <button class="icon-btn" onclick="showChatInfo()" title="Информация о чате">i</button>
             </div>
         </div>
         <div class="chat-search" id="chatSearch">
@@ -223,7 +223,6 @@
                 <input type="text" class="message-input" id="text" placeholder="Введите сообщение..." 
                        onkeypress="handleKeyPress(event)" oninput="updateSendButton(); handleTyping()"
                        autocomplete="off" autocorrect="on" autocapitalize="sentences" lang="ru" dir="auto">
-                <button class="icon-btn" onclick="toggleStickerPanel()" title="Стикеры">🧩</button>
                 <button class="icon-btn" onclick="showRecordTypeMenu()" title="Запись сообщения">🎤</button>
                 <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Отправить">✈️</button>
             </div>
@@ -299,35 +298,6 @@
         <div class="group-admin-list" id="groupAdminList"></div>
         <div class="group-admin-actions">
             <button class="chat-bg-btn secondary" id="leaveGroupBtn" onclick="leaveCurrentGroup()" style="display:none;">Выйти из группы</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== ПАНЕЛЬ СТИКЕРОВ ===== -->
-<div class="sticker-panel" id="stickerPanel">
-    <div class="sticker-header">
-        <div class="sticker-title">Стикеры</div>
-        <button class="icon-btn sticker-close" onclick="toggleStickerPanel()" title="Закрыть">✕</button>
-    </div>
-    <div class="sticker-grid" id="stickerGrid"></div>
-    <div class="sticker-actions">
-        <button class="sticker-action-btn" onclick="openStickerBot()">Стикер-бот</button>
-    </div>
-</div>
-
-<!-- ===== СТИКЕР-БОТ ===== -->
-<div class="sticker-bot-overlay" id="stickerBotOverlay">
-    <div class="sticker-bot-modal">
-        <h2 class="sticker-bot-title">Стикер-бот</h2>
-        <p class="sticker-bot-subtitle">Создай стикер из фото и добавь эмодзи</p>
-        <input type="file" id="stickerFileInput" accept="image/*" onchange="handleStickerFileChange(event)">
-        <input type="text" id="stickerEmojiInput" placeholder="Эмодзи (необязательно)">
-        <div class="sticker-preview-wrap">
-            <img id="stickerPreview" alt="Предпросмотр">
-        </div>
-        <div class="sticker-bot-actions">
-            <button class="login-btn" onclick="saveSticker()">Добавить стикер</button>
-            <button class="login-btn secondary" onclick="closeStickerBot()">Отмена</button>
         </div>
     </div>
 </div>
@@ -434,9 +404,6 @@
         </div>
     </div>
 </div>
-
-<!-- ===== КНОПКА ЗВОНКА ===== -->
-<button class="call-button" id="callButton" onclick="startVoiceCall()" title="Голосовой звонок">📞</button>
 
 <!-- ===== ОВЕРЛЕЙ ЗВОНКА ===== -->
 <div class="call-overlay" id="callOverlay">
@@ -546,13 +513,13 @@
 <script src="js/sounds.js?v=20260219d"></script>
 <script src="js/auth.js?v=20260301d"></script>
 <script src="js/status.js?v=20260219d"></script>
-<script src="js/chat.js?v=20260301e"></script>
+<script src="js/chat.js?v=20260301h"></script>
 <script src="js/media.js?v=20260219d"></script>
 <script src="js/emoji.js?v=20260219d"></script>
 <script src="js/stickers.js?v=20260219d"></script>
 <script src="js/groups.js?v=20260219d"></script>
 <script src="js/mobile.js?v=20260301b"></script>
-<script src="js/video-messages.js?v=20260301a"></script>
+<script src="js/video-messages.js?v=20260301c"></script>
 <script src="js/audio-call.js?v=20260219d"></script>
 <script src="js/settings.js?v=20260219d"></script>
 
@@ -600,7 +567,7 @@
         if (retry) window.retryAction = retry;
     };
     
-    console.log('Build 2026-02-19d');
+    console.log('Build 2026-03-01i');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {

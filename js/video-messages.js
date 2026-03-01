@@ -461,21 +461,33 @@ async function sendVideoMessage(videoData) {
 function playVideoMessage(videoUrl) {
     const modal = document.createElement('div');
     modal.className = 'video-playback-overlay';
-    modal.innerHTML = `
-        <div class="video-playback-modal">
-            <button class="close-btn" onclick="this.parentElement.parentElement.remove()">✕</button>
-            <video src="${videoUrl}" controls autoplay></video>
-        </div>
-    `;
-    
+
+    const modalBox = document.createElement('div');
+    modalBox.className = 'video-playback-modal';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'close-btn';
+    closeBtn.type = 'button';
+    closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', () => modal.remove());
+
+    const videoEl = document.createElement('video');
+    videoEl.controls = true;
+    videoEl.autoplay = true;
+    videoEl.src = String(videoUrl || '');
+
+    modalBox.appendChild(closeBtn);
+    modalBox.appendChild(videoEl);
+    modal.appendChild(modalBox);
     document.body.appendChild(modal);
-    
+
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
             modal.remove();
         }
     });
 }
+window.playVideoMessage = playVideoMessage;
 
 function initVideoMessagesAfterLogin() {
     setTimeout(() => {
