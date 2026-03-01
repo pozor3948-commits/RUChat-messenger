@@ -35,9 +35,6 @@ function loadStories() {
     // Очищаем список
     sl.innerHTML = '';
     
-    // Добавляем кнопку создания своей истории
-    addMyStoryButton(sl);
-    
     // Загружаем истории друзей
     db.ref("accounts/" + currentUser + "/friends").once("value").then(snap => {
         if (!snap.exists()) {
@@ -69,8 +66,7 @@ function loadStories() {
 
 // Показать модальное окно создания истории
 function showCreateStoryModal() {
-    if (!checkConnection()) return;
-    document.getElementById('storyModalOverlay').style.display = 'flex';
+    showNotification('Истории', 'Публикация историй отключена');
 }
 
 // Закрыть модальное окно создания истории
@@ -80,22 +76,12 @@ function closeStoryModal() {
 
 // Создать фото-историю
 function createPhotoStory() {
-    closeStoryModal();
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e) => handleStoryFileSelected(e.target.files[0], 'photo');
-    input.click();
+    showNotification('Истории', 'Публикация историй отключена');
 }
 
 // Создать видео-историю
 function createVideoStory() {
-    closeStoryModal();
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'video/*';
-    input.onchange = (e) => handleStoryFileSelected(e.target.files[0], 'video');
-    input.click();
+    showNotification('Истории', 'Публикация историй отключена');
 }
 
 // Обработка выбранного файла для истории
@@ -151,52 +137,7 @@ function closeStoryPreview() {
 
 // Опубликовать историю
 async function publishStory() {
-    if (!currentStoryFile || !currentStoryType) return;
-    
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-        showError("Пользователь не авторизован");
-        return;
-    }
-    
-    showLoading();
-    
-    try {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const storyData = {
-                type: currentStoryType,
-                url: e.target.result,
-                timestamp: Date.now(),
-                duration: currentStoryType === 'video' ? await getVideoDuration(currentStoryFile) : 0,
-                views: {}
-            };
-            
-            // Сохраняем историю в Firebase
-            const storyKey = `story_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            await db.ref(`accounts/${currentUser}/stories/${storyKey}`).set(storyData);
-            
-            // Помечаем историю как просмотренную самим пользователем
-            await db.ref(`accounts/${currentUser}/stories/${storyKey}/views/${currentUser}`).set(true);
-            
-            showNotification('Успешно', 'История опубликована!');
-            closeStoryPreview();
-            
-            // Перезагружаем истории
-            loadStories();
-            
-            // Воспроизводим звук успеха
-            if (typeof playSendSound === 'function') {
-                playSendSound();
-            }
-        };
-        reader.readAsDataURL(currentStoryFile);
-    } catch (error) {
-        console.error('Ошибка при публикации истории:', error);
-        showError('Не удалось опубликовать историю');
-    } finally {
-        hideLoading();
-    }
+    showNotification('Истории', 'Публикация историй отключена');
 }
 
 // Получить длительность видео
@@ -214,26 +155,7 @@ function getVideoDuration(file) {
 
 // Добавить кнопку своей истории
 function addMyStoryButton(container) {
-    const currentUser = getCurrentUser();
-    if (!currentUser) return;
-    
-    const myStoryItem = document.createElement("div");
-    myStoryItem.className = "story-item story-add-btn";
-    myStoryItem.onclick = showCreateStoryModal;
-    
-    // Получаем URL своего аватара
-    const myAvatar = document.getElementById('userAvatar');
-    const avatarUrl = myAvatar && myAvatar.src ? myAvatar.src : `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser)}&background=0088cc&color=fff&size=60`;
-    
-    myStoryItem.innerHTML = `
-        <div class="story-avatar-container">
-            <img class="story-avatar" src="${avatarUrl}" alt="${currentUser}">
-            <div class="story-add-icon">+</div>
-        </div>
-        <div class="story-name">Ваша история</div>
-    `;
-    
-    container.appendChild(myStoryItem);
+    return;
 }
 
 // Создать элемент истории друга
@@ -598,4 +520,3 @@ function initStoriesAfterLogin() {
     }, 2000);
 }
 [file content end]
-

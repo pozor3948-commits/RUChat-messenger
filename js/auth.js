@@ -16,6 +16,13 @@ function sanitizeProfileText(value, fallback = '') {
     if (fixed) text = typeof normalizeText === 'function' ? normalizeText(fixed) : fixed;
     text = text.replace(/\uFFFD+/g, '');
   }
+  const safeFallback = String(fallback || '').trim();
+  const qCount = (text.match(/\?/g) || []).length;
+  if (qCount > 0 && safeFallback) {
+    const suspicious = qCount >= 2 || qCount >= Math.ceil(text.length * 0.2);
+    const fallbackBetter = !safeFallback.includes('?') || safeFallback.replace(/\?/g, '').length >= text.replace(/\?/g, '').length;
+    if (suspicious && fallbackBetter) text = safeFallback;
+  }
   text = text.trim();
   return text || fallback;
 }
@@ -44,7 +51,6 @@ async function register() {
       friendRequests: { incoming: {}, outgoing: {} },
       blocked: {},
       chatBg: "", 
-      stories: {}, 
       lastSeen: ts, 
       createdAt: ts, 
       chatThemes: {} 
@@ -58,7 +64,6 @@ async function register() {
       friendRequests: { incoming: {}, outgoing: {} },
       blocked: {},
       chatBg: "", 
-      stories: {}, 
       lastSeen: ts, 
       createdAt: ts, 
       chatThemes: {} 
@@ -117,7 +122,11 @@ async function doLoginAfterAuth(u, title, message) {
   }
   initEmojiPicker();
   if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission().catch(() => {});
+    const notifPromptKey = 'ruchat_notifications_prompted_once';
+    if (localStorage.getItem(notifPromptKey) !== 'true') {
+      localStorage.setItem(notifPromptKey, 'true');
+      Notification.requestPermission().catch(() => {});
+    }
   }
   if (typeof initSoundsAfterLogin === 'function') {
     initSoundsAfterLogin();
@@ -166,13 +175,13 @@ function applyAuthMode(mode) {
   const switchLink = document.getElementById('authSwitchLink');
   const forgot = document.getElementById('authForgotBtn');
 
-  if (title) title.textContent = authMode === 'register' ? 'REGISTER' : 'SIGN IN';
+  if (title) title.textContent = authMode === 'register' ? 'Регистрация' : 'Вход';
   if (submit) {
-    submit.textContent = authMode === 'register' ? 'CREATE ACCOUNT' : 'SIGN IN';
+    submit.textContent = authMode === 'register' ? 'Создать аккаунт' : 'Войти';
     submit.onclick = authMode === 'register' ? register : login;
   }
-  if (switchText) switchText.textContent = authMode === 'register' ? 'Already have an account?' : 'New member?';
-  if (switchLink) switchLink.textContent = authMode === 'register' ? 'Sign in' : 'Register';
+  if (switchText) switchText.textContent = authMode === 'register' ? 'Уже есть аккаунт?' : 'Новый пользователь?';
+  if (switchLink) switchLink.textContent = authMode === 'register' ? 'Войти' : 'Зарегистрироваться';
   if (forgot) forgot.style.display = authMode === 'register' ? 'none' : 'inline-flex';
 }
 

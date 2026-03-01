@@ -9,7 +9,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#0f172a">
     <meta name="msapplication-TileColor" content="#0f172a">
-    <meta name="application-name" content="RuChat Messenger">
+    <meta name="application-name" content="RuChat Мессенджер">
     <meta name="description" content="RuChat - современный мессенджер с видеосообщениями">
     <meta name="keywords" content="мессенджер, чат, RuChat, сообщения, общение, видеосообщения">
     
@@ -29,7 +29,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260219d">
+    <link rel="stylesheet" href="css/style.css?v=20260301g">
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -83,26 +83,27 @@
 <div class="auth-page" id="login">
     <div class="auth-bg" aria-hidden="true"></div>
     <div class="auth-card" role="region" aria-label="Авторизация">
-        <div class="auth-title" id="authTitle">SIGN IN</div>
+        <div class="auth-brand">RuChat</div>
+        <div class="auth-title" id="authTitle">Вход</div>
 
-        <label class="auth-label" for="usernameInput">USERNAME</label>
+        <label class="auth-label" for="usernameInput">Имя пользователя</label>
         <input type="text" id="usernameInput" class="auth-input" placeholder="Введите имя" autocomplete="username" inputmode="text" spellcheck="false" lang="ru">
 
-        <label class="auth-label" for="passwordInput">PASSWORD</label>
+        <label class="auth-label" for="passwordInput">Пароль</label>
         <input type="password" id="passwordInput" class="auth-input" placeholder="Введите пароль" autocomplete="current-password">
 
         <label class="auth-keep">
             <input type="checkbox" id="keepSignedIn">
-            <span>Keep me Signed in</span>
+            <span>Оставаться в системе</span>
         </label>
 
-        <button class="auth-btn" id="authSubmitBtn" type="button">SIGN IN</button>
+        <button class="auth-btn" id="authSubmitBtn" type="button">Войти</button>
 
-        <button class="auth-link" id="authForgotBtn" type="button" onclick="recoverPassword()">Forgot password?</button>
+        <button class="auth-link" id="authForgotBtn" type="button" onclick="recoverPassword()">Забыли пароль?</button>
 
         <div class="auth-switch">
-            <span id="authSwitchText">New member?</span>
-            <button class="auth-switch-link" id="authSwitchLink" type="button" onclick="toggleAuthMode()">Register</button>
+            <span id="authSwitchText">Новый пользователь?</span>
+            <button class="auth-switch-link" id="authSwitchLink" type="button" onclick="toggleAuthMode()">Регистрация</button>
         </div>
     </div>
 </div>
@@ -116,7 +117,7 @@
         <div class="chat-info">
             <div class="chat-title" id="mobileChatTitle">RuChat</div>
             <div class="mobile-chat-meta">
-                <img id="mobileChatAvatar" class="mobile-chat-avatar" alt="Chat Avatar" style="display:none">
+                <img id="mobileChatAvatar" class="mobile-chat-avatar" alt="Аватар чата" style="display:none">
                 <div class="chat-members" id="mobileChatStatus">Выберите чат</div>
             </div>
         </div>
@@ -133,21 +134,21 @@
             <button class="sidebar-menu-btn" onclick="showSettingsMenu()" title="Меню">☰</button>
             <div class="sidebar-search">
                 <span class="sidebar-search-icon">🔍</span>
-                <input type="text" class="sidebar-search-input" placeholder="Search" id="searchInput" oninput="searchChats(this.value)">
+                <input type="text" class="sidebar-search-input" placeholder="Поиск" id="searchInput" oninput="searchChats(this.value)">
             </div>
-            <img src="" alt="Me" class="sidebar-self-avatar" id="userAvatarTop" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=User&background=0088cc&color=fff&size=36'">
+            <img src="" alt="Мой профиль" class="sidebar-self-avatar" id="userAvatarTop" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=Пользователь&background=0088cc&color=fff&size=36'">
         </div>
 
         <!-- Скрытые мета-элементы (их читает/обновляет JS) -->
         <div class="user-header user-header-hidden">
-            <img src="" alt="Avatar" class="user-avatar" id="userAvatar" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=User&background=0088cc&color=fff&size=44'">
+            <img src="" alt="Аватар" class="user-avatar" id="userAvatar" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=Пользователь&background=0088cc&color=fff&size=44'">
             <div class="user-info">
                 <div class="user-name" id="userName"></div>
                 <div class="user-status" id="userStatus">В сети</div>
             </div>
         </div>
 
-        <div class="menu-section sidebar-section-hidden">
+        <div class="menu-section sidebar-requests-section">
             <div class="menu-title">Заявки в друзья</div>
             <div class="requests-list" id="friendRequestsList"></div>
         </div>
@@ -157,14 +158,14 @@
             <div class="groups-list" id="groupList"></div>
         </div>
 
+        <div class="menu-section sidebar-blocked-section">
+            <div class="menu-title">Заблокированные</div>
+            <div class="blocked-list" id="blockedList"></div>
+        </div>
+
         <div class="menu-section sidebar-actions">
             <button class="sidebar-action-btn" onclick="showAddFriend()" title="Добавить друга">➕👤</button>
             <button class="sidebar-action-btn" onclick="showCreateGroupModal()" title="Создать группу">➕👥</button>
-        </div>
-
-        <div class="menu-section sidebar-section-hidden">
-            <div class="menu-title">Заблокированные</div>
-            <div class="blocked-list" id="blockedList"></div>
         </div>
     </div>
 
@@ -172,7 +173,7 @@
     <div class="chat-container" id="chatContainer">
         <div class="chat-header" id="chatHeader">
             <div class="chat-info">
-                <img src="" alt="" class="user-avatar" id="chatAvatar" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=Chat&background=0088cc&color=fff&size=44'">
+                <img src="" alt="" class="user-avatar" id="chatAvatar" style="display:none;" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=Чат&background=0088cc&color=fff&size=44'">
                 <div>
                     <div class="chat-title" id="chatWith">Выберите чат</div>
                     <div class="chat-members" id="chatMembers"></div>
@@ -276,7 +277,7 @@
             <div class="chat-notify-row">
                 <button class="chat-notify-btn" id="silentSendBtn" onclick="toggleSilentSendForChat()">Без звука: выкл</button>
             </div>
-            <div class="chat-notify-hint">Сообщения будут приходить собеседнику без звука (как в Telegram).</div>
+            <div class="chat-notify-hint">Сообщения будут приходить собеседнику без звука (как в Телеграм).</div>
         </div>
 
         <div class="chat-notify-actions">
@@ -310,14 +311,14 @@
     </div>
     <div class="sticker-grid" id="stickerGrid"></div>
     <div class="sticker-actions">
-        <button class="sticker-action-btn" onclick="openStickerBot()">Sticker Bot</button>
+        <button class="sticker-action-btn" onclick="openStickerBot()">Стикер-бот</button>
     </div>
 </div>
 
-<!-- ===== STICKER BOT ===== -->
+<!-- ===== СТИКЕР-БОТ ===== -->
 <div class="sticker-bot-overlay" id="stickerBotOverlay">
     <div class="sticker-bot-modal">
-        <h2 class="sticker-bot-title">Sticker Bot</h2>
+        <h2 class="sticker-bot-title">Стикер-бот</h2>
         <p class="sticker-bot-subtitle">Создай стикер из фото и добавь эмодзи</p>
         <input type="file" id="stickerFileInput" accept="image/*" onchange="handleStickerFileChange(event)">
         <input type="text" id="stickerEmojiInput" placeholder="Эмодзи (необязательно)">
@@ -442,7 +443,7 @@
     <div class="call-modal">
         <div class="call-avatar-wrap">
             <div class="call-ring"></div>
-            <img class="call-avatar" id="callAvatar" alt="Call Avatar">
+            <img class="call-avatar" id="callAvatar" alt="Аватар звонка">
         </div>
         <div class="call-name" id="callName"></div>
         <div class="call-status" id="callStatus"></div>
@@ -541,17 +542,17 @@
 <script src="js/firebase-config.js?v=20260219d"></script>
 <script src="js/utils.js?v=20260219d"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
 <script src="js/main.js?v=20260219d"></script>
-<script src="js/ui.js?v=20260219d"></script>
+<script src="js/ui.js?v=20260301b"></script>
 <script src="js/sounds.js?v=20260219d"></script>
-<script src="js/auth.js?v=20260219d"></script>
+<script src="js/auth.js?v=20260301d"></script>
 <script src="js/status.js?v=20260219d"></script>
-<script src="js/chat.js?v=20260219d"></script>
+<script src="js/chat.js?v=20260301e"></script>
 <script src="js/media.js?v=20260219d"></script>
 <script src="js/emoji.js?v=20260219d"></script>
 <script src="js/stickers.js?v=20260219d"></script>
 <script src="js/groups.js?v=20260219d"></script>
-<script src="js/mobile.js?v=20260219d"></script>
-<script src="js/video-messages.js?v=20260219d"></script>
+<script src="js/mobile.js?v=20260301b"></script>
+<script src="js/video-messages.js?v=20260301a"></script>
 <script src="js/audio-call.js?v=20260219d"></script>
 <script src="js/settings.js?v=20260219d"></script>
 
@@ -653,13 +654,3 @@
 
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-

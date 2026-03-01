@@ -19,6 +19,8 @@ function closeChat() {
     currentChatId = null; 
     currentChatPartner = null;
     document.getElementById('chatWith').textContent = 'Выберите чат';
+    const chatAvatar = document.getElementById('chatAvatar');
+    if (chatAvatar) chatAvatar.style.display = 'none';
     document.getElementById('chatMembers').textContent = '';
     document.getElementById('mobileChatStatus').textContent = 'Выберите чат';
     document.getElementById('messages').innerHTML = '';
@@ -331,4 +333,3 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.classList.add('light');
     }
 });
-

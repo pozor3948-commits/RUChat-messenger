@@ -214,6 +214,8 @@ function closeChatMobile() {
     // Сбрасываем заголовок
     document.getElementById('mobileChatTitle').textContent = 'Чаты';
     document.getElementById('mobileChatStatus').textContent = 'Выберите чат';
+    const chatAvatar = document.getElementById('chatAvatar');
+    if (chatAvatar) chatAvatar.style.display = 'none';
 
     // Возвращаем stories
     document.getElementById('storiesContainer').style.display = 'block';
@@ -359,7 +361,6 @@ if (typeof window.toggleStickerPanel === 'function') {
         setTimeout(adjustMenuPositionForMobile, 50);
     };
 }
-
 
 
 

@@ -161,6 +161,35 @@ function sanitizeUiText(value, fallback = '') {
   return text || fallback;
 }
 
+function sanitizeDisplayName(value, fallback = '') {
+  const fallbackName = sanitizeUiText(fallback, '').trim();
+  let name = sanitizeUiText(value, fallbackName || fallback);
+  const qCount = (name.match(/\?/g) || []).length;
+  const hasSuspiciousQuestionMarks = qCount > 0 && (qCount >= 2 || qCount >= Math.ceil(name.length * 0.2));
+  const hasSuspiciousPattern = /(?:Р\?|Ð\?|Ñ\?|�)/.test(name);
+
+  if ((hasSuspiciousQuestionMarks || hasSuspiciousPattern) && fallbackName) {
+    const fallbackLooksBetter = !fallbackName.includes('?') || fallbackName.replace(/\?/g, '').length >= name.replace(/\?/g, '').length;
+    if (fallbackLooksBetter) name = fallbackName;
+  }
+
+  name = name.replace(/\s{2,}/g, ' ').trim();
+  return name || fallbackName || 'Пользователь';
+}
+
+function getRegisteredUsername(rawKey) {
+  const login = sanitizeUiText(rawKey, '').replace(/\s+/g, ' ').trim();
+  return login || 'Пользователь';
+}
+
+function resolveUserLabel(rawKey) {
+  const login = getRegisteredUsername(rawKey);
+  if (!login.includes('?')) return login;
+  const cached = sanitizeDisplayName(displayNameCache[rawKey] || '', '');
+  if (cached && !cached.includes('?')) return cached;
+  return login;
+}
+
 function canonicalFriendIdentity(raw) {
   const text = sanitizeUiText(raw, String(raw || ''));
   return text.replace(/\s+/g, ' ').trim();
@@ -643,7 +672,7 @@ function renderBlocked() {
   keys.forEach(fn => {
     const item = document.createElement("div");
     item.className = "blocked-item";
-    const name = sanitizeUiText(displayNameCache[fn] || fn, fn);
+    const name = resolveUserLabel(fn);
     item.innerHTML = `
       <div class="blocked-name" id="blocked_name_${fn}">${name}</div>
       <div class="blocked-actions">
@@ -652,7 +681,7 @@ function renderBlocked() {
     list.appendChild(item);
     db.ref("accounts/" + fn + "/displayName").once("value").then(s => {
       const dn = s.val();
-      const display = sanitizeUiText(dn || fn, fn);
+      const display = resolveUserLabel(fn);
       displayNameCache[fn] = display;
       const el = document.getElementById(`blocked_name_${fn}`);
       if (el) el.textContent = display;
@@ -661,7 +690,7 @@ function renderBlocked() {
 }
 
 function createFriendItem(fn) {
-  const displayName = sanitizeUiText(displayNameCache[fn] || fn, fn);
+  const displayName = resolveUserLabel(fn);
   const fl = document.getElementById("friendList");
   const item = document.createElement("div");
   item.className = "contact-item";
@@ -699,7 +728,7 @@ function createFriendItem(fn) {
   });
   db.ref("accounts/" + fn + "/displayName").on("value", s => {
     const dn = s.val();
-    const name = sanitizeUiText(dn || fn, fn);
+    const name = resolveUserLabel(fn);
     displayNameCache[fn] = name;
     const nameEl = document.getElementById(`contactName_${fn}`);
     if (nameEl) nameEl.textContent = name;
@@ -755,7 +784,7 @@ function loadLastMessage(fn) {
         const preview = lastMsg.text ? sanitizeUiText(lastMsg.text, 'Сообщение') : sanitizeUiText(getMessagePreview(lastMsg), 'Сообщение');
         showNotification(fn, preview);
         if (typeof maybeShowSystemNotification === 'function') {
-          const title = sanitizeUiText(displayNameCache[fn] || fn, fn);
+          const title = resolveUserLabel(fn);
           const body = lastMsg.text ? sanitizeUiText(lastMsg.text, 'Сообщение') : sanitizeUiText(getMessagePreview(lastMsg), 'Сообщение');
           maybeShowSystemNotification(title, body, { tag: `chat_${chatId}`, silent: lastMsg.silent === true });
         }
@@ -887,7 +916,7 @@ function createStoryItem(fn) {
   const item = document.createElement("div");
   item.className = "story-item";
   item.style.animation = isMobile ? "none" : "slideUp .5s ease-out";
-  const displayName = sanitizeUiText(displayNameCache[fn] || fn, fn);
+  const displayName = resolveUserLabel(fn);
   item.innerHTML = `
     <img class="story-avatar" src="https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=60" alt="${displayName}">
     <div class="story-name">${displayName}</div>`;
@@ -928,12 +957,13 @@ function openPrivateChat(fn) {
   if (typeof clearMessageSearch === 'function') clearMessageSearch();
   if (typeof clearReply === 'function') clearReply();
   if (typeof clearEdit === 'function') clearEdit();
-  const displayName = sanitizeUiText(displayNameCache[fn] || fn, fn);
+  const displayName = resolveUserLabel(fn);
   document.getElementById("chatWith").textContent = displayName;
   document.getElementById("mobileChatTitle").textContent = displayName;
   if (isMobile) document.getElementById('mobileBackBtn').classList.add('active');
   const chatAvatar = document.getElementById("chatAvatar");
   const fAvatar = document.getElementById(`avatar_${fn}`);
+  if (chatAvatar) chatAvatar.style.display = 'block';
   if (fAvatar) chatAvatar.src = fAvatar.src; else chatAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0088cc&color=fff&size=44`;
   const mobileAvatar = document.getElementById('mobileChatAvatar');
   if (mobileAvatar) {
@@ -968,6 +998,7 @@ function openGroupChat(g, gid) {
   if (isMobile) document.getElementById('mobileBackBtn').classList.add('active');
   const chatAvatar = document.getElementById("chatAvatar");
   const gAvatar = document.getElementById(`group_avatar_${gid}`);
+  if (chatAvatar) chatAvatar.style.display = 'block';
   if (gAvatar) chatAvatar.src = gAvatar.src; else chatAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(groupName)}&background=0088cc&color=fff&size=44`;
   const mobileAvatar = document.getElementById('mobileChatAvatar');
   if (mobileAvatar) {
@@ -1172,7 +1203,7 @@ function addMessageToChat(m, options = {}) {
   }
   if (opts.notify && m.from !== username && !muted && typeof maybeShowSystemNotification === 'function') {
     const chatTitle = document.getElementById('chatWith');
-    const senderTitle = isGroupChat ? `${sanitizeUiText(m.from || '', '')} • ${chatTitle ? chatTitle.textContent : 'Чат'}` : sanitizeUiText(displayNameCache[m.from] || m.from, m.from || 'Чат');
+    const senderTitle = isGroupChat ? `${resolveUserLabel(m.from || '')} • ${chatTitle ? chatTitle.textContent : 'Чат'}` : resolveUserLabel(m.from || 'Чат');
     const body = m.text ? sanitizeUiText(m.text, 'Сообщение') : sanitizeUiText(getMessagePreview(m), 'Сообщение');
     maybeShowSystemNotification(senderTitle, body, { tag: `chat_${currentChatId}`, silent: silentIncoming });
   }
@@ -1221,9 +1252,9 @@ function addMessageToChat(m, options = {}) {
     ${m.from === username ? `<button class="reaction-btn" onclick="deleteMessage('${m.id}')" title="Удалить">🗑</button>` : ""}
   </div>`;
   let content = "";
-  const replyFrom = m.replyTo && m.replyTo.from ? sanitizeUiText(displayNameCache[m.replyTo.from] || m.replyTo.from, m.replyTo.from) : '';
+  const replyFrom = m.replyTo && m.replyTo.from ? resolveUserLabel(m.replyTo.from) : '';
   const replyHtml = m.replyTo ? `<div class="message-reply">↩ ${escapeHtml(replyFrom)}: ${escapeHtml(sanitizeUiText(m.replyTo.text || '', ''))}</div>` : "";
-  const fwdName = m.forwardedFrom ? sanitizeUiText(displayNameCache[m.forwardedFrom] || m.forwardedFrom, m.forwardedFrom) : '';
+  const fwdName = m.forwardedFrom ? resolveUserLabel(m.forwardedFrom) : '';
   const forwardedHtml = m.forwardedFrom ? `<div class="message-forwarded">↪ Переслано от ${escapeHtml(fwdName)}</div>` : "";
   if (m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl) {
     content = `${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>`;
@@ -1342,7 +1373,7 @@ function addMessageToChat(m, options = {}) {
     content = `${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div><a href="${docUrl}" download="${m.filename}" class="message-doc"><div class="doc-icon">📄</div><div class="doc-info"><div class="doc-name">${escapeHtml(m.filename)}</div><div class="doc-size">${fs}</div></div></a>`;
   }
   const t = new Date(m.time || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const senderName = escapeHtml(sanitizeUiText(m.from || '', ''));
+  const senderName = escapeHtml(resolveUserLabel(m.from || ''));
   msg.innerHTML = `
     ${m.from !== username && !isGroupChat ? `<div class="message-sender">${senderName}</div>` : ""}
     ${isGroupChat && m.from !== username ? `<div class="message-sender">${senderName}</div>` : ""}
@@ -2242,6 +2273,8 @@ function resetCurrentChatAfterLeave() {
   if (messages) messages.innerHTML = '';
   const chatWith = document.getElementById('chatWith');
   if (chatWith) chatWith.textContent = 'Выберите чат';
+  const chatAvatar = document.getElementById('chatAvatar');
+  if (chatAvatar) chatAvatar.style.display = 'none';
   const chatMembers = document.getElementById('chatMembers');
   if (chatMembers) chatMembers.textContent = '';
   const mobileStatus = document.getElementById('mobileChatStatus');
@@ -2651,13 +2684,13 @@ function createRequestItem(from) {
   const list = document.getElementById("friendRequestsList");
   const item = document.createElement("div");
   item.className = "request-item";
-  const name = sanitizeUiText(displayNameCache[from] || from, from);
+  const name = resolveUserLabel(from);
   item.innerHTML = `
     <img class="contact-avatar" id="req_avatar_${from}" alt="${name}" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0088cc&color=fff&size=48'">
     <div class="request-name" id="req_name_${from}">${name}</div>
     <div class="request-actions">
-      <button class="request-btn accept" title="Принять">Принять</button>
-      <button class="request-btn reject" title="Отклонить">Отклонить</button>
+      <button class="request-btn accept" title="Принять" aria-label="Принять заявку">✓</button>
+      <button class="request-btn reject" title="Отклонить" aria-label="Отклонить заявку">✕</button>
     </div>`;
   list.appendChild(item);
   const acceptBtn = item.querySelector('.request-btn.accept');
@@ -2674,7 +2707,7 @@ function createRequestItem(from) {
   });
   db.ref("accounts/" + from + "/displayName").once("value").then(s => {
     const dn = s.val();
-    const display = sanitizeUiText(dn || from, from);
+    const display = resolveUserLabel(from);
     displayNameCache[from] = display;
     const nameEl = document.getElementById(`req_name_${from}`);
     if (nameEl) nameEl.textContent = display;
@@ -2729,7 +2762,12 @@ async function blockUser(fn, e) {
   if (!confirm(`Заблокировать ${fn}?`)) return;
   try {
     showLoading();
+    const wasFriend = await db.ref(`accounts/${username}/friends/${fn}`).get().then(s => s.exists());
     await db.ref(`accounts/${username}/blocked/${fn}`).set(true);
+    await db.ref(`accounts/${username}/blockedMeta/${fn}`).set({
+      wasFriend: !!wasFriend,
+      blockedAt: Date.now()
+    });
     await db.ref(`accounts/${username}/friends/${fn}`).remove();
     await db.ref(`accounts/${fn}/friends/${username}`).remove();
     await db.ref(`accounts/${username}/friendRequests/incoming/${fn}`).remove();
@@ -2748,8 +2786,21 @@ async function unblockUser(fn) {
   if (!confirm(`Разблокировать ${fn}?`)) return;
   try {
     showLoading();
+    const blockEntry = blockedCache ? blockedCache[fn] : null;
+    const blockedMetaSnap = await db.ref(`accounts/${username}/blockedMeta/${fn}`).get();
+    const blockedMeta = blockedMetaSnap.exists() ? (blockedMetaSnap.val() || {}) : null;
+    const shouldRestoreFriend = blockedMeta
+      ? blockedMeta.wasFriend !== false
+      : !(blockEntry && typeof blockEntry === "object" && blockEntry.wasFriend === false);
     await db.ref(`accounts/${username}/blocked/${fn}`).remove();
-    showNotification("Блокировка", "Пользователь разблокирован");
+    await db.ref(`accounts/${username}/blockedMeta/${fn}`).remove();
+    if (shouldRestoreFriend) {
+      await db.ref(`accounts/${username}/friends/${fn}`).set(true);
+      await db.ref(`accounts/${fn}/friends/${username}`).set(true);
+      showNotification("Блокировка", "Пользователь разблокирован и возвращен в чаты");
+    } else {
+      showNotification("Блокировка", "Пользователь разблокирован");
+    }
   } catch (error) {
     showError("Не удалось разблокировать");
   } finally {

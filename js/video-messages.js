@@ -50,9 +50,7 @@ function initVideoMessages() {
         console.warn('MediaRecorder не поддерживается в этом браузере');
         return false;
     }
-    
-    checkCameraPermissions();
-    
+
     return true;
 }
 
@@ -486,15 +484,6 @@ function initVideoMessagesAfterLogin() {
         }
     }, 500);
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    if (typeof username !== 'undefined' && username) {
-        setTimeout(initVideoMessages, 1000);
-    }
-});
-
-
-
 
 document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('videoRecordBtn');
