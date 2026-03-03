@@ -19,6 +19,11 @@ window.friendPrivacyCache = friendPrivacyCache;
 const groupValueListeners = {};
 const unreadListenerByFriend = {};
 const friendProfileListeners = {};
+const unreadCountByFriend = {};
+const lastActivityByFriend = {};
+let incomingFriendRequestsCache = {};
+const voiceWaveHeightsCache = new Map();
+let voiceWaveAudioContext = null;
 
 const lastMessageKeyByChat = {};
 const reactionOptions = ['👍','❤️','😂','😮','😢','😡'];
@@ -47,6 +52,8 @@ let currentPrivateStatusHandler = null;
 let messagesScrollElement = null;
 let messagesScrollRaf = 0;
 let scrollToBottomRaf = 0;
+let renderFriendsCycle = 0;
+const renderFriendsTimeoutIds = [];
 const CHAT_INITIAL_PAGE_SIZE = 80;
 const CHAT_HISTORY_PAGE_SIZE = 60;
 const SEND_RATE_WINDOW_MS = 3000;
@@ -81,6 +88,250 @@ function compareMessagesChronologically(a, b) {
   const right = getMessageSortTuple(b);
   if (left.time !== right.time) return left.time - right.time;
   return left.id.localeCompare(right.id);
+}
+
+function formatDurationAsClock(totalSeconds) {
+  const raw = Number(totalSeconds);
+  const safe = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+  const minutes = Math.floor(safe / 60).toString().padStart(2, '0');
+  const seconds = String(safe % 60).padStart(2, '0');
+  return `${minutes}:${seconds}`;
+}
+
+function normalizeMediaLabelText(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (!text) return '';
+  return text.replace(/^[^0-9a-zа-яё]+/gi, '').trim();
+}
+
+function isSystemMediaLabelText(text, message) {
+  const normalized = normalizeMediaLabelText(text);
+  if (!normalized || !message) return false;
+  const type = String(message.type || '');
+
+  if (message.photo && normalized === 'фото') return true;
+  if (message.video && (normalized === 'видео' || normalized === 'видеосообщение')) return true;
+  if (message.audio && (normalized === 'аудио' || normalized === 'голосовое сообщение' || normalized === 'тестовое голосовое сообщение' || normalized === 'тестовое голосовое сообщение (демо)')) return true;
+  if (message.document && normalized === 'документ') return true;
+  if (type === 'voice_message' && (normalized === 'голосовое сообщение' || normalized === 'тестовое голосовое сообщение' || normalized === 'тестовое голосовое сообщение (демо)')) return true;
+  if (type === 'video_message' && normalized === 'видеосообщение') return true;
+  return false;
+}
+
+function getRenderableMessageText(message) {
+  if (!message) return '';
+  const text = sanitizeUiText(message.text, '');
+  if (!text) return '';
+  return isSystemMediaLabelText(text, message) ? '' : text;
+}
+
+function hashVoiceSeed(value) {
+  const text = String(value || '');
+  let seed = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    seed ^= text.charCodeAt(i);
+    seed = Math.imul(seed, 16777619);
+  }
+  return seed >>> 0;
+}
+
+function buildVoiceFallbackHeights(seedValue, count = 42) {
+  let seed = hashVoiceSeed(seedValue);
+  const heights = [];
+  for (let i = 0; i < count; i += 1) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    const normalized = seed / 4294967295;
+    const height = 6 + Math.round(normalized * 14);
+    heights.push(height);
+  }
+  return heights;
+}
+
+function buildVoiceWaveBars(seedValue, count = 42) {
+  const heights = buildVoiceFallbackHeights(seedValue, count);
+  return heights.map(height => `<span class="voice-wave-bar" style="height:${height}px"></span>`).join('');
+}
+
+function renderVoiceWaveBars(trackEl, heights) {
+  if (!trackEl) return;
+  const safeHeights = Array.isArray(heights) && heights.length
+    ? heights
+    : buildVoiceFallbackHeights('voice');
+  trackEl.innerHTML = safeHeights
+    .map(h => `<span class="voice-wave-bar" style="height:${Math.max(4, Math.min(24, Number(h) || 4))}px"></span>`)
+    .join('');
+}
+
+function getVoiceAudioContext() {
+  if (voiceWaveAudioContext) return voiceWaveAudioContext;
+  const Ctor = window.AudioContext || window.webkitAudioContext;
+  if (!Ctor) return null;
+  voiceWaveAudioContext = new Ctor();
+  return voiceWaveAudioContext;
+}
+
+async function resolveVoiceWaveHeights(audioSrc, count = 42) {
+  const source = String(audioSrc || '').trim();
+  if (!source) return buildVoiceFallbackHeights('voice', count);
+  const cacheKey = `${source}|${count}`;
+  if (voiceWaveHeightsCache.has(cacheKey)) return voiceWaveHeightsCache.get(cacheKey).slice();
+
+  const fallbackHeights = buildVoiceFallbackHeights(source, count);
+  try {
+    const response = await fetch(source);
+    if (!response.ok) throw new Error('voice_fetch_failed');
+    const arrayBuffer = await response.arrayBuffer();
+    const ctx = getVoiceAudioContext();
+    if (!ctx) throw new Error('voice_context_unavailable');
+
+    const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0));
+    const channelData = decoded.getChannelData(0);
+    if (!channelData || !channelData.length) throw new Error('voice_empty_data');
+
+    const blockSize = Math.max(1, Math.floor(channelData.length / count));
+    const peaks = [];
+    for (let i = 0; i < count; i += 1) {
+      const start = i * blockSize;
+      if (start >= channelData.length) {
+        peaks.push(0);
+        continue;
+      }
+      const end = Math.min(channelData.length, start + blockSize);
+      let sumSq = 0;
+      let sampleCount = 0;
+      for (let j = start; j < end; j += 1) {
+        const val = channelData[j];
+        sumSq += val * val;
+        sampleCount += 1;
+      }
+      const rms = sampleCount ? Math.sqrt(sumSq / sampleCount) : 0;
+      peaks.push(rms);
+    }
+
+    const maxPeak = peaks.reduce((max, value) => Math.max(max, value), 0);
+    const floor = 0.006;
+    const range = Math.max(0.0001, maxPeak - floor);
+    const heights = peaks.map((peak) => {
+      const normalized = Math.max(0, Math.min(1, (peak - floor) / range));
+      const amplified = Math.pow(normalized, 0.75);
+      return 4 + Math.round(amplified * 18);
+    });
+
+    voiceWaveHeightsCache.set(cacheKey, heights);
+    return heights.slice();
+  } catch {
+    voiceWaveHeightsCache.set(cacheKey, fallbackHeights);
+    return fallbackHeights.slice();
+  }
+}
+
+function setVoiceWaveProgress(playerEl, progress) {
+  if (!playerEl) return;
+  const bars = playerEl.querySelectorAll('.voice-wave-bar');
+  if (!bars.length) return;
+  const safeProgress = Math.max(0, Math.min(1, Number(progress) || 0));
+  const activeCount = Math.round(safeProgress * bars.length);
+  bars.forEach((bar, index) => bar.classList.toggle('active', index < activeCount));
+}
+
+function initVoiceMessagePlayer(messageRoot, messageData) {
+  if (!messageRoot || !messageData || String(messageData.type) !== 'voice_message') return;
+  const playerEl = messageRoot.querySelector('.voice-player');
+  if (!playerEl || playerEl.dataset.ready === '1') return;
+  playerEl.dataset.ready = '1';
+
+  const audioEl = playerEl.querySelector('.voice-audio-source');
+  const playBtn = playerEl.querySelector('.voice-play-btn');
+  const iconEl = playerEl.querySelector('.voice-play-icon');
+  const waveTrackEl = playerEl.querySelector('.voice-wave-track');
+  const durationEl = messageRoot.querySelector('.voice-duration');
+  if (!audioEl || !playBtn || !iconEl) return;
+
+  if (waveTrackEl) {
+    const fallbackSeed = String(messageData.id || messageData.clientMessageId || messageData.time || audioEl.currentSrc || audioEl.src || 'voice');
+    const barsCount = Number(waveTrackEl.dataset.waveCount) || Math.max(12, waveTrackEl.childElementCount || 42);
+    renderVoiceWaveBars(waveTrackEl, buildVoiceFallbackHeights(fallbackSeed, barsCount));
+  }
+
+  const getDurationSec = () => {
+    const mediaDuration = Number(audioEl.duration);
+    if (Number.isFinite(mediaDuration) && mediaDuration > 0) return mediaDuration;
+    const fallbackDuration = Number(messageData.duration);
+    return Number.isFinite(fallbackDuration) ? Math.max(0, fallbackDuration) : 0;
+  };
+
+  const syncPlayingState = (isPlaying) => {
+    const playing = Boolean(isPlaying);
+    playerEl.classList.toggle('is-playing', playing);
+    iconEl.textContent = playing ? '❚❚' : '▶';
+    playBtn.setAttribute('aria-label', playing ? 'Пауза' : 'Воспроизвести голосовое');
+  };
+
+  const syncDurationLabel = () => {
+    if (!durationEl) return;
+    const durationSec = getDurationSec();
+    if (durationSec > 0) durationEl.textContent = formatDurationAsClock(durationSec);
+  };
+
+  const syncWaveProgress = () => {
+    const durationSec = getDurationSec();
+    const ratio = durationSec > 0 ? (audioEl.currentTime / durationSec) : 0;
+    setVoiceWaveProgress(playerEl, ratio);
+  };
+
+  const syncWaveHeightsFromAudio = () => {
+    if (!waveTrackEl) return;
+    const source = String(audioEl.currentSrc || audioEl.src || '').trim();
+    if (!source) return;
+    const barsCount = Number(waveTrackEl.dataset.waveCount) || Math.max(12, waveTrackEl.childElementCount || 42);
+    resolveVoiceWaveHeights(source, barsCount).then((heights) => {
+      if (!playerEl.isConnected) return;
+      renderVoiceWaveBars(waveTrackEl, heights);
+      syncWaveProgress();
+    }).catch(() => {});
+  };
+
+  const pauseOtherVoicePlayers = () => {
+    document.querySelectorAll('.voice-player.is-playing').forEach(other => {
+      if (other === playerEl) return;
+      const otherAudio = other.querySelector('.voice-audio-source');
+      if (otherAudio && !otherAudio.paused) otherAudio.pause();
+    });
+  };
+
+  playBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (audioEl.paused) {
+      pauseOtherVoicePlayers();
+      const playPromise = audioEl.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {});
+      }
+      return;
+    }
+    audioEl.pause();
+  });
+
+  audioEl.addEventListener('play', () => syncPlayingState(true));
+  audioEl.addEventListener('pause', () => syncPlayingState(false));
+  audioEl.addEventListener('timeupdate', syncWaveProgress);
+  audioEl.addEventListener('loadedmetadata', () => {
+    syncDurationLabel();
+    syncWaveProgress();
+    syncWaveHeightsFromAudio();
+  });
+  audioEl.addEventListener('durationchange', syncDurationLabel);
+  audioEl.addEventListener('ended', () => {
+    audioEl.currentTime = 0;
+    syncPlayingState(false);
+    syncWaveProgress();
+  });
+
+  syncPlayingState(false);
+  syncDurationLabel();
+  syncWaveProgress();
+  syncWaveHeightsFromAudio();
 }
 
 function getElementSortTuple(el) {
@@ -127,7 +378,26 @@ function requestScrollToBottom(container) {
   scrollToBottomRaf = requestAnimationFrame(() => {
     scrollToBottomRaf = 0;
     container.scrollTop = container.scrollHeight;
+    updateScrollBottomButton(container);
   });
+}
+
+function updateScrollBottomButton(container) {
+  const md = container || document.getElementById("messages");
+  const btn = document.getElementById("scrollBottomBtn");
+  if (!btn) return;
+  if (!md) {
+    btn.classList.remove('active');
+    return;
+  }
+  const hiddenDistance = md.scrollHeight - md.scrollTop - md.clientHeight;
+  btn.classList.toggle('active', hiddenDistance > 220);
+}
+
+function scrollChatToBottom() {
+  const md = document.getElementById("messages");
+  if (!md) return;
+  requestScrollToBottom(md);
 }
 
 function hasBrokenGlyphs(text) {
@@ -193,7 +463,7 @@ function resolveUserLabel(rawKey) {
 
 function canonicalFriendIdentity(raw) {
   const text = sanitizeUiText(raw, String(raw || ''));
-  return text.replace(/\s+/g, ' ').trim();
+  return text.replace(/\s+/g, ' ').trim().toLocaleLowerCase('ru-RU');
 }
 
 function friendKeyPenalty(rawKey) {
@@ -297,6 +567,7 @@ function detachMessagesScrollListener() {
     cancelAnimationFrame(scrollToBottomRaf);
     scrollToBottomRaf = 0;
   }
+  updateScrollBottomButton(null);
 }
 window.detachMessagesScrollListener = detachMessagesScrollListener;
 
@@ -305,6 +576,7 @@ function attachMessagesScrollListener(el) {
   if (!el) return;
   messagesScrollElement = el;
   messagesScrollElement.addEventListener("scroll", handleMessagesScroll, { passive: true });
+  updateScrollBottomButton(messagesScrollElement);
 }
 
 // ===== Per-chat notification settings (mute / silent send) =====
@@ -585,11 +857,62 @@ function clearUnreadListener(friendName) {
     // ignore
   }
   delete unreadListenerByFriend[friendName];
+  delete unreadCountByFriend[friendName];
+}
+
+function reorderFriendList() {
+  const list = document.getElementById("friendList");
+  if (!list) return;
+  const items = Array.from(list.querySelectorAll('.contact-item'));
+  if (!items.length) return;
+  const uniqueItems = [];
+  const seenCanonical = new Set();
+
+  items.forEach(item => {
+    const friendKey = String(item.id || '').replace(/^contact_/, '');
+    const canonical = String(item.dataset.friendCanonical || canonicalFriendIdentity(friendKey) || '').trim();
+    if (canonical) {
+      if (seenCanonical.has(canonical)) {
+        item.remove();
+        return;
+      }
+      item.dataset.friendCanonical = canonical;
+      seenCanonical.add(canonical);
+    }
+    uniqueItems.push(item);
+  });
+  if (!uniqueItems.length) return;
+
+  const sorted = uniqueItems.sort((leftItem, rightItem) => {
+    const leftFriend = String(leftItem.id || '').replace(/^contact_/, '');
+    const rightFriend = String(rightItem.id || '').replace(/^contact_/, '');
+
+    const leftUnread = Number(unreadCountByFriend[leftFriend] || 0);
+    const rightUnread = Number(unreadCountByFriend[rightFriend] || 0);
+    const leftHasUnread = leftUnread > 0 ? 1 : 0;
+    const rightHasUnread = rightUnread > 0 ? 1 : 0;
+    if (leftHasUnread !== rightHasUnread) return rightHasUnread - leftHasUnread;
+
+    const leftTimeRaw = Number(lastActivityByFriend[leftFriend] || 0);
+    const rightTimeRaw = Number(lastActivityByFriend[rightFriend] || 0);
+    const leftTime = Number.isFinite(leftTimeRaw) ? leftTimeRaw : 0;
+    const rightTime = Number.isFinite(rightTimeRaw) ? rightTimeRaw : 0;
+    if (leftTime !== rightTime) return rightTime - leftTime;
+
+    const leftLabel = resolveUserLabel(leftFriend);
+    const rightLabel = resolveUserLabel(rightFriend);
+    return leftLabel.localeCompare(rightLabel, 'ru');
+  });
+
+  const fragment = document.createDocumentFragment();
+  sorted.forEach(item => fragment.appendChild(item));
+  list.appendChild(fragment);
 }
 
 function setUnreadIndicator(friendName, count) {
   const safeCount = Number.isFinite(count) ? Math.max(0, count) : 0;
   const hasUnread = safeCount > 0;
+  unreadCountByFriend[friendName] = safeCount;
   const dot = document.getElementById(`unreadDot_${friendName}`);
   const badge = document.getElementById(`unread_${friendName}`);
   const item = document.getElementById(`contact_${friendName}`);
@@ -600,6 +923,7 @@ function setUnreadIndicator(friendName, count) {
     badge.textContent = safeCount > 99 ? "99+" : String(safeCount);
   }
   if (item) item.classList.toggle('has-unread', hasUnread);
+  reorderFriendList();
 }
 
 function subscribeUnreadForFriend(friendName) {
@@ -643,6 +967,12 @@ function loadFriends() {
 function renderFriends() {
   const friendList = document.getElementById("friendList");
   if (!friendList) return;
+  renderFriendsCycle += 1;
+  const cycle = renderFriendsCycle;
+  while (renderFriendsTimeoutIds.length) {
+    const id = renderFriendsTimeoutIds.pop();
+    clearTimeout(id);
+  }
   friendList.innerHTML = "";
   const friendKeys = Object.keys(friendsCache || {});
   const visibleRawKeys = friendKeys.filter(fn => !blockedCache[fn]);
@@ -665,9 +995,27 @@ function renderFriends() {
   });
 
   const visibleKeys = Array.from(dedupByCanonical.values());
+  const visibleSet = new Set(visibleKeys);
+  const visibleCanonicalSet = new Set(
+    visibleKeys.map(fn => canonicalFriendIdentity(fn)).filter(Boolean)
+  );
+  const requestKeys = Object.keys(incomingFriendRequestsCache || {})
+    .filter(fn => {
+      if (blockedCache[fn]) return false;
+      if (visibleSet.has(fn)) return false;
+      const canonical = canonicalFriendIdentity(fn);
+      if (canonical && visibleCanonicalSet.has(canonical)) return false;
+      return true;
+    });
   scheduleDuplicateFriendCleanup(duplicatePairs);
   Object.keys(unreadListenerByFriend).forEach(fn => {
     if (!visibleKeys.includes(fn)) clearUnreadListener(fn);
+  });
+  Object.keys(unreadCountByFriend).forEach(fn => {
+    if (!visibleSet.has(fn)) delete unreadCountByFriend[fn];
+  });
+  Object.keys(lastActivityByFriend).forEach(fn => {
+    if (!visibleSet.has(fn)) delete lastActivityByFriend[fn];
   });
   Object.keys(friendProfileListeners).forEach(fn => {
     if (!visibleKeys.includes(fn)) clearFriendProfileListeners(fn);
@@ -676,7 +1024,7 @@ function renderFriends() {
     if (friendStatusListeners[f]) db.ref("userStatus/" + f).off('value', friendStatusListeners[f]);
   });
   friendStatusListeners = {};
-  if (!visibleKeys.length) {
+  if (!visibleKeys.length && !requestKeys.length) {
     friendList.innerHTML = `
       <div class="empty-state">
         <div class="icon">👤</div>
@@ -685,13 +1033,21 @@ function renderFriends() {
       </div>`;
     return;
   }
+  if (requestKeys.length) {
+    requestKeys
+      .slice()
+      .sort((a, b) => resolveUserLabel(a).localeCompare(resolveUserLabel(b), 'ru'))
+      .forEach(from => createRequestItem(from, friendList));
+  }
   const delayStep = isMobile ? 0 : 50;
   visibleKeys.forEach((fn, idx) => {
-    setTimeout(() => {
+    const timerId = setTimeout(() => {
+      if (cycle !== renderFriendsCycle) return;
       createFriendItem(fn);
       friendStatusListeners[fn] = db.ref(`userStatus/${fn}`).on("value", st => updateFriendStatusInList(fn, st.val()));
       db.ref(`userStatus/${fn}`).once("value").then(s => updateFriendStatusInList(fn, s.val()));
     }, idx * delayStep);
+    renderFriendsTimeoutIds.push(timerId);
   });
 }
 
@@ -741,9 +1097,24 @@ function renderBlocked() {
 function createFriendItem(fn) {
   const displayName = resolveUserLabel(fn);
   const fl = document.getElementById("friendList");
+  if (!fl) return;
+  const canonical = canonicalFriendIdentity(fn);
+  if (document.getElementById(`contact_${fn}`)) return;
+  if (canonical) {
+    const duplicateEl = Array.from(fl.querySelectorAll('.contact-item')).find(el => {
+      const existingCanonical = String(
+        el.dataset.friendCanonical
+        || canonicalFriendIdentity(String(el.id || '').replace(/^contact_/, ''))
+        || ''
+      );
+      return existingCanonical && existingCanonical === canonical;
+    });
+    if (duplicateEl) return;
+  }
   const item = document.createElement("div");
   item.className = "contact-item";
   item.id = `contact_${fn}`;
+  if (canonical) item.dataset.friendCanonical = canonical;
   item.style.animation = isMobile ? "none" : "slideUp .3s ease-out";
   item.onclick = () => {
     openPrivateChat(fn);
@@ -766,6 +1137,7 @@ function createFriendItem(fn) {
     </div>
 	    <div class="unread-badge" id="unread_${fn}" style="display:none">0</div>`;
   fl.appendChild(item);
+  reorderFriendList();
 
   clearFriendProfileListeners(fn);
 
@@ -828,9 +1200,21 @@ function loadLastMessage(fn) {
 
     const lm = document.getElementById(`lastMsg_${fn}`);
     if (lm) {
-      const previewText = lastMsg.text ? sanitizeUiText(lastMsg.text, '') : sanitizeUiText(getMessagePreview(lastMsg), 'Сообщение');
-      const t = sanitizeUiText(previewText, 'Сообщение');
-      lm.textContent = t.length > 30 ? t.substring(0, 30) + "..." : t;
+      const previewText = sanitizeUiText(getRenderableMessageText(lastMsg), '');
+      if (!previewText) {
+        lm.textContent = '';
+        lm.style.display = 'none';
+      } else {
+        lm.style.display = '';
+        lm.textContent = previewText.length > 30 ? `${previewText.substring(0, 30)}...` : previewText;
+      }
+    }
+
+    const msgTimeRaw = Number(lastMsg.time);
+    const msgTime = Number.isFinite(msgTimeRaw) ? msgTimeRaw : 0;
+    if (lastActivityByFriend[fn] !== msgTime) {
+      lastActivityByFriend[fn] = msgTime;
+      reorderFriendList();
     }
 
     const prevKey = lastMessageKeyByChat[chatId];
@@ -844,11 +1228,11 @@ function loadLastMessage(fn) {
       const isCurrentChat = currentChatId === chatId;
       const muted = isChatMuted(chatId, false);
       if (lastMsg.from !== username && !isCurrentChat && !muted) {
-        const preview = lastMsg.text ? sanitizeUiText(lastMsg.text, 'Сообщение') : sanitizeUiText(getMessagePreview(lastMsg), 'Сообщение');
+        const preview = sanitizeUiText(getMessagePreview(lastMsg), 'Сообщение');
         showNotification(fn, preview);
         if (typeof maybeShowSystemNotification === 'function') {
           const title = resolveUserLabel(fn);
-          const body = lastMsg.text ? sanitizeUiText(lastMsg.text, 'Сообщение') : sanitizeUiText(getMessagePreview(lastMsg), 'Сообщение');
+          const body = sanitizeUiText(getMessagePreview(lastMsg), 'Сообщение');
           maybeShowSystemNotification(title, body, { tag: `chat_${chatId}`, silent: lastMsg.silent === true });
         }
       }
@@ -1113,7 +1497,10 @@ function loadChat(path) {
     // Рендерим пачками, чтобы не лагал ввод на слабых телефонах
     renderMessagesBatched(cachedMessages, { autoScroll: false, animate: false, notify: false }, isMobile ? 10 : 18)
       .then(() => {
-        if (currentChatPath === expectedPath) md.scrollTop = md.scrollHeight;
+        if (currentChatPath === expectedPath) {
+          md.scrollTop = md.scrollHeight;
+          updateScrollBottomButton(md);
+        }
       });
     oldestLoadedKey = cachedMessages[0].id || null;
     newestLoadedKey = cachedMessages[cachedMessages.length - 1].id || null;
@@ -1133,6 +1520,7 @@ function loadChat(path) {
       await renderMessagesBatched(items, { autoScroll: false, animate: false, notify: false }, isMobile ? 10 : 18);
       if (currentChatPath !== expectedPath) return;
       md.scrollTop = md.scrollHeight;
+      updateScrollBottomButton(md);
       // Не затираем очередь отправки в кэше (иначе кажется, что сообщения "удалились")
       writeChatCache(path, mergeUniqueMessages(items, getPendingMessagesForPath(path)));
       markCurrentChatAsRead();
@@ -1186,7 +1574,9 @@ function handleMessagesScroll() {
   messagesScrollRaf = requestAnimationFrame(() => {
     messagesScrollRaf = 0;
     const md = document.getElementById("messages");
-    if (!md || isHistoryLoading || !hasMoreHistory) return;
+    if (!md) return;
+    updateScrollBottomButton(md);
+    if (isHistoryLoading || !hasMoreHistory) return;
     if (md.scrollTop <= 120) {
       loadOlderMessages();
     }
@@ -1223,6 +1613,7 @@ function loadOlderMessages() {
       oldestLoadedKey = older[0].id;
       hasMoreHistory = older.length === CHAT_HISTORY_PAGE_SIZE;
       md.scrollTop = (md.scrollHeight - prevHeight) + prevTop;
+      updateScrollBottomButton(md);
     })
     .finally(() => {
       isHistoryLoading = false;
@@ -1268,7 +1659,7 @@ function addMessageToChat(m, options = {}) {
   if (opts.notify && m.from !== username && !muted && typeof maybeShowSystemNotification === 'function') {
     const chatTitle = document.getElementById('chatWith');
     const senderTitle = isGroupChat ? `${resolveUserLabel(m.from || '')} • ${chatTitle ? chatTitle.textContent : 'Чат'}` : resolveUserLabel(m.from || 'Чат');
-    const body = m.text ? sanitizeUiText(m.text, 'Сообщение') : sanitizeUiText(getMessagePreview(m), 'Сообщение');
+    const body = sanitizeUiText(getMessagePreview(m), 'Сообщение');
     maybeShowSystemNotification(senderTitle, body, { tag: `chat_${currentChatId}`, silent: silentIncoming });
   }
 
@@ -1305,14 +1696,17 @@ function addMessageToChat(m, options = {}) {
     m.text = String(m.photo || m.video || m.audio || m.document || m.sticker);
   }
   if (!m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl && !stickerUrl) return;
+  const renderText = getRenderableMessageText(m);
   const reactionsHtml = renderReactions(m.id, m.reactions || {});
   const expireHtml = "";
+  const isVoiceOrVideoMessage = String(m.type) === 'voice_message' || String(m.type) === 'video_message';
+  const canEditMessage = m.from === username && renderText && !isVoiceOrVideoMessage;
   const actionsHtml = `<div class="message-actions">
     <button class="reaction-btn" data-message-id="${m.id}" title="Реакции">😊</button>
     <button class="reaction-btn" onclick="startReply('${m.id}')" title="Ответить">↩</button>
     <button class="reaction-btn" onclick="forwardMessage('${m.id}')" title="Переслать">↗</button>
     <button class="reaction-btn" onclick="togglePinMessage('${m.id}')" title="Закрепить">📌</button>
-    ${m.from === username && m.text ? `<button class="reaction-btn" onclick="startEdit('${m.id}')" title="Редактировать">✎</button>` : ""}
+    ${canEditMessage ? `<button class="reaction-btn" onclick="startEdit('${m.id}')" title="Редактировать">✎</button>` : ""}
     ${m.from === username ? `<button class="reaction-btn" onclick="deleteMessage('${m.id}')" title="Удалить">🗑</button>` : ""}
   </div>`;
   let content = "";
@@ -1321,12 +1715,16 @@ function addMessageToChat(m, options = {}) {
   const replyHtml = m.replyTo ? `<div class="message-reply">↩ ${escapeHtml(replyFrom)}: ${escapeHtml(sanitizeUiText(m.replyTo.text || '', ''))}</div>` : "";
   const fwdName = m.forwardedFrom ? resolveUserLabel(m.forwardedFrom) : '';
   const forwardedHtml = m.forwardedFrom ? `<div class="message-forwarded">↪ Переслано от ${escapeHtml(fwdName)}</div>` : "";
-  if (m.text && !photoUrl && !videoUrl && !audioUrl && !docUrl) {
-    content = `${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>`;
+  const t = new Date(m.time || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const editedHtml = m.editedAt || m.edited ? `<span class="message-edited"> (изм.)</span>` : '';
+  const statusHtml = m.from === username ? `<span class="message-status ${status}">${status === 'read' ? '✓✓' : status === 'sent' ? '✓' : ''}</span>` : '';
+  let renderDefaultTime = true;
+  if (renderText && !photoUrl && !videoUrl && !audioUrl && !docUrl) {
+    content = `${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(renderText)}</div>`;
   } else if (stickerUrl) {
     const emojiTag = m.stickerEmoji ? `<div class="sticker-emoji">${escapeHtml(m.stickerEmoji)}</div>` : '';
     content = `
-      ${forwardedHtml}${replyHtml}${m.text ? `<div class="message-text">${escapeHtml(m.text)}</div>` : ''}
+      ${forwardedHtml}${replyHtml}${renderText ? `<div class="message-text">${escapeHtml(renderText)}</div>` : ''}
       <div class="message-sticker-wrap">
         <img src="${stickerUrl}" class="message-sticker" onclick="openMedia('${stickerUrl}')" alt="Стикер" loading="lazy" decoding="async">
         ${emojiTag}
@@ -1337,7 +1735,7 @@ function addMessageToChat(m, options = {}) {
     if (!allow) {
       deferredMediaByMessageId.set(m.id, { kind: 'photo', url: photoUrl });
       content = `
-        ${forwardedHtml}${replyHtml}${m.text ? `<div class="message-text">${escapeHtml(m.text)}</div>` : ''}
+        ${forwardedHtml}${replyHtml}${renderText ? `<div class="message-text">${escapeHtml(renderText)}</div>` : ''}
         <div class="message-deferred" id="deferred_${m.id}">
           <button class="deferred-btn" onclick="revealDeferredMedia('${m.id}')">Показать фото</button>
           <div class="deferred-sub">Автозагрузка отключена или действует лимит (Настройки → Медиа)</div>
@@ -1348,10 +1746,8 @@ function addMessageToChat(m, options = {}) {
       `;
     } else {
       content = `
-        ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
-        <a href="${photoUrl}" target="_blank" download>
-          <img src="${photoUrl}" class="message-media" onclick="openMedia('${photoUrl}')" alt="Фото" loading="lazy" decoding="async">
-        </a>
+        ${forwardedHtml}${replyHtml}${renderText ? `<div class="message-text">${escapeHtml(renderText)}</div>` : ''}
+        <img src="${photoUrl}" class="message-media" onclick="openMedia('${photoUrl}')" alt="Фото" loading="lazy" decoding="async">
         <div class="message-media-actions">
           <a href="${photoUrl}" target="_blank" download>Скачать</a>
         </div>
@@ -1364,7 +1760,7 @@ function addMessageToChat(m, options = {}) {
       if (!allow) {
         deferredMediaByMessageId.set(m.id, { kind: 'video_message', url: videoUrl });
         content = `
-          ${forwardedHtml}${replyHtml}${m.text ? `<div class="message-text">${escapeHtml(m.text)}</div>` : ''}
+          ${forwardedHtml}${replyHtml}${renderText ? `<div class="message-text">${escapeHtml(renderText)}</div>` : ''}
           <div class="message-deferred" id="deferred_${m.id}">
             <button class="deferred-btn" onclick="revealDeferredMedia('${m.id}')">Показать видео</button>
             <div class="deferred-sub">Автозагрузка отключена или действует лимит (Настройки → Медиа)</div>
@@ -1377,7 +1773,7 @@ function addMessageToChat(m, options = {}) {
       } else {
         videoMessageOpenUrl = videoUrl;
         content = `
-          ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
+          ${forwardedHtml}${replyHtml}${renderText ? `<div class="message-text">${escapeHtml(renderText)}</div>` : ''}
           <div class="message-video js-video-message">
             <video src="${videoUrl}" preload="metadata"></video>
           </div>
@@ -1392,7 +1788,7 @@ function addMessageToChat(m, options = {}) {
       if (!allow) {
         deferredMediaByMessageId.set(m.id, { kind: 'video', url: videoUrl });
         content = `
-          ${forwardedHtml}${replyHtml}${m.text ? `<div class="message-text">${escapeHtml(m.text)}</div>` : ''}
+          ${forwardedHtml}${replyHtml}${renderText ? `<div class="message-text">${escapeHtml(renderText)}</div>` : ''}
           <div class="message-deferred" id="deferred_${m.id}">
             <button class="deferred-btn" onclick="revealDeferredMedia('${m.id}')">Показать видео</button>
             <div class="deferred-sub">Автозагрузка отключена или действует лимит (Настройки → Медиа)</div>
@@ -1403,7 +1799,7 @@ function addMessageToChat(m, options = {}) {
         `;
       } else {
         content = `
-          ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
+          ${forwardedHtml}${replyHtml}${renderText ? `<div class="message-text">${escapeHtml(renderText)}</div>` : ''}
           <video src="${videoUrl}" class="message-media" controls preload="metadata" onclick="openMedia('${videoUrl}')"></video>
           <div class="message-media-actions">
             <a href="${videoUrl}" target="_blank" download>Скачать</a>
@@ -1416,7 +1812,7 @@ function addMessageToChat(m, options = {}) {
     if (!allow) {
       deferredMediaByMessageId.set(m.id, { kind: 'audio', url: audioUrl });
       content = `
-        ${forwardedHtml}${replyHtml}${m.text ? `<div class="message-text">${escapeHtml(m.text)}</div>` : ''}
+        ${forwardedHtml}${replyHtml}${renderText ? `<div class="message-text">${escapeHtml(renderText)}</div>` : ''}
         <div class="message-deferred" id="deferred_${m.id}">
           <button class="deferred-btn" onclick="revealDeferredMedia('${m.id}')">Показать аудио</button>
           <div class="deferred-sub">Автозагрузка отключена или действует лимит (Настройки → Медиа)</div>
@@ -1426,19 +1822,40 @@ function addMessageToChat(m, options = {}) {
         </div>
       `;
     } else {
-      content = `
-        ${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div>
-        <audio src="${audioUrl}" class="message-audio" controls preload="none"></audio>
-        <div class="message-media-actions">
-          <a href="${audioUrl}" target="_blank" download>Скачать</a>
-        </div>
-      `;
+      if (m.type === 'voice_message') {
+        const voiceDuration = formatDurationAsClock(m.duration);
+        const voiceBars = buildVoiceWaveBars(m.id || audioUrl);
+        renderDefaultTime = false;
+        content = `
+          ${forwardedHtml}${replyHtml}${renderText ? `<div class="message-text">${escapeHtml(renderText)}</div>` : ''}
+          <div class="voice-message">
+            <div class="voice-player">
+              <button class="voice-play-btn" type="button" aria-label="Воспроизвести голосовое">
+                <span class="voice-play-icon">▶</span>
+              </button>
+              <div class="voice-wave-track">${voiceBars}</div>
+              <audio src="${audioUrl}" class="voice-audio-source" preload="metadata"></audio>
+            </div>
+            <div class="voice-message-meta">
+              <span class="voice-duration">${voiceDuration}</span>
+              <span class="voice-send-time">${t}${editedHtml}${statusHtml}</span>
+            </div>
+          </div>
+        `;
+      } else {
+        content = `
+          ${forwardedHtml}${replyHtml}${renderText ? `<div class="message-text">${escapeHtml(renderText)}</div>` : ''}
+          <audio src="${audioUrl}" class="message-audio" controls preload="none"></audio>
+          <div class="message-media-actions">
+            <a href="${audioUrl}" target="_blank" download>Скачать</a>
+          </div>
+        `;
+      }
     }
   } else if (docUrl) {
     const fs = formatFileSize(m.filesize);
-    content = `${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(m.text)}</div><a href="${docUrl}" download="${m.filename}" class="message-doc"><div class="doc-icon">📄</div><div class="doc-info"><div class="doc-name">${escapeHtml(m.filename)}</div><div class="doc-size">${fs}</div></div></a>`;
+    content = `${forwardedHtml}${replyHtml}${renderText ? `<div class="message-text">${escapeHtml(renderText)}</div>` : ''}<a href="${docUrl}" download="${m.filename}" class="message-doc"><div class="doc-icon">📄</div><div class="doc-info"><div class="doc-name">${escapeHtml(m.filename)}</div><div class="doc-size">${fs}</div></div></a>`;
   }
-  const t = new Date(m.time || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const senderName = escapeHtml(resolveUserLabel(m.from || ''));
   msg.innerHTML = `
     ${m.from !== username && !isGroupChat ? `<div class="message-sender">${senderName}</div>` : ""}
@@ -1447,11 +1864,7 @@ function addMessageToChat(m, options = {}) {
     ${reactionsHtml}
     ${expireHtml}
     ${actionsHtml}
-    <div class="message-time">
-      ${t}
-      ${m.editedAt || m.edited ? `<span class="message-edited"> (изм.)</span>` : ''}
-      ${m.from === username ? `<span class="message-status ${status}">${status === 'read' ? '✓✓' : status === 'sent' ? '✓' : ''}</span>` : ''}
-    </div>`;
+    ${renderDefaultTime ? `<div class="message-time">${t}${editedHtml}${statusHtml}</div>` : ''}`;
   if (videoMessageOpenUrl) {
     const videoBubble = msg.querySelector('.js-video-message');
     if (videoBubble) {
@@ -1464,6 +1877,7 @@ function addMessageToChat(m, options = {}) {
       });
     }
   }
+  initVoiceMessagePlayer(msg, m);
   wrap.appendChild(msg);
   if (m.clientMessageId) renderedClientMessageIds.add(m.clientMessageId);
   if (opts.prepend) {
@@ -1499,10 +1913,6 @@ function revealDeferredMedia(messageId) {
 
   try {
     if (kind === 'photo') {
-      const a = document.createElement('a');
-      a.href = url;
-      a.target = '_blank';
-      a.download = '';
       const img = document.createElement('img');
       img.src = url;
       img.className = 'message-media';
@@ -1515,8 +1925,7 @@ function revealDeferredMedia(messageId) {
         if (typeof openMedia === 'function') openMedia(url);
         else window.open(url, '_blank');
       });
-      a.appendChild(img);
-      host.appendChild(a);
+      host.appendChild(img);
       return;
     }
 
@@ -1582,7 +1991,8 @@ function renderReactions(messageId, reactions) {
 
 function getMessagePreview(m) {
   if (!m) return '';
-  if (m.text) return sanitizeUiText(m.text, 'Сообщение');
+  const text = sanitizeUiText(m.text, '');
+  if (text && !isSystemMediaLabelText(text, m)) return text;
   if (m.photo) return '📷 Фото';
   if (m.video) return m.type === 'video_message' ? '🎥 Видеосообщение' : '🎥 Видео';
   if (m.audio) return '🎵 Аудио';
@@ -1742,7 +2152,7 @@ async function togglePinMessage(messageId, e) {
     const cached = readChatCache(currentChatPath);
     const cm = cached.find(x => x && x.id === messageId);
     if (cm) {
-      preview = cm.text ? cm.text : getMessagePreview(cm);
+      preview = getMessagePreview(cm);
       pinnedFrom = cm.from || '';
     }
   } catch {
@@ -2121,13 +2531,45 @@ function selectChatBackground(btn) {
   }
 }
 
-function handleChatBgFileChange(e) {
+function compressChatBackgroundImage(file, maxSide = 1800, quality = 0.84) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('bg_read_failed'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('bg_image_invalid'));
+      img.onload = () => {
+        let { width, height } = img;
+        const largestSide = Math.max(width, height);
+        if (largestSide > maxSide) {
+          const scale = maxSide / largestSide;
+          width = Math.max(1, Math.round(width * scale));
+          height = Math.max(1, Math.round(height * scale));
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(String(reader.result || ''));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = String(reader.result || '');
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleChatBgFileChange(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
   if (!file.type.startsWith('image/')) { showError('Нужна картинка'); return; }
-  const reader = new FileReader();
-  reader.onload = () => {
-    pendingChatBgValue = reader.result;
+  try {
+    showLoading();
+    pendingChatBgValue = await compressChatBackgroundImage(file);
     const preview = document.getElementById('chatBgPreviewBox');
     if (preview) {
       preview.style.background = 'transparent';
@@ -2136,17 +2578,26 @@ function handleChatBgFileChange(e) {
       preview.style.backgroundPosition = 'center';
     }
     document.querySelectorAll('.chat-bg-item').forEach(b => b.classList.remove('active'));
-  };
-  reader.readAsDataURL(file);
+  } catch {
+    showError('Не удалось загрузить фото для фона');
+  } finally {
+    if (e && e.target) e.target.value = '';
+    hideLoading();
+  }
 }
 
 function saveChatBackground() {
   if (!currentChatId) return;
   const key = `ruchat_chat_bg_${currentChatId}`;
-  if (!pendingChatBgValue) {
-    localStorage.removeItem(key);
-  } else {
-    localStorage.setItem(key, pendingChatBgValue);
+  try {
+    if (!pendingChatBgValue) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, pendingChatBgValue);
+    }
+  } catch {
+    showError('Фото слишком большое. Выберите меньшее изображение.');
+    return;
   }
   applyChatBackground(currentChatId);
   closeChatBackground();
@@ -2416,6 +2867,7 @@ async function clearCurrentChat() {
 
 window.applyChatBackground = applyChatBackground;
 window.openChatBackground = openChatBackground;
+window.scrollChatToBottom = scrollChatToBottom;
 window.clearCurrentChat = clearCurrentChat;
 window.closeChatBackground = closeChatBackground;
 window.selectChatBackground = selectChatBackground;
@@ -2741,45 +3193,29 @@ function showAddFriend() {
 }
 
 function loadFriendRequests() {
-  const list = document.getElementById("friendRequestsList");
-  if (!list) return;
   db.ref(`accounts/${username}/friendRequests/incoming`).on("value", snap => {
-    list.innerHTML = "";
-    if (!snap.exists()) {
-      list.innerHTML = `
-        <div class="empty-state">
-          <div class="icon">🤝</div>
-          <div class="title">Нет заявок</div>
-          <div class="description">Новые заявки появятся здесь</div>
-        </div>`;
-      return;
+    incomingFriendRequestsCache = {};
+    if (snap.exists()) {
+      snap.forEach(ch => {
+        incomingFriendRequestsCache[ch.key] = true;
+      });
     }
-    let hasAny = false;
-    snap.forEach(ch => {
-      const from = ch.key;
-      if (blockedCache[from]) return;
-      hasAny = true;
-      createRequestItem(from);
-    });
-    if (!hasAny) {
-      list.innerHTML = `
-        <div class="empty-state">
-          <div class="icon">🤝</div>
-          <div class="title">Нет заявок</div>
-          <div class="description">Новые заявки появятся здесь</div>
-        </div>`;
-    }
+    renderFriends();
   });
 }
 
-function createRequestItem(from) {
-  const list = document.getElementById("friendRequestsList");
+function createRequestItem(from, targetList) {
+  const list = targetList || document.getElementById("friendList");
+  if (!list) return;
   const item = document.createElement("div");
-  item.className = "request-item";
+  item.className = "request-item chat-request-item";
   const name = resolveUserLabel(from);
   item.innerHTML = `
     <img class="contact-avatar" id="req_avatar_${from}" alt="${name}" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0088cc&color=fff&size=48'">
-    <div class="request-name" id="req_name_${from}">${name}</div>
+    <div class="request-info">
+      <div class="request-label">Запрос в друзья</div>
+      <div class="request-name" id="req_name_${from}">${name}</div>
+    </div>
     <div class="request-actions">
       <button class="request-btn accept" title="Принять" aria-label="Принять заявку">✓</button>
       <button class="request-btn reject" title="Отклонить" aria-label="Отклонить заявку">✕</button>

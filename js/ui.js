@@ -52,9 +52,11 @@ function handleKeyPress(e) {
 }
 
 function searchChats(q) {
-    document.querySelectorAll(".contact-item, .group-item").forEach(it => {
-        const n = it.querySelector(".contact-name").textContent.toLowerCase();
-        it.style.display = n.includes(q.toLowerCase()) ? "flex" : "none";
+    const needle = (q || '').toLowerCase();
+    document.querySelectorAll(".contact-item, .group-item, .request-item.chat-request-item").forEach(it => {
+        const titleEl = it.querySelector(".contact-name, .request-name");
+        const title = titleEl ? titleEl.textContent.toLowerCase() : '';
+        it.style.display = title.includes(needle) ? "flex" : "none";
     });
 }
 

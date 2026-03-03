@@ -524,11 +524,9 @@ async function sendVoiceMessage(audioData, isTest = false) {
             return;
         }
 
-        const messageText = isTest ? '🎤 Тестовое голосовое сообщение (демо)' : '🎤 Голосовое сообщение';
-        
         const message = {
             from: username,
-            text: messageText,
+            text: '',
             audio: audioData,
             time: Date.now(),
             sent: true,
@@ -751,23 +749,19 @@ async function sendMediaMessage(type, data, filename, filesize) {
         switch (type) {
             case 'photo': 
                 msg.photo = data; 
-                msg.text = '📷 Фото'; 
                 break;
             case 'video': 
                 msg.video = data; 
                 msg.filesize = filesize || payloadBytes;
-                msg.text = '🎥 Видео'; 
                 break;
             case 'audio': 
                 msg.audio = data; 
                 msg.filesize = filesize || payloadBytes;
-                msg.text = '🎵 Аудио'; 
                 break;
             case 'document': 
                 msg.document = data; 
                 msg.filename = filename; 
                 msg.filesize = filesize || payloadBytes; 
-                msg.text = '📄 Документ'; 
                 break;
         }
         
@@ -814,4 +808,74 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-function openMedia(url) { window.open(url, '_blank'); }
+function ensureMediaViewer() {
+    let overlay = document.getElementById('mediaViewerOverlay');
+    if (overlay) return overlay;
+
+    overlay = document.createElement('div');
+    overlay.id = 'mediaViewerOverlay';
+    overlay.className = 'media-viewer-overlay';
+    overlay.innerHTML = `
+        <button class="media-viewer-close" type="button" aria-label="Закрыть">✕</button>
+        <div class="media-viewer-content" id="mediaViewerContent"></div>
+    `;
+    document.body.appendChild(overlay);
+
+    const closeBtn = overlay.querySelector('.media-viewer-close');
+    const content = overlay.querySelector('.media-viewer-content');
+    if (closeBtn) closeBtn.addEventListener('click', closeMediaViewer);
+    if (content) content.addEventListener('click', (e) => e.stopPropagation());
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeMediaViewer();
+    });
+    return overlay;
+}
+
+function closeMediaViewer() {
+    const overlay = document.getElementById('mediaViewerOverlay');
+    if (!overlay) return;
+    const content = document.getElementById('mediaViewerContent');
+    if (content) content.innerHTML = '';
+    overlay.classList.remove('active');
+    document.removeEventListener('keydown', handleMediaViewerKeydown);
+}
+
+function handleMediaViewerKeydown(e) {
+    if (e.key === 'Escape') closeMediaViewer();
+}
+
+function isMediaVideoSource(src) {
+    const value = String(src || '').toLowerCase();
+    return value.startsWith('data:video/')
+        || /\.(mp4|webm|ogg|mov|m4v)(\?|#|$)/i.test(value);
+}
+
+function openMedia(url) {
+    const src = String(url || '').trim();
+    if (!src) return;
+    const overlay = ensureMediaViewer();
+    const content = document.getElementById('mediaViewerContent');
+    if (!overlay || !content) return;
+
+    content.innerHTML = '';
+    if (isMediaVideoSource(src)) {
+        const video = document.createElement('video');
+        video.src = src;
+        video.controls = true;
+        video.autoplay = true;
+        video.className = 'media-viewer-video';
+        video.preload = 'metadata';
+        content.appendChild(video);
+    } else {
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = 'Медиа';
+        img.className = 'media-viewer-image';
+        content.appendChild(img);
+    }
+
+    overlay.classList.add('active');
+    document.addEventListener('keydown', handleMediaViewerKeydown);
+}
+
+window.closeMediaViewer = closeMediaViewer;

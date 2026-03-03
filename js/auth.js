@@ -134,9 +134,6 @@ async function doLoginAfterAuth(u, title, message) {
   if (typeof listenForIncomingCalls === 'function') {
     listenForIncomingCalls();
   }
-  if (typeof initVideoMessagesAfterLogin === 'function') {
-    initVideoMessagesAfterLogin();
-  }
   await registerDeviceToken(username);
   if (title && message) showNotification(title, message);
   checkMobile();

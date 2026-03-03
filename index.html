@@ -10,8 +10,8 @@
     <meta name="theme-color" content="#0f172a">
     <meta name="msapplication-TileColor" content="#0f172a">
     <meta name="application-name" content="RuChat Мессенджер">
-    <meta name="description" content="RuChat - современный мессенджер с видеосообщениями">
-    <meta name="keywords" content="мессенджер, чат, RuChat, сообщения, общение, видеосообщения">
+    <meta name="description" content="RuChat - современный мессенджер">
+    <meta name="keywords" content="мессенджер, чат, RuChat, сообщения, общение">
     
     <title>RuChat | Современный мессенджер</title>
     
@@ -29,7 +29,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260301i">
+    <link rel="stylesheet" href="css/style.css?v=20260303b">
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -148,11 +148,6 @@
             </div>
         </div>
 
-        <div class="menu-section sidebar-requests-section">
-            <div class="menu-title">Заявки в друзья</div>
-            <div class="requests-list" id="friendRequestsList"></div>
-        </div>
-
         <div class="sidebar-chats">
             <div class="contacts-list" id="friendList"></div>
             <div class="groups-list" id="groupList"></div>
@@ -182,6 +177,7 @@
             <div class="chat-actions">
                 <button class="icon-btn" onclick="toggleMessageSearch()" title="Поиск в чате">🔍</button>
                 <button class="icon-btn" onclick="openMediaLibrary()" title="Медиа">🗂</button>
+                <button class="icon-btn" onclick="openChatBackground()" title="Добавить фон">🖼</button>
                 <button class="icon-btn" id="callButton" onclick="startVoiceCall()" title="Голосовой звонок" style="display:none;">📞</button>
                 <button class="icon-btn" onclick="toggleTheme()" title="Сменить тему">🌙</button>
                 <button class="icon-btn" onclick="showChatInfo()" title="Информация о чате">i</button>
@@ -208,6 +204,7 @@
         </div>
 
         <div class="messages-container" id="messages"></div>
+        <button class="scroll-bottom-btn" id="scrollBottomBtn" onclick="scrollChatToBottom()" title="Вниз" aria-label="Прокрутить вниз">⬇</button>
 
         <div class="message-input-container">
             <div class="edit-bar" id="editBar">
@@ -364,45 +361,6 @@
         <div class="icon">🎤</div>
         <div class="text">Аудиосообщение</div>
     </div>
-    <div class="attachment-item" onclick="startVideoRecording()">
-        <div class="icon">🎥</div>
-        <div class="text">Видеосообщение</div>
-    </div>
-</div>
-
-<!-- ===== ОВЕРЛЕЙ ЗАПИСИ ВИДЕОСООБЩЕНИЯ ===== -->
-<div class="record-overlay video-record-overlay" id="videoRecordOverlay">
-    <div class="record-modal video-record-modal">
-        <div class="video-preview-container">
-            <video class="video-preview" id="videoPreview" autoplay muted></video>
-            <div class="recording-indicator" id="recordingIndicator">
-                <div class="recording-dot"></div>
-                <span>Идет запись...</span>
-            </div>
-            <div class="record-timer" id="videoTimer">00:00</div>
-            <div class="camera-controls">
-                <button class="icon-btn" onclick="toggleCamera()" title="Перевернуть камеру">
-                    <span class="camera-icon">🔄</span>
-                </button>
-                <button class="icon-btn" onclick="cancelVideoRecording()" title="Отмена">
-                    <span class="cancel-icon">✕</span>
-                </button>
-            </div>
-        </div>
-        <div class="record-controls video-record-controls">
-            <div class="record-lock" id="videoLockIndicator">
-                <div class="lock-icon">🔒</div>
-                <div class="lock-text" id="videoLockHint">Потяните вверх, чтобы закрепить</div>
-            </div>
-            <button class="record-btn video-record-btn" id="videoRecordBtn"
-                    onmousedown="startVideoRecordingAction()"
-                    ontouchstart="startVideoRecordingAction()"
-                    title="Удерживайте для записи">
-                <div class="video-record-btn-inner"></div>
-            </button>
-            <div class="record-hint">Свайп вверх — закрепить, влево — отмена</div>
-        </div>
-    </div>
 </div>
 
 <!-- ===== ОВЕРЛЕЙ ЗВОНКА ===== -->
@@ -509,17 +467,16 @@
 <script src="js/firebase-config.js?v=20260219d"></script>
 <script src="js/utils.js?v=20260219d"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
 <script src="js/main.js?v=20260219d"></script>
-<script src="js/ui.js?v=20260301b"></script>
+<script src="js/ui.js?v=20260303a"></script>
 <script src="js/sounds.js?v=20260219d"></script>
-<script src="js/auth.js?v=20260301d"></script>
+<script src="js/auth.js?v=20260303a"></script>
 <script src="js/status.js?v=20260219d"></script>
-<script src="js/chat.js?v=20260301h"></script>
-<script src="js/media.js?v=20260219d"></script>
+<script src="js/chat.js?v=20260303b"></script>
+<script src="js/media.js?v=20260303a"></script>
 <script src="js/emoji.js?v=20260219d"></script>
 <script src="js/stickers.js?v=20260219d"></script>
 <script src="js/groups.js?v=20260219d"></script>
 <script src="js/mobile.js?v=20260301b"></script>
-<script src="js/video-messages.js?v=20260301c"></script>
 <script src="js/audio-call.js?v=20260219d"></script>
 <script src="js/settings.js?v=20260219d"></script>
 
@@ -567,7 +524,7 @@
         if (retry) window.retryAction = retry;
     };
     
-    console.log('Build 2026-03-01i');
+    console.log('Build 2026-03-03a');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {
