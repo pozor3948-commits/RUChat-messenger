@@ -118,6 +118,24 @@ const firebaseConfig = {
 };
 ```
 
+### 🔔 Web Push (FCM)
+
+Для push-уведомлений в браузере нужен публичный VAPID-ключ:
+- Push работает только на `https://` (или `http://localhost` для локальной разработки).
+
+1. Firebase Console → **Project Settings** → **Cloud Messaging**
+2. Скопируйте **Web Push certificate key pair** (Public key)
+3. Добавьте ключ в `js/firebase-config.js`:
+
+```javascript
+window.RUCHAT_WEB_PUSH_VAPID_KEY = "YOUR_PUBLIC_VAPID_KEY";
+```
+
+После этого фронт автоматически:
+- регистрирует `firebase-messaging-sw.js`
+- получает FCM token
+- сохраняет token в `accounts/{username}/devices/{deviceToken}/fcmToken`
+
 ### Серверное усиление (Rules + Cloud Functions)
 
 В проект добавлены:
@@ -257,4 +275,3 @@ MIT License - свободное использование
 **Версия:** 2.0 Enhanced  
 **Дата:** Февраль 2026  
 **Автор:** Claude AI Assistant
-

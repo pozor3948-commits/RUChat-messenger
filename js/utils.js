@@ -43,26 +43,38 @@ function fixMojibakeCp1251(str) {
 
 function normalizeText(text) {
     if (typeof text !== 'string') return text;
-    const vowels = /[аеёиоуыэюя]/gi;
-    const countVowels = (str) => (str.match(vowels) || []).length;
-    const countRS = (str) => (str.match(/[РС]/g) || []).length;
-    const score = (str) => countVowels(str) - countRS(str) * 0.5;
+    const looksLikeMojibake = (str) => /(Р[А-Яа-яЁё]|[ÐÑ][A-Za-zÀ-ÿ]|(?:Ã|Â)[\u0000-\u00FF]|�+)/.test(str);
+    if (!looksLikeMojibake(text) && !text.includes('\uFFFD')) return text;
+
+    const qualityScore = (str) => {
+        const letters = (str.match(/[A-Za-zА-Яа-яЁё]/g) || []).length;
+        const replacement = (str.match(/\uFFFD/g) || []).length;
+        const mojibakeHits = (str.match(/(Р[А-Яа-яЁё]|[ÐÑ][A-Za-zÀ-ÿ]|(?:Ã|Â)[\u0000-\u00FF])/g) || []).length;
+        const qMarks = (str.match(/\?/g) || []).length;
+        return (letters * 2) - (replacement * 12) - (mojibakeHits * 8) - (qMarks * 2);
+    };
+
+    let best = text;
+    let bestScore = qualityScore(text);
 
     const fixed = fixMojibakeCp1251(text);
     if (fixed && fixed !== text) {
-        if (score(fixed) >= score(text) + 1 || countRS(fixed) < countRS(text)) {
-            return fixed;
+        const score = qualityScore(fixed);
+        if (score > bestScore) {
+            best = fixed;
+            bestScore = score;
         }
     }
 
     const fixedTwice = fixMojibakeCp1251(fixed);
     if (fixedTwice && fixedTwice !== text) {
-        if (score(fixedTwice) >= score(text) + 1 || countRS(fixedTwice) < countRS(text)) {
-            return fixedTwice;
+        const score = qualityScore(fixedTwice);
+        if (score > bestScore) {
+            best = fixedTwice;
         }
     }
 
-    return text;
+    return best;
 }
 
 function isValidMediaUrl(url) {
@@ -286,8 +298,14 @@ async function requestSystemNotifications() {
         const perm = await Notification.requestPermission();
         if (perm === 'granted') {
             localStorage.setItem('systemNotifications', 'true');
+            if (typeof window.syncPushTokenForCurrentSession === 'function') {
+                await window.syncPushTokenForCurrentSession({ askPermission: false });
+            }
             showNotification('Уведомления', 'Разрешение получено', 'success');
         } else {
+            if (typeof window.removePushTokenForCurrentSession === 'function') {
+                await window.removePushTokenForCurrentSession();
+            }
             showNotification('Уведомления', 'Разрешение не получено', 'warning');
         }
         return perm;
@@ -349,5 +367,3 @@ function showNextNotification() {
         setTimeout(() => { n.style.display = 'none'; setTimeout(showNextNotification, 300); }, 3000);
     }
 }
-
-

@@ -49,6 +49,8 @@ let addedMessagesQuery = null;
 let addedMessagesHandler = null;
 let currentPrivateStatusRef = null;
 let currentPrivateStatusHandler = null;
+let currentChatBgRef = null;
+let currentChatBgHandler = null;
 let messagesScrollElement = null;
 let messagesScrollRaf = 0;
 let scrollToBottomRaf = 0;
@@ -58,6 +60,9 @@ const CHAT_INITIAL_PAGE_SIZE = 80;
 const CHAT_HISTORY_PAGE_SIZE = 60;
 const SEND_RATE_WINDOW_MS = 3000;
 const SEND_RATE_MAX_MESSAGES = 8;
+const CHAT_BG_MAX_SIDE = 1400;
+const CHAT_BG_MAX_BYTES = 900 * 1024;
+const CHAT_BG_TARGET_BYTES = 600 * 1024;
 let sendRateTimestamps = [];
 
 function sleepMs(ms) {
@@ -123,6 +128,32 @@ function getRenderableMessageText(message) {
   const text = sanitizeUiText(message.text, '');
   if (!text) return '';
   return isSystemMediaLabelText(text, message) ? '' : text;
+}
+
+function getChatListPreviewText(message) {
+  if (!message) return '';
+  const text = sanitizeUiText(getRenderableMessageText(message), '');
+  if (text) return text;
+  if (message.photo) return 'Фото';
+  if (message.video) return message.type === 'video_message' ? 'Видеосообщение' : 'Видео';
+  if (message.audio) return 'Аудио';
+  if (message.document) return 'Документ';
+  if (message.sticker) return 'Стикер';
+  return '';
+}
+
+function getOutgoingMessageStatus(message) {
+  if (!message) return 'sent';
+  if (message.error) return 'error';
+  if (message.read) return 'read';
+  if (message.delivered) return 'delivered';
+  if (message.sent) return 'sent';
+  return 'sent';
+}
+
+function getOutgoingMessageStatusMark(status) {
+  if (status === 'read') return '✓✓';
+  return '✓';
 }
 
 function hashVoiceSeed(value) {
@@ -1200,7 +1231,7 @@ function loadLastMessage(fn) {
 
     const lm = document.getElementById(`lastMsg_${fn}`);
     if (lm) {
-      const previewText = sanitizeUiText(getRenderableMessageText(lastMsg), '');
+      const previewText = sanitizeUiText(getChatListPreviewText(lastMsg), '');
       if (!previewText) {
         lm.textContent = '';
         lm.style.display = 'none';
@@ -1421,7 +1452,8 @@ function openPrivateChat(fn) {
   const st = userStatuses[fn];
   updateChatStatus(fn, st);
   subscribeCurrentChatStatus(fn);
-  if (typeof applyChatBackground === 'function') applyChatBackground(currentChatId);
+  if (typeof syncChatBackgroundListener === 'function') syncChatBackgroundListener(currentChatId, 'private');
+  if (typeof applyChatBackground === 'function') applyChatBackground(currentChatId, 'private');
   loadChat("privateChats/" + currentChatId);
   setupTypingIndicator();
   if (typeof updateCallButtonVisibility === 'function') updateCallButtonVisibility();
@@ -1456,7 +1488,8 @@ function openGroupChat(g, gid) {
   const mc = Object.keys(g.members || {}).length;
   document.getElementById("chatMembers").textContent = `${mc} участников`;
   document.getElementById("mobileChatStatus").textContent = `${mc} участников`;
-  if (typeof applyChatBackground === 'function') applyChatBackground(currentChatId);
+  if (typeof syncChatBackgroundListener === 'function') syncChatBackgroundListener(currentChatId, 'group');
+  if (typeof applyChatBackground === 'function') applyChatBackground(currentChatId, 'group');
   loadChat("groupChats/" + currentChatId);
   if (typeof updateCallButtonVisibility === 'function') updateCallButtonVisibility();
   updateGroupManageMenuVisibility();
@@ -1677,16 +1710,10 @@ function addMessageToChat(m, options = {}) {
   wrap.dataset.orderTime = String(orderTuple.time);
   wrap.dataset.orderId = orderTuple.id;
   const shouldAnimate = opts.animate && !isMobile;
-  if (shouldAnimate) {
-    wrap.style.opacity = 0;
-    wrap.style.transform = 'translateY(10px)';
-  }
+  if (shouldAnimate) wrap.classList.add('anim-enter');
   const msg = document.createElement("div");
   msg.className = `message ${m.from === username ? "me" : "other"}`;
-  let status = 'sent';
-  if (m.error) status = 'error';
-  else if (m.read) status = 'read';
-  else if (m.sent || m.delivered) status = 'sent';
+  const status = getOutgoingMessageStatus(m);
   const photoUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.photo)) ? m.photo : null;
   const videoUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.video)) ? m.video : null;
   const audioUrl = (typeof isValidMediaUrl === 'function' && isValidMediaUrl(m.audio)) ? m.audio : null;
@@ -1717,7 +1744,7 @@ function addMessageToChat(m, options = {}) {
   const forwardedHtml = m.forwardedFrom ? `<div class="message-forwarded">↪ Переслано от ${escapeHtml(fwdName)}</div>` : "";
   const t = new Date(m.time || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const editedHtml = m.editedAt || m.edited ? `<span class="message-edited"> (изм.)</span>` : '';
-  const statusHtml = m.from === username ? `<span class="message-status ${status}">${status === 'read' ? '✓✓' : status === 'sent' ? '✓' : ''}</span>` : '';
+  const statusHtml = m.from === username ? `<span class="message-status ${status}">${getOutgoingMessageStatusMark(status)}</span>` : '';
   let renderDefaultTime = true;
   if (renderText && !photoUrl && !videoUrl && !audioUrl && !docUrl) {
     content = `${forwardedHtml}${replyHtml}<div class="message-text">${escapeHtml(renderText)}</div>`;
@@ -1884,12 +1911,6 @@ function addMessageToChat(m, options = {}) {
     md.insertBefore(wrap, md.firstChild);
   } else {
     insertMessageNodeSorted(md, wrap, m);
-  }
-  if (shouldAnimate) {
-    setTimeout(() => { wrap.style.opacity = 1; wrap.style.transform = 'translateY(0)'; wrap.style.transition = 'all .3s ease'; }, 10);
-  } else {
-    wrap.style.opacity = 1;
-    wrap.style.transform = 'none';
   }
   if (opts.autoScroll && !opts.prepend) {
     const shouldStickToBottom = (m.from === username) || isNearBottom(md);
@@ -2280,18 +2301,10 @@ function updateMessageInChat(m) {
   }
   const statusEl = msg.querySelector('.message-status');
   if (statusEl && m.from === username) {
-    const status = m.read ? 'read' : (m.sent || m.delivered) ? 'sent' : 'error';
+    const status = getOutgoingMessageStatus(m);
     statusEl.className = `message-status ${status}`;
-    if (status === 'read') {
-      statusEl.textContent = '✓✓';
-      statusEl.style.display = 'inline-block';
-    } else if (status === 'sent') {
-      statusEl.textContent = '✓';
-      statusEl.style.display = 'inline-block';
-    } else {
-      statusEl.textContent = '';
-      statusEl.style.display = 'none';
-    }
+    statusEl.textContent = getOutgoingMessageStatusMark(status);
+    statusEl.style.display = 'inline-block';
   }
   const editedEl = msg.querySelector('.message-edited');
   if (m.editedAt || m.edited) {
@@ -2378,25 +2391,169 @@ function clearEphemeralWatch() {
   }
 }
 
-function applyChatBackground(chatId) {
+function getCurrentChatBgScope() {
+  return isGroupChat ? 'group' : 'private';
+}
+
+function getScopedChatBgStorageKey(chatId, scope = 'private') {
+  const safeScope = scope === 'group' ? 'group' : 'private';
+  return `ruchat_chat_bg_${safeScope}_${chatId}`;
+}
+
+function getLegacyChatBgStorageKey(chatId) {
+  return `ruchat_chat_bg_${chatId}`;
+}
+
+function readChatBgLocalValue(chatId, scope = 'private') {
+  if (!chatId) return '';
+  try {
+    const scopedValue = localStorage.getItem(getScopedChatBgStorageKey(chatId, scope));
+    if (typeof scopedValue === 'string' && scopedValue.length) return scopedValue;
+    const legacyValue = localStorage.getItem(getLegacyChatBgStorageKey(chatId));
+    if (typeof legacyValue === 'string') return legacyValue;
+  } catch {
+    return '';
+  }
+  return '';
+}
+
+function writeChatBgLocalValue(chatId, scope = 'private', value = '') {
+  if (!chatId) return;
+  const safeValue = typeof value === 'string' ? value : '';
+  const scopedKey = getScopedChatBgStorageKey(chatId, scope);
+  const legacyKey = getLegacyChatBgStorageKey(chatId);
+  if (!safeValue) {
+    localStorage.removeItem(scopedKey);
+    localStorage.removeItem(legacyKey);
+    return;
+  }
+  localStorage.setItem(scopedKey, safeValue);
+  if (scope === 'private') localStorage.setItem(legacyKey, safeValue);
+}
+
+function getChatBgDbPath(chatId, scope = 'private') {
+  const safeScope = scope === 'group' ? 'group' : 'private';
+  return `chatBackgrounds/${safeScope}/${chatId}`;
+}
+
+function detachChatBackgroundListener() {
+  if (currentChatBgRef && currentChatBgHandler) {
+    currentChatBgRef.off('value', currentChatBgHandler);
+  }
+  currentChatBgRef = null;
+  currentChatBgHandler = null;
+}
+
+function syncChatBackgroundListener(chatId, scope = 'private') {
+  detachChatBackgroundListener();
+  if (!chatId) return;
+  const safeScope = scope === 'group' ? 'group' : 'private';
+  const ref = db.ref(getChatBgDbPath(chatId, safeScope));
+  currentChatBgRef = ref;
+  currentChatBgHandler = snap => {
+    const isSameChat = currentChatId === chatId && ((safeScope === 'group') === isGroupChat);
+    if (!snap.exists()) {
+      // Если на сервере для чата пока нет фона (или запись недоступна),
+      // сохраняем локальный fallback и не затираем его.
+      if (isSameChat) applyChatBackground(chatId, safeScope);
+      return;
+    }
+
+    const payload = snap.val() || {};
+    const nextValue = typeof payload.value === 'string' ? payload.value : '';
+    const nextBytes = estimateDataUrlBytes(nextValue);
+    if (/^data:image\//i.test(nextValue) && nextBytes && nextBytes > CHAT_BG_MAX_BYTES) {
+      compressChatBackgroundDataUrl(nextValue, CHAT_BG_MAX_SIDE, 0.78, CHAT_BG_TARGET_BYTES)
+        .then(async compactValue => {
+          const finalValue = compactValue || nextValue;
+          let localSavedCompact = true;
+          try {
+            writeChatBgLocalValue(chatId, safeScope, finalValue);
+          } catch {
+            localSavedCompact = false;
+          }
+          if (isSameChat) {
+            if (localSavedCompact) applyChatBackground(chatId, safeScope);
+            else applyChatBackgroundValue(finalValue);
+          }
+          if (finalValue !== nextValue) {
+            try {
+              await saveChatBackgroundToServer(chatId, safeScope, finalValue);
+            } catch {
+              // ignore background optimize sync errors
+            }
+          }
+        })
+        .catch(() => {
+          let localSavedFallback = true;
+          try {
+            writeChatBgLocalValue(chatId, safeScope, nextValue);
+          } catch {
+            localSavedFallback = false;
+          }
+          if (isSameChat) {
+            if (localSavedFallback) applyChatBackground(chatId, safeScope);
+            else applyChatBackgroundValue(nextValue);
+          }
+        });
+      return;
+    }
+
+    let localSaved = true;
+    try {
+      writeChatBgLocalValue(chatId, safeScope, nextValue);
+    } catch {
+      localSaved = false;
+    }
+    if (isSameChat) {
+      if (localSaved) applyChatBackground(chatId, safeScope);
+      else applyChatBackgroundValue(nextValue);
+    }
+  };
+  ref.on('value', currentChatBgHandler);
+}
+
+async function saveChatBackgroundToServer(chatId, scope = 'private', value = '') {
+  if (!chatId) return;
+  const safeScope = scope === 'group' ? 'group' : 'private';
+  const payload = {
+    value: typeof value === 'string' ? value : '',
+    updatedAt: Date.now(),
+    updatedBy: username || ''
+  };
+  await db.ref(getChatBgDbPath(chatId, safeScope)).set(payload);
+}
+
+function applyChatBackgroundValue(value) {
   const md = document.getElementById('messages');
-  if (!md || !chatId) return;
-  const key = `ruchat_chat_bg_${chatId}`;
-  const value = localStorage.getItem(key) || '';
+  if (!md) return;
   if (!value) {
+    md.style.background = '';
     md.style.backgroundImage = '';
-    md.style.backgroundColor = '';
+    md.style.backgroundSize = '';
+    md.style.backgroundPosition = '';
+    md.style.backgroundRepeat = '';
     return;
   }
   if (/^(https?:|data:|blob:|url\()/i.test(value)) {
+    md.style.background = 'transparent';
     md.style.backgroundImage = value.startsWith('url(') ? value : `url('${value}')`;
     md.style.backgroundSize = 'cover';
     md.style.backgroundPosition = 'center';
     md.style.backgroundRepeat = 'no-repeat';
   } else {
     md.style.backgroundImage = '';
+    md.style.backgroundSize = '';
+    md.style.backgroundPosition = '';
+    md.style.backgroundRepeat = '';
     md.style.background = value;
   }
+}
+
+function applyChatBackground(chatId, scope = getCurrentChatBgScope()) {
+  if (!chatId) return;
+  const value = readChatBgLocalValue(chatId, scope);
+  applyChatBackgroundValue(value);
 }
 
 function openChatBackground() {
@@ -2404,8 +2561,8 @@ function openChatBackground() {
   if (typeof closeTransientMenus === 'function') closeTransientMenus();
   const overlay = document.getElementById('chatBgOverlay');
   if (!overlay) return;
-  const key = `ruchat_chat_bg_${currentChatId}`;
-  pendingChatBgValue = localStorage.getItem(key) || '';
+  const scope = getCurrentChatBgScope();
+  pendingChatBgValue = readChatBgLocalValue(currentChatId, scope);
   const preview = document.getElementById('chatBgPreviewBox');
   if (preview) {
     preview.style.backgroundImage = '';
@@ -2531,33 +2688,71 @@ function selectChatBackground(btn) {
   }
 }
 
-function compressChatBackgroundImage(file, maxSide = 1800, quality = 0.84) {
+function compressChatBackgroundDataUrl(dataUrl, maxSide = CHAT_BG_MAX_SIDE, quality = 0.82, maxBytes = CHAT_BG_MAX_BYTES) {
+  return new Promise((resolve, reject) => {
+    const src = String(dataUrl || '');
+    if (!src) { resolve(''); return; }
+
+    const img = new Image();
+    img.onerror = () => reject(new Error('bg_image_invalid'));
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(src);
+        return;
+      }
+
+      let width = Math.max(1, Number(img.width) || 1);
+      let height = Math.max(1, Number(img.height) || 1);
+      const largestSide = Math.max(width, height);
+      if (largestSide > maxSide) {
+        const scale = maxSide / largestSide;
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+      }
+
+      let out = src;
+      let q = Math.min(0.9, Math.max(0.5, Number(quality) || 0.82));
+      let w = width;
+      let h = height;
+
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        canvas.width = w;
+        canvas.height = h;
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        out = canvas.toDataURL('image/jpeg', q);
+        const bytes = estimateDataUrlBytes(out);
+        if (!bytes || bytes <= maxBytes) {
+          resolve(out);
+          return;
+        }
+        q = Math.max(0.5, q - 0.08);
+        if (attempt % 2 === 1) {
+          w = Math.max(360, Math.round(w * 0.86));
+          h = Math.max(360, Math.round(h * 0.86));
+        }
+      }
+
+      resolve(out);
+    };
+    img.src = src;
+  });
+}
+
+function compressChatBackgroundImage(file, maxSide = CHAT_BG_MAX_SIDE, quality = 0.82) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('bg_read_failed'));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('bg_image_invalid'));
-      img.onload = () => {
-        let { width, height } = img;
-        const largestSide = Math.max(width, height);
-        if (largestSide > maxSide) {
-          const scale = maxSide / largestSide;
-          width = Math.max(1, Math.round(width * scale));
-          height = Math.max(1, Math.round(height * scale));
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(String(reader.result || ''));
-          return;
-        }
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.src = String(reader.result || '');
+    reader.onload = async () => {
+      const source = String(reader.result || '');
+      try {
+        const compressed = await compressChatBackgroundDataUrl(source, maxSide, quality, CHAT_BG_MAX_BYTES);
+        resolve(compressed);
+      } catch {
+        reject(new Error('bg_image_invalid'));
+      }
     };
     reader.readAsDataURL(file);
   });
@@ -2569,7 +2764,16 @@ async function handleChatBgFileChange(e) {
   if (!file.type.startsWith('image/')) { showError('Нужна картинка'); return; }
   try {
     showLoading();
-    pendingChatBgValue = await compressChatBackgroundImage(file);
+    pendingChatBgValue = await compressChatBackgroundImage(file, CHAT_BG_MAX_SIDE, 0.82);
+    const bytes = estimateDataUrlBytes(pendingChatBgValue);
+    if (bytes && bytes > CHAT_BG_MAX_BYTES) {
+      pendingChatBgValue = await compressChatBackgroundDataUrl(
+        pendingChatBgValue,
+        CHAT_BG_MAX_SIDE,
+        0.72,
+        CHAT_BG_TARGET_BYTES
+      );
+    }
     const preview = document.getElementById('chatBgPreviewBox');
     if (preview) {
       preview.style.background = 'transparent';
@@ -2586,21 +2790,33 @@ async function handleChatBgFileChange(e) {
   }
 }
 
-function saveChatBackground() {
+async function saveChatBackground() {
   if (!currentChatId) return;
-  const key = `ruchat_chat_bg_${currentChatId}`;
+  const scope = getCurrentChatBgScope();
+  const nextValue = pendingChatBgValue || '';
+  let localSaved = true;
   try {
-    if (!pendingChatBgValue) {
-      localStorage.removeItem(key);
-    } else {
-      localStorage.setItem(key, pendingChatBgValue);
-    }
+    writeChatBgLocalValue(currentChatId, scope, nextValue);
   } catch {
-    showError('Фото слишком большое. Выберите меньшее изображение.');
-    return;
+    localSaved = false;
   }
-  applyChatBackground(currentChatId);
+  if (localSaved) applyChatBackground(currentChatId, scope);
+  else applyChatBackgroundValue(nextValue);
   closeChatBackground();
+  if (!localSaved) {
+    showNotification('Фон', 'Фон не сохранен в памяти устройства, но будет синхронизирован', 'warning');
+  }
+  try {
+    await saveChatBackgroundToServer(currentChatId, scope, nextValue);
+  } catch {
+    if (localSaved) showError('Фон применен локально, но не синхронизирован');
+    else showError('Не удалось синхронизировать фон');
+  }
+}
+
+function clearChatBackground() {
+  pendingChatBgValue = '';
+  saveChatBackground();
 }
 
 function getRoleLabel(role) {
@@ -2620,10 +2836,38 @@ function closeGroupAdminPanel() {
   if (overlay) overlay.classList.remove('active');
 }
 
+function getGroupInviteMode(groupData) {
+  const mode = groupData && groupData.permissions ? groupData.permissions.canInvite : 'owner_admin';
+  return mode === 'members' ? 'members' : 'owner_admin';
+}
+
+function canInviteGroupMembers(groupData, actorName = username) {
+  const members = groupData && groupData.members ? groupData.members : {};
+  const roles = groupData && groupData.roles ? groupData.roles : {};
+  const actorRole = roles[actorName] || 'member';
+  if (actorRole === 'owner') return true;
+  if (getGroupInviteMode(groupData) === 'members') return members[actorName] === true;
+  return actorRole === 'admin';
+}
+
+function normalizeInviteUsernames(rawInput) {
+  const raw = String(rawInput || '');
+  const list = raw.split(/[\s,;]+/).map(v => v.trim()).filter(Boolean);
+  return Array.from(new Set(list));
+}
+
+function isValidInviteUsername(value) {
+  const name = String(value || '').trim();
+  if (!name) return false;
+  if (name.length < 3 || name.length > 64) return false;
+  return !/[.#$/\[\]\u0000-\u001f]/.test(name);
+}
+
 function renderGroupAdminList(groupData) {
   const list = document.getElementById('groupAdminList');
   const subtitle = document.getElementById('groupAdminSubtitle');
   const leaveBtn = document.getElementById('leaveGroupBtn');
+  const addMembersBtn = document.getElementById('addGroupMembersBtn');
   if (!list) return;
 
   const membersMap = groupData.members || {};
@@ -2638,6 +2882,9 @@ function renderGroupAdminList(groupData) {
   }
   if (leaveBtn) {
     leaveBtn.style.display = 'inline-block';
+  }
+  if (addMembersBtn) {
+    addMembersBtn.style.display = canInviteGroupMembers(groupData, username) ? 'inline-block' : 'none';
   }
 
   const sorted = members.sort((a, b) => {
@@ -2698,12 +2945,14 @@ async function openGroupAdminPanel() {
   const overlay = document.getElementById('groupAdminOverlay');
   const title = document.getElementById('groupAdminTitle');
   const list = document.getElementById('groupAdminList');
+  const addMembersBtn = document.getElementById('addGroupMembersBtn');
   const settingsMenu = document.getElementById('chatSettingsMenu');
   if (!overlay || !list) return;
   if (settingsMenu) settingsMenu.classList.remove('active');
 
   overlay.classList.add('active');
   list.innerHTML = `<div class="group-admin-empty">Загрузка...</div>`;
+  if (addMembersBtn) addMembersBtn.style.display = 'none';
   if (title) title.textContent = currentGroupName ? `Управление: ${currentGroupName}` : 'Управление группой';
 
   try {
@@ -2722,6 +2971,80 @@ async function openGroupAdminPanel() {
   } catch (error) {
     showError('Не удалось загрузить участников');
     closeGroupAdminPanel();
+  }
+}
+
+async function addMembersToCurrentGroup() {
+  if (!isGroupChat || !currentChatId) {
+    showError('Откройте группу');
+    return;
+  }
+  let loadingShown = false;
+  try {
+    const snap = await db.ref(`groups/${currentChatId}`).get();
+    if (!snap.exists()) {
+      showError('Группа не найдена');
+      return;
+    }
+    const groupData = snap.val() || {};
+    if (!canInviteGroupMembers(groupData, username)) {
+      showError('Недостаточно прав для приглашения');
+      return;
+    }
+
+    const raw = prompt('Введите логины пользователей через запятую или пробел');
+    if (raw === null) return;
+    const requestedMembers = normalizeInviteUsernames(raw);
+    if (!requestedMembers.length) {
+      showError('Введите хотя бы один логин');
+      return;
+    }
+
+    const membersMap = groupData.members || {};
+    const roles = groupData.roles || {};
+    const candidates = requestedMembers.filter(name => name !== username && membersMap[name] !== true);
+    if (!candidates.length) {
+      showError('Все указанные пользователи уже в группе');
+      return;
+    }
+
+    const invalid = candidates.find(name => !isValidInviteUsername(name));
+    if (invalid) {
+      showError(`Некорректный логин: ${invalid}`);
+      return;
+    }
+
+    showLoading();
+    loadingShown = true;
+    const checks = await Promise.all(candidates.map(async memberName => {
+      try {
+        const userSnap = await db.ref(`accounts/${memberName}`).get();
+        return userSnap.exists() ? memberName : null;
+      } catch {
+        return null;
+      }
+    }));
+    const validMembers = checks.filter(Boolean);
+    if (!validMembers.length) {
+      showError('Пользователи не найдены');
+      return;
+    }
+
+    const updates = {};
+    validMembers.forEach(memberName => {
+      updates[`groups/${currentChatId}/members/${memberName}`] = true;
+      if (roles[memberName] !== 'owner' && roles[memberName] !== 'admin') {
+        updates[`groups/${currentChatId}/roles/${memberName}`] = 'member';
+      }
+      updates[`usersGroups/${memberName}/${currentChatId}`] = true;
+    });
+    await db.ref().update(updates);
+    showNotification('Группа', `Добавлено участников: ${validMembers.length}`, 'success');
+    openGroupAdminPanel();
+  } catch (error) {
+    showError('Не удалось добавить участников');
+  } finally {
+    if (loadingShown) hideLoading();
   }
 }
 
@@ -2788,6 +3111,7 @@ async function removeGroupMember(memberName) {
 
 function resetCurrentChatAfterLeave() {
   clearCurrentChatStatusListener();
+  detachChatBackgroundListener();
   detachMessagesScrollListener();
   if (chatRef) {
     chatRef.off();
@@ -2798,8 +3122,16 @@ function resetCurrentChatAfterLeave() {
   isGroupChat = false;
   currentGroupRole = 'member';
   currentGroupName = '';
+  pendingChatBgValue = '';
   const messages = document.getElementById('messages');
-  if (messages) messages.innerHTML = '';
+  if (messages) {
+    messages.innerHTML = '';
+    messages.style.background = '';
+    messages.style.backgroundImage = '';
+    messages.style.backgroundSize = '';
+    messages.style.backgroundPosition = '';
+    messages.style.backgroundRepeat = '';
+  }
   const chatWith = document.getElementById('chatWith');
   if (chatWith) chatWith.textContent = 'Выберите чат';
   const chatAvatar = document.getElementById('chatAvatar');
@@ -2873,8 +3205,10 @@ window.closeChatBackground = closeChatBackground;
 window.selectChatBackground = selectChatBackground;
 window.handleChatBgFileChange = handleChatBgFileChange;
 window.saveChatBackground = saveChatBackground;
+window.clearChatBackground = clearChatBackground;
 window.openGroupAdminPanel = openGroupAdminPanel;
 window.closeGroupAdminPanel = closeGroupAdminPanel;
+window.addMembersToCurrentGroup = addMembersToCurrentGroup;
 window.setGroupRole = setGroupRole;
 window.removeGroupMember = removeGroupMember;
 window.leaveCurrentGroup = leaveCurrentGroup;

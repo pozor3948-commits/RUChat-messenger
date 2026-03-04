@@ -268,7 +268,7 @@ body.light .contact-action-btn { background: #fff; color: #0f172a; border-color:
 .messages-container { flex:1; overflow-y:auto; padding:20px; background-size:cover; background-position:center; background-repeat:no-repeat; position:relative; z-index:1; backdrop-filter:blur(5px); }
 .message-date { text-align:center; margin:20px 0; animation:slideUp .3s ease-out; }
 .date-label { background:linear-gradient(45deg,rgba(0,136,204,.2),rgba(99,102,241,.2)); padding:8px 20px; border-radius:20px; font-size:14px; color:#a5b4fc; display:inline-block; backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.1); animation:glow 3s infinite; }
-.message-wrapper { margin-bottom:12px; display:flex; animation:messageAppear .3s ease-out; }
+.message-wrapper { margin-bottom:12px; display:flex; }
 .message-wrapper.me { justify-content:flex-end; }
 .message { max-width:65%; padding:14px 18px; border-radius:20px; position:relative; word-wrap:break-word; backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.1); transition:all .3s cubic-bezier(.4,0,.2,1); cursor:pointer; }
 .message:hover { transform:translateY(-2px); box-shadow:0 10px 20px rgba(0,0,0,.2); }
@@ -280,7 +280,7 @@ body.light .contact-action-btn { background: #fff; color: #0f172a; border-color:
 .message-status { font-size:11px; transition:all .2s ease; opacity:.9; }
 .message-status.sent { color:#ffffff; opacity:.8; }
 .message-status.delivered { color:#ffffff; }
-.message-status.read { color:#bde7ff; filter:none; }
+.message-status.read { color:#4ade80; filter:none; }
 .message-status.error { color:#ef4444; }
 .message-status-updating { animation:statusUpdate .5s ease; }
 .message-media { max-width:320px; border-radius:16px; margin-top:10px; cursor:pointer; transition:all .25s cubic-bezier(.4,0,.2,1); border:1px solid rgba(255,255,255,.08); }
@@ -1923,7 +1923,7 @@ body.light .message-media-actions a {
 }
 .message-status.sent { color: rgba(255,255,255,0.75); }
 .message-status.delivered { color: rgba(255,255,255,0.85); }
-.message-status.read { color: #9bdcff; }
+.message-status.read { color: #4ade80; }
 .message-status.error { color: #ef4444; }
 
 /* Read tick micro-animation */
@@ -1937,8 +1937,8 @@ body.light .message-media-actions a {
 }
 
 /* New message entrance */
-.message-wrapper {
-    animation: messageSoftIn 0.25s ease-out;
+.message-wrapper.anim-enter {
+    animation: messageSoftIn 0.22s ease-out;
 }
 @keyframes messageSoftIn {
     from { opacity: 0; transform: translateY(8px); }
@@ -2846,6 +2846,8 @@ body.light .chat-notify-hint { color: #64748b; }
 .group-admin-actions {
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 .group-admin-empty {
     text-align: center;
@@ -4074,14 +4076,7 @@ body {
 }
 
 .online-dot::after {
-    content: "✓";
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    font-size: 11px;
-    color: rgba(255,255,255,0.96);
-    transform: translateY(-0.5px);
+    content: none !important;
 }
 
 /* ---------- Chat panel ---------- */
@@ -4513,4 +4508,57 @@ body.light .scroll-bottom-btn {
         padding: 10px 12px;
         font-size: 14px;
     }
+}
+
+/* ===== FPS stability ===== */
+body.perf-mode .chat-container::before,
+body.perf-mode .login-box::before,
+body.perf-mode .story-avatar::before,
+body.perf-mode .date-label,
+body.perf-mode .typing-dot,
+body.perf-mode .online-dot,
+body.perf-mode .unread-badge,
+body.perf-mode .call-button,
+body.perf-mode .record-btn.start,
+body.perf-mode .record-btn.stop {
+    animation: none !important;
+}
+
+body.perf-mode .sidebar,
+body.perf-mode .chat-header,
+body.perf-mode .stories-container,
+body.perf-mode .messages-container,
+body.perf-mode .message-input-container,
+body.perf-mode .emoji-picker,
+body.perf-mode .attachment-menu,
+body.perf-mode .record-modal,
+body.perf-mode .notification,
+body.perf-mode .group-modal,
+body.perf-mode .group-admin-modal {
+    backdrop-filter: none !important;
+}
+
+body.perf-mode .contact-item,
+body.perf-mode .group-item,
+body.perf-mode .story-item,
+body.perf-mode .message,
+body.perf-mode .message-media,
+body.perf-mode .message-doc,
+body.perf-mode .icon-btn,
+body.perf-mode .attachment-btn,
+body.perf-mode .send-btn,
+body.perf-mode .record-btn,
+body.perf-mode .group-role-btn,
+body.perf-mode .chat-bg-item {
+    transition-property: transform, opacity, background-color, border-color, box-shadow, color, filter !important;
+    transition-duration: .16s !important;
+    transition-timing-function: ease !important;
+}
+
+#messages .message-wrapper {
+    will-change: transform, opacity;
+}
+
+body.perf-mode #messages .message-wrapper.anim-enter {
+    animation-duration: .16s;
 }

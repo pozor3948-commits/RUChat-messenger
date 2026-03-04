@@ -135,6 +135,14 @@
         }
       }
     },
+    "chatBackgrounds": {
+      "$scope": {
+        "$chatId": {
+          ".write": true,
+          ".validate": "newData.val() === null || (newData.hasChildren(['value', 'updatedAt', 'updatedBy']) && newData.child('value').isString() && newData.child('value').val().length <= 15000000 && newData.child('updatedAt').isNumber() && newData.child('updatedBy').isString() && newData.child('updatedBy').val().length <= 64)"
+        }
+      }
+    },
     "typing": {
       "$chatId": {
         ".write": true,

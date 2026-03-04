@@ -125,7 +125,13 @@ async function doLoginAfterAuth(u, title, message) {
     const notifPromptKey = 'ruchat_notifications_prompted_once';
     if (localStorage.getItem(notifPromptKey) !== 'true') {
       localStorage.setItem(notifPromptKey, 'true');
-      Notification.requestPermission().catch(() => {});
+      Notification.requestPermission()
+        .then((perm) => {
+          if (perm === 'granted' && typeof window.syncPushTokenForCurrentSession === 'function') {
+            window.syncPushTokenForCurrentSession({ user: u, askPermission: false });
+          }
+        })
+        .catch(() => {});
     }
   }
   if (typeof initSoundsAfterLogin === 'function') {
@@ -312,10 +318,18 @@ async function registerDeviceToken(u) {
   const token = getDeviceToken();
   localStorage.setItem('ruchat_device_user', u);
   try {
-    await db.ref(`accounts/${u}/devices/${token}`).set({
+    await db.ref(`accounts/${u}/devices/${token}`).update({
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       userAgent: navigator.userAgent || ''
     });
+    if (typeof window.syncPushTokenForCurrentSession === 'function') {
+      await window.syncPushTokenForCurrentSession({
+        user: u,
+        deviceToken: token,
+        askPermission: false
+      });
+    }
   } catch (e) {
     // ignore
   }
@@ -326,6 +340,9 @@ async function unregisterDeviceToken(u) {
   const user = u || localStorage.getItem('ruchat_device_user');
   if (!token || !user) return;
   try {
+    if (typeof window.removePushTokenForCurrentSession === 'function') {
+      await window.removePushTokenForCurrentSession({ user, deviceToken: token });
+    }
     await db.ref(`accounts/${user}/devices/${token}`).remove();
   } catch (e) {
     // ignore

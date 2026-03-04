@@ -396,10 +396,19 @@ function showSettingsMenu() {
         renderDynamic();
     };
 
-    window.toggleSystemNotifications = function() {
+    window.toggleSystemNotifications = async function() {
         const current = localStorage.getItem('systemNotifications');
         const newValue = current === 'false' ? 'true' : 'false';
         localStorage.setItem('systemNotifications', newValue);
+        if (newValue === 'true') {
+            if (typeof window.syncPushTokenForCurrentSession === 'function') {
+                await window.syncPushTokenForCurrentSession({
+                    askPermission: ('Notification' in window && Notification.permission === 'default')
+                });
+            }
+        } else if (typeof window.removePushTokenForCurrentSession === 'function') {
+            await window.removePushTokenForCurrentSession();
+        }
         showNotification('Уведомления', newValue === 'true' ? 'Включены' : 'Выключены', 'info');
         renderDynamic();
     };

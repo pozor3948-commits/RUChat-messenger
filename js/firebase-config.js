@@ -11,6 +11,12 @@ const firebaseConfig = {
   appId: "1:868140400942:web:7f09edac08c18766183abf"
 };
 
+// Set this to your Firebase Web Push certificate key (VAPID public key).
+// Firebase Console -> Project Settings -> Cloud Messaging -> Web configuration.
+if (typeof window.RUCHAT_WEB_PUSH_VAPID_KEY !== 'string') {
+  window.RUCHAT_WEB_PUSH_VAPID_KEY = '';
+}
+
 // В Android WebView и некоторых сетях WebSocket к RTDB часто режется/глючит.
 // Длинный polling стабильнее (пусть и чуть медленнее).
 try {
