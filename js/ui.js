@@ -271,13 +271,69 @@ function startVoiceCall() {
     }
 }
 
-// Функция переключения темы
-function toggleTheme() {
-    const body = document.body;
-    const isLight = body.classList.toggle('light');
-    localStorage.setItem('ruchat_theme', isLight ? 'light' : 'dark');
-    showNotification("Успешно", isLight ? "Включена светлая тема" : "Включена тёмная тема", 'info');
+// Темы интерфейса
+const THEME_ORDER = ['dark', 'light', 'blue', 'pink', 'black', 'green', 'purple'];
+const THEME_CLASS_MAP = {
+    dark: '',
+    light: 'light',
+    blue: 'theme-blue',
+    pink: 'theme-pink',
+    black: 'theme-black',
+    green: 'theme-green',
+    purple: 'theme-purple'
+};
+const THEME_LABELS = {
+    dark: 'тёмная',
+    light: 'светлая',
+    blue: 'голубая',
+    pink: 'розовая',
+    black: 'чёрная',
+    green: 'зелёная',
+    purple: 'фиолетовая'
+};
+
+function normalizeThemeName(value) {
+    const theme = String(value || '').trim().toLowerCase();
+    return THEME_ORDER.includes(theme) ? theme : 'dark';
 }
+
+function applyThemeClasses(themeName) {
+    const body = document.body;
+    if (!body) return;
+    Object.values(THEME_CLASS_MAP).forEach(cls => {
+        if (cls) body.classList.remove(cls);
+    });
+    const cls = THEME_CLASS_MAP[themeName];
+    if (cls) body.classList.add(cls);
+}
+
+function getCurrentTheme() {
+    return normalizeThemeName(localStorage.getItem('ruchat_theme') || 'dark');
+}
+
+function setTheme(themeName, options = {}) {
+    const safeTheme = normalizeThemeName(themeName);
+    applyThemeClasses(safeTheme);
+    localStorage.setItem('ruchat_theme', safeTheme);
+
+    if (!options || options.silent !== true) {
+        const label = THEME_LABELS[safeTheme] || safeTheme;
+        showNotification('Тема', `Включена ${label} тема`, 'info');
+    }
+
+    return safeTheme;
+}
+
+// Быстрое переключение тем (кнопка в шапке)
+function toggleTheme() {
+    const current = getCurrentTheme();
+    const currentIndex = THEME_ORDER.indexOf(current);
+    const nextTheme = THEME_ORDER[(currentIndex + 1) % THEME_ORDER.length];
+    setTheme(nextTheme);
+}
+
+window.getCurrentTheme = getCurrentTheme;
+window.setTheme = setTheme;
 
 // Функция показа информации о чате
 function showChatInfo() {
@@ -330,8 +386,5 @@ function showChatInfo() {
 
 // Загружаем сохраненную тему при загрузке
 document.addEventListener('DOMContentLoaded', function() {
-    const savedTheme = localStorage.getItem('ruchat_theme');
-    if (savedTheme === 'light') {
-        document.body.classList.add('light');
-    }
+    setTheme(localStorage.getItem('ruchat_theme') || 'dark', { silent: true });
 });

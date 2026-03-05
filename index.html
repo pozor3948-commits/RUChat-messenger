@@ -30,7 +30,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
     
     <!-- Стили -->
-    <link rel="stylesheet" href="css/style.css?v=20260304b">
+    <link rel="stylesheet" href="css/style.css?v=20260305a">
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -178,7 +178,6 @@
             <div class="chat-actions">
                 <button class="icon-btn" onclick="toggleMessageSearch()" title="Поиск в чате">🔍</button>
                 <button class="icon-btn" onclick="openMediaLibrary()" title="Медиа">🗂</button>
-                <button class="icon-btn" onclick="openChatBackground()" title="Добавить фон">🖼</button>
                 <button class="icon-btn" id="callButton" onclick="startVoiceCall()" title="Голосовой звонок" style="display:none;">📞</button>
                 <button class="icon-btn" onclick="toggleTheme()" title="Сменить тему">🌙</button>
                 <button class="icon-btn" onclick="showChatInfo()" title="Информация о чате">i</button>
@@ -239,7 +238,6 @@
 <!-- ===== МЕНЮ НАСТРОЕК ЧАТА ===== -->
 <div class="chat-settings-menu" id="chatSettingsMenu">
     <button class="chat-settings-item" id="groupManageMenuItem" onclick="openGroupAdminPanel()" style="display:none;">Управление группой</button>
-    <button class="chat-settings-item" onclick="openChatBackground()">Поменять фон чата</button>
     <button class="chat-settings-item" onclick="openMediaLibrary()">Медиа чата</button>
     <button class="chat-settings-item" onclick="openChatNotifySettings()">Уведомления</button>
     <button class="chat-settings-item" onclick="clearCurrentChat()">Очистить чат</button>
@@ -320,35 +318,6 @@
     </div>
 </div>
 
-<!-- ===== ФОН ЧАТА ===== -->
-<div class="chat-bg-overlay" id="chatBgOverlay">
-    <div class="chat-bg-modal">
-        <h2 class="chat-bg-title">Фон чата</h2>
-        <p class="chat-bg-subtitle">Выберите готовый фон или загрузите свой</p>
-        <div class="chat-bg-grid" id="chatBgGrid">
-            <button class="chat-bg-item" data-bg="linear-gradient(135deg,#0f172a,#1e293b)" onclick="selectChatBackground(this)"></button>
-            <button class="chat-bg-item" data-bg="linear-gradient(135deg,#0ea5e9,#2563eb)" onclick="selectChatBackground(this)"></button>
-            <button class="chat-bg-item" data-bg="linear-gradient(135deg,#9333ea,#4f46e5)" onclick="selectChatBackground(this)"></button>
-            <button class="chat-bg-item" data-bg="linear-gradient(135deg,#f59e0b,#ef4444)" onclick="selectChatBackground(this)"></button>
-            <button class="chat-bg-item" data-bg="linear-gradient(135deg,#10b981,#14b8a6)" onclick="selectChatBackground(this)"></button>
-            <button class="chat-bg-item" data-bg="linear-gradient(135deg,#1f2937,#111827)" onclick="selectChatBackground(this)"></button>
-            <button class="chat-bg-item" data-bg="url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=60')" onclick="selectChatBackground(this)"></button>
-            <button class="chat-bg-item" data-bg="url('https://images.unsplash.com/photo-1496307653780-42ee777d4833?auto=format&fit=crop&w=800&q=60')" onclick="selectChatBackground(this)"></button>
-        </div>
-        <div class="chat-bg-upload">
-            <input type="file" id="chatBgFileInput" accept="image/*" onchange="handleChatBgFileChange(event)">
-            <button class="chat-bg-btn" onclick="saveChatBackground()">Применить</button>
-            <button class="chat-bg-btn secondary" onclick="clearChatBackground()">Сбросить</button>
-        </div>
-        <div class="chat-bg-preview">
-            <div class="chat-bg-preview-box" id="chatBgPreviewBox"></div>
-        </div>
-        <div class="chat-bg-actions">
-            <button class="login-btn" onclick="closeChatBackground()">Закрыть</button>
-        </div>
-    </div>
-</div>
-
 <!-- ===== МЕНЮ ПРИКРЕПЛЕНИЯ ===== -->
 <div class="attachment-menu" id="attachmentMenu">
     <div class="attachment-item" onclick="attachPhoto()"><div class="icon">📷</div><div class="text">Фото</div></div>
@@ -362,6 +331,10 @@
     <div class="attachment-item" onclick="startAudioRecording()">
         <div class="icon">🎤</div>
         <div class="text">Аудиосообщение</div>
+    </div>
+    <div class="attachment-item" onclick="startVideoRecording()">
+        <div class="icon">🎬</div>
+        <div class="text">Видеосообщение</div>
     </div>
 </div>
 
@@ -436,6 +409,40 @@
     </div>
 </div>
 
+<!-- ===== ОВЕРЛЕЙ ЗАПИСИ ВИДЕОСООБЩЕНИЯ ===== -->
+<div class="record-overlay video-record-overlay" id="videoRecordOverlay">
+    <div class="record-modal video-record-modal">
+        <div class="video-preview-container">
+            <video id="videoPreview" class="video-preview" autoplay muted playsinline></video>
+            <div class="recording-indicator" id="recordingIndicator">
+                <div class="recording-dot"></div>
+                <span id="videoTimer">00:00</span>
+            </div>
+            <div class="camera-controls">
+                <button class="icon-btn" type="button" onclick="toggleCamera()" title="Сменить камеру">🔄</button>
+                <button class="icon-btn" type="button" onclick="cancelVideoRecording()" title="Закрыть">✕</button>
+            </div>
+        </div>
+        <div class="record-controls video-record-controls">
+            <div class="record-lock" id="videoLockIndicator" style="display:none;">
+                <div class="lock-icon">🔒</div>
+                <div id="videoLockHint">Свайп вверх — закрепить, влево — отмена</div>
+            </div>
+            <button
+                class="record-btn video-record-btn"
+                id="videoRecordBtn"
+                type="button"
+                title="Удерживайте для записи"
+                onpointerdown="startVideoRecordingAction(event)"
+                onmousedown="startVideoRecordingAction(event)"
+                ontouchstart="startVideoRecordingAction(event)">
+                <div class="video-record-btn-inner"></div>
+            </button>
+        </div>
+        <div class="record-hint">Удерживайте кнопку. Свайп вверх — закрепить, влево — отмена.</div>
+    </div>
+</div>
+
 <!-- ===== ОВЕРЛЕЙ СОЗДАНИЯ ГРУППЫ ===== -->
 <div class="group-modal-overlay" id="groupModalOverlay">
     <div class="group-modal">
@@ -467,21 +474,22 @@
 
 <!-- Скрипты -->
 <script src="js/firebase-config.js?v=20260219d"></script>
-<script src="js/utils.js?v=20260303e"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/utils.js?v=20260304f"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
 <script src="js/main.js?v=20260303b"></script>
-<script src="js/ui.js?v=20260303a"></script>
+<script src="js/ui.js?v=20260305a"></script>
 <script src="js/sounds.js?v=20260219d"></script>
-<script src="js/auth.js?v=20260303a"></script>
+<script src="js/auth.js?v=20260304b"></script>
 <script src="js/push.js?v=20260303a"></script>
 <script src="js/status.js?v=20260219d"></script>
-<script src="js/chat.js?v=20260304b"></script>
+<script src="js/chat.js?v=20260305a"></script>
 <script src="js/media.js?v=20260303a"></script>
+<script src="js/video-messages.js?v=20260305a"></script>
 <script src="js/emoji.js?v=20260219d"></script>
 <script src="js/stickers.js?v=20260219d"></script>
 <script src="js/groups.js?v=20260219d"></script>
 <script src="js/mobile.js?v=20260301b"></script>
 <script src="js/audio-call.js?v=20260219d"></script>
-<script src="js/settings.js?v=20260219d"></script>
+<script src="js/settings.js?v=20260305a"></script>
 
 <script>
     // Функция для проверки локального запуска
@@ -532,11 +540,10 @@
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {
         const attachmentMenu = document.getElementById('attachmentMenu');
-        const recordTypeMenu = document.getElementById('recordTypeMenu');
-        const emojiPicker = document.getElementById('emojiPicker');
-        const stickerPanel = document.getElementById('stickerPanel');
-        const chatSettingsMenu = document.getElementById('chatSettingsMenu');
-        const chatBgOverlay = document.getElementById('chatBgOverlay');
+	        const recordTypeMenu = document.getElementById('recordTypeMenu');
+	        const emojiPicker = document.getElementById('emojiPicker');
+	        const stickerPanel = document.getElementById('stickerPanel');
+	        const chatSettingsMenu = document.getElementById('chatSettingsMenu');
         
         if (attachmentMenu && attachmentMenu.classList.contains('active') && 
             !e.target.closest('.attachment-menu') && 
@@ -562,16 +569,12 @@
             stickerPanel.classList.remove('active');
         }
         
-        if (chatSettingsMenu && chatSettingsMenu.classList.contains('active') &&
-            !e.target.closest('.chat-settings-menu') &&
-            !e.target.closest('#mobileMenuBtn')) {
-            chatSettingsMenu.classList.remove('active');
-        }
-        if (chatBgOverlay && chatBgOverlay.classList.contains('active') &&
-            e.target === chatBgOverlay) {
-            chatBgOverlay.classList.remove('active');
-        }
-    });
+	        if (chatSettingsMenu && chatSettingsMenu.classList.contains('active') &&
+	            !e.target.closest('.chat-settings-menu') &&
+	            !e.target.closest('#mobileMenuBtn')) {
+	            chatSettingsMenu.classList.remove('active');
+	        }
+	    });
 
     // Автоматическое обновление isMobile при изменении размера окна
     window.addEventListener('resize', function() {

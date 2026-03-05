@@ -18,7 +18,8 @@ let currentCamera = 'user';
 const videoConfig = {
     maxDuration: 20000,
     format: 'webm',
-    maxSize: 8 * 1024 * 1024,
+    // Оставляем запас на base64-накладные расходы для Realtime Database.
+    maxSize: 5 * 1024 * 1024,
     quality: { 
         width: 480,
         height: 480,
@@ -26,6 +27,10 @@ const videoConfig = {
     },
     videoBitsPerSecond: 450000
 };
+
+function supportsMediaCapture() {
+    return !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
+}
 
 function applyVideoQualityFromSettings() {
     const mode = localStorage.getItem('ruchat_media_video_quality') || 'medium';
@@ -48,6 +53,10 @@ applyVideoQualityFromSettings();
 function initVideoMessages() {
     if (!window.MediaRecorder) {
         console.warn('MediaRecorder не поддерживается в этом браузере');
+        return false;
+    }
+    if (!supportsMediaCapture()) {
+        console.warn('mediaDevices.getUserMedia недоступен');
         return false;
     }
 
@@ -105,11 +114,24 @@ async function startVideoRecording() {
     }
     if (!window.MediaRecorder) {
         showError('MediaRecorder не поддерживается. Используйте прикрепление видеофайла.');
-        attachVideo();
+        if (typeof attachVideo === 'function') attachVideo();
+        return;
+    }
+    if (!supportsMediaCapture()) {
+        showError('Камера недоступна в этом браузере. Используйте прикрепление видеофайла.');
+        if (typeof attachVideo === 'function') attachVideo();
         return;
     }
     try {
-        document.getElementById('recordTypeMenu').classList.remove('active');
+        const recordTypeMenu = document.getElementById('recordTypeMenu');
+        if (recordTypeMenu) recordTypeMenu.classList.remove('active');
+
+        const videoPreview = document.getElementById('videoPreview');
+        const videoOverlay = document.getElementById('videoRecordOverlay');
+        if (!videoPreview || !videoOverlay) {
+            showError('Не найден интерфейс записи видео.');
+            return;
+        }
         
         const constraints = {
             video: { 
@@ -127,11 +149,14 @@ async function startVideoRecording() {
         
         videoStream = await navigator.mediaDevices.getUserMedia(constraints);
         
-        const videoPreview = document.getElementById('videoPreview');
         videoPreview.srcObject = videoStream;
-        videoPreview.play();
+        try {
+            await videoPreview.play();
+        } catch {
+            // ignore autoplay issues
+        }
         
-        document.getElementById('videoRecordOverlay').style.display = 'flex';
+        videoOverlay.style.display = 'flex';
         
         const mimeType = pickSupportedVideoMimeType();
         const options = {
@@ -159,7 +184,13 @@ async function startVideoRecording() {
                 cleanupVideoRecording();
                 return;
             }
-            const blob = new Blob(videoChunks, { type: videoRecorder.mimeType || 'video/webm' });
+            const recorderType = (videoRecorder && videoRecorder.mimeType) || mimeType || 'video/webm';
+            const blob = new Blob(videoChunks, { type: recorderType });
+            if (!blob.size) {
+                showError('Запись не получилась. Попробуйте записать снова.');
+                cleanupVideoRecording();
+                return;
+            }
             
             const reader = new FileReader();
             reader.onloadend = async () => {
@@ -169,12 +200,24 @@ async function startVideoRecording() {
             };
             reader.readAsDataURL(blob);
         };
+
+        videoRecorder.onerror = () => {
+            showError('Ошибка записи видео. Проверьте разрешения камеры и микрофона.');
+            cleanupVideoRecording();
+        };
         
     } catch (error) {
         console.error('Ошибка при запуске камеры:', error);
-        showError('Не удалось получить доступ к камере. Проверьте разрешения.');
+        const errorName = String(error && error.name || '');
+        if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
+            showError('Нет доступа к камере. Разрешите доступ в настройках браузера.');
+        } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+            showError('Камера не найдена на устройстве.');
+        } else {
+            showError('Не удалось получить доступ к камере. Проверьте разрешения.');
+        }
         
-        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
             const useAudioOnly = confirm('Нет доступа к камере. Записать только аудиосообщение?');
             if (useAudioOnly) {
                 startAudioRecording();
@@ -223,6 +266,7 @@ function startVideoRecordingAction(event) {
         return;
     }
     if (isRecordingVideo) return;
+    if (videoRecorder.state && videoRecorder.state !== 'inactive') return;
 
     const touch = event && event.touches && event.touches[0];
     recordStartY = touch ? touch.clientY : (event ? event.clientY : 0);
@@ -235,13 +279,17 @@ function startVideoRecordingAction(event) {
     isRecordingVideo = true;
     recordingStartTime = Date.now();
 
-    document.getElementById('recordingIndicator').style.display = 'flex';
-    document.getElementById('videoRecordBtn').classList.add('recording');
+    const indicator = document.getElementById('recordingIndicator');
+    const recordBtn = document.getElementById('videoRecordBtn');
+    if (indicator) indicator.style.display = 'flex';
+    if (recordBtn) recordBtn.classList.add('recording');
 
     recordingTimer = setInterval(updateRecordingTimer, 1000);
 
+    document.addEventListener('pointerup', stopVideoRecordingAction);
     document.addEventListener('mouseup', stopVideoRecordingAction);
     document.addEventListener('touchend', stopVideoRecordingAction);
+    document.addEventListener('pointermove', handleVideoRecordMove);
     document.addEventListener('mousemove', handleVideoRecordMove);
     document.addEventListener('touchmove', handleVideoRecordMove, { passive: false });
 
@@ -260,12 +308,16 @@ function updateRecordingTimer() {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     
-    document.getElementById('videoTimer').textContent = 
-        `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    const timerEl = document.getElementById('videoTimer');
+    if (timerEl) {
+        timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
     
     if (elapsed > videoConfig.maxDuration - 10000) {
-        document.getElementById('videoTimer').style.color = '#ef4444';
-        document.getElementById('videoTimer').style.animation = 'pulse 1s infinite';
+        if (timerEl) {
+            timerEl.style.color = '#ef4444';
+            timerEl.style.animation = 'pulse 1s infinite';
+        }
     }
 }
 
@@ -284,10 +336,18 @@ function stopVideoRecordingAction(event) {
 
     if (!isRecordingVideo || !videoRecorder) return;
 
-    videoRecorder.stop();
+    if (videoRecorder.state !== 'inactive') {
+        try {
+            videoRecorder.stop();
+        } catch {
+            cleanupVideoRecording();
+            return;
+        }
+    }
     isRecordingVideo = false;
     isVideoLocked = false;
     recordStartY = 0;
+    recordStartX = 0;
     recordStartX = 0;
     videoRecordCancelled = false;
 
@@ -296,13 +356,18 @@ function stopVideoRecordingAction(event) {
         recordingTimer = null;
     }
 
-    document.getElementById('recordingIndicator').style.display = 'none';
-    document.getElementById('videoRecordBtn').classList.remove('recording');
-    document.getElementById('videoRecordOverlay').style.display = 'none';
+    const indicator = document.getElementById('recordingIndicator');
+    const recordBtn = document.getElementById('videoRecordBtn');
+    const videoOverlay = document.getElementById('videoRecordOverlay');
+    if (indicator) indicator.style.display = 'none';
+    if (recordBtn) recordBtn.classList.remove('recording');
+    if (videoOverlay) videoOverlay.style.display = 'none';
     updateVideoLockUI(false);
 
+    document.removeEventListener('pointerup', stopVideoRecordingAction);
     document.removeEventListener('mouseup', stopVideoRecordingAction);
     document.removeEventListener('touchend', stopVideoRecordingAction);
+    document.removeEventListener('pointermove', handleVideoRecordMove);
     document.removeEventListener('mousemove', handleVideoRecordMove);
     document.removeEventListener('touchmove', handleVideoRecordMove);
 
@@ -312,6 +377,10 @@ function stopVideoRecordingAction(event) {
 async function toggleCamera() {
     if (isRecordingVideo) {
         showError('Остановите запись, чтобы переключить камеру');
+        return;
+    }
+    if (!supportsMediaCapture()) {
+        showError('Переключение камеры недоступно в этом браузере.');
         return;
     }
 
@@ -335,12 +404,18 @@ async function toggleCamera() {
         audio: true
     };
 
-    videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+    try {
+        videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (error) {
+        console.error('Ошибка переключения камеры:', error);
+        showError('Не удалось переключить камеру.');
+        return;
+    }
 
     const videoPreview = document.getElementById('videoPreview');
     if (videoPreview) {
         videoPreview.srcObject = videoStream;
-        videoPreview.play();
+        videoPreview.play().catch(() => {});
     }
 }
 
@@ -365,8 +440,22 @@ function cleanupVideoRecording() {
     if (videoPreview) {
         videoPreview.srcObject = null;
     }
+    const timerEl = document.getElementById('videoTimer');
+    if (timerEl) {
+        timerEl.textContent = '00:00';
+        timerEl.style.color = '';
+        timerEl.style.animation = '';
+    }
+    const indicator = document.getElementById('recordingIndicator');
+    if (indicator) indicator.style.display = 'none';
+    const recordBtn = document.getElementById('videoRecordBtn');
+    if (recordBtn) recordBtn.classList.remove('recording');
+    const videoOverlay = document.getElementById('videoRecordOverlay');
+    if (videoOverlay) videoOverlay.style.display = 'none';
+    document.removeEventListener('pointerup', stopVideoRecordingAction);
     document.removeEventListener('mouseup', stopVideoRecordingAction);
     document.removeEventListener('touchend', stopVideoRecordingAction);
+    document.removeEventListener('pointermove', handleVideoRecordMove);
     document.removeEventListener('mousemove', handleVideoRecordMove);
     document.removeEventListener('touchmove', handleVideoRecordMove);
 }
@@ -378,16 +467,18 @@ function cancelVideoRecording() {
     }
     
     cleanupVideoRecording();
-    document.getElementById('videoRecordOverlay').style.display = 'none';
     updateVideoLockUI(false);
-    document.getElementById('recordTypeMenu').classList.remove('active');
+    const recordTypeMenu = document.getElementById('recordTypeMenu');
+    if (recordTypeMenu) recordTypeMenu.classList.remove('active');
 }
 
 async function sendVideoMessage(videoData) {
-    if (!currentChatId || !chatRef) {
+    if (!currentChatId || !username) {
         showError('Невозможно отправить сообщение');
         return;
     }
+    const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
+    const targetRef = chatRef || db.ref(path);
     
     showLoading();
     
@@ -421,8 +512,6 @@ async function sendVideoMessage(videoData) {
             message.replyTo = { id: replyToMessage.id, from: replyToMessage.from, text: replyToMessage.text };
         }
         
-        const path = isGroupChat ? `groupChats/${currentChatId}` : `privateChats/${currentChatId}`;
-
         // Оптимистичный UI: сразу добавляем в чат
         try {
             const localMsg = { ...message, id: message.clientMessageId };
@@ -435,7 +524,7 @@ async function sendVideoMessage(videoData) {
 
         const sent = (typeof sendMessagePayload === 'function')
             ? await sendMessagePayload(path, message)
-            : await chatRef.push(message).then(() => true).catch(() => false);
+            : await targetRef.child(message.clientMessageId).set(message).then(() => true).catch(() => false);
         if (!sent && typeof enqueuePendingMessage === 'function') {
             enqueuePendingMessage(path, message);
             showNotification('Сеть', 'Видеосообщение в очереди отправки');
@@ -496,6 +585,13 @@ function initVideoMessagesAfterLogin() {
         }
     }, 500);
 }
+window.initVideoMessagesAfterLogin = initVideoMessagesAfterLogin;
+window.startVideoRecording = startVideoRecording;
+window.startVideoRecordingAction = startVideoRecordingAction;
+window.stopVideoRecordingAction = stopVideoRecordingAction;
+window.cancelVideoRecording = cancelVideoRecording;
+window.toggleCamera = toggleCamera;
+window.sendVideoMessage = sendVideoMessage;
 
 document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('videoRecordBtn');

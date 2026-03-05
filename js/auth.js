@@ -50,7 +50,6 @@ async function register() {
       about: "",
       friendRequests: { incoming: {}, outgoing: {} },
       blocked: {},
-      chatBg: "", 
       lastSeen: ts, 
       createdAt: ts, 
       chatThemes: {} 
@@ -63,7 +62,6 @@ async function register() {
       about: "",
       friendRequests: { incoming: {}, outgoing: {} },
       blocked: {},
-      chatBg: "", 
       lastSeen: ts, 
       createdAt: ts, 
       chatThemes: {} 

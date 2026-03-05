@@ -302,6 +302,59 @@ function showSettingsMenu() {
     if (avatar) avatar.src = getAvatarUrl();
     const nm = document.getElementById('settingsDrawerName');
     if (nm) nm.textContent = getDisplayName();
+    let updateThemeButtons = () => {};
+
+    const initThemeSettingsUI = () => {
+        const themeSection = document.getElementById('settingsSection_theme');
+        if (!themeSection) return;
+
+        const themes = [
+            { id: 'dark', label: 'Тёмная' },
+            { id: 'light', label: 'Светлая' },
+            { id: 'blue', label: 'Голубая' },
+            { id: 'pink', label: 'Розовая' },
+            { id: 'black', label: 'Чёрная' },
+            { id: 'green', label: 'Зелёная' },
+            { id: 'purple', label: 'Фиолетовая' }
+        ];
+
+        themeSection.innerHTML = `
+            <div class="settings-card">
+                <div class="settings-card-title">Тема</div>
+                <div class="settings-theme-grid">
+                    ${themes.map(theme => `
+                        <button class="settings-theme-option" type="button" data-theme="${theme.id}">
+                            <span class="settings-theme-swatch" aria-hidden="true"></span>
+                            <span class="settings-theme-label">${theme.label}</span>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
+        updateThemeButtons = () => {
+            const currentTheme = (typeof window.getCurrentTheme === 'function')
+                ? String(window.getCurrentTheme())
+                : String(localStorage.getItem('ruchat_theme') || 'dark');
+            themeSection.querySelectorAll('.settings-theme-option').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === currentTheme);
+            });
+        };
+
+        themeSection.querySelectorAll('.settings-theme-option').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const theme = btn.dataset.theme || 'dark';
+                if (typeof window.setTheme === 'function') {
+                    window.setTheme(theme);
+                } else {
+                    localStorage.setItem('ruchat_theme', theme);
+                }
+                updateThemeButtons();
+            });
+        });
+
+        updateThemeButtons();
+    };
 
     const renderDynamic = () => {
         const soundsOn = localStorage.getItem('soundsEnabled') !== 'false';
@@ -325,6 +378,7 @@ function showSettingsMenu() {
 
         const conn = document.getElementById('settingsInfoConn');
         if (conn) conn.textContent = (window.firebaseConnected === false) ? 'Firebase: нет соединения' : (navigator.onLine ? 'Интернет есть' : 'Нет интернета');
+        updateThemeButtons();
     };
 
     const setPanelTitle = (title) => {
@@ -443,6 +497,7 @@ function showSettingsMenu() {
 
     window.toggleThemeFromSettings = function() {
         if (typeof toggleTheme === 'function') toggleTheme();
+        updateThemeButtons();
         renderDynamic();
     };
 
@@ -587,7 +642,6 @@ function showSettingsMenu() {
     bind('settingsSystemNotifBtn', window.toggleSystemNotifications);
     bind('settingsOnlyHiddenBtn', window.toggleNotifyOnlyHidden);
     bind('settingsAskPermBtn', window.requestSystemNotificationsFromSettings);
-    bind('settingsThemeBtn', window.toggleThemeFromSettings);
     bind('mediaSaveBtn', window.saveMediaSettings);
     bind('profileSaveBtn', window.saveProfileSettings);
     bind('profileUploadBtn', window.uploadProfileAvatar);
@@ -607,6 +661,7 @@ function showSettingsMenu() {
     document.addEventListener('keydown', onKeyDown);
 
     // Load initial values
+    initThemeSettingsUI();
     if (typeof window.loadProfileSettings === 'function') window.loadProfileSettings();
     if (typeof window.loadMediaSettings === 'function') window.loadMediaSettings();
     renderDynamic();

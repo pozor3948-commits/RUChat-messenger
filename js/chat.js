@@ -30,7 +30,6 @@ const reactionOptions = ['👍','❤️','😂','😮','😢','😡'];
 const ephemeralWatch = new Map();
 let ephemeralInterval = null;
 let replyToMessage = null;
-let pendingChatBgValue = '';
 let editingMessageId = null;
 let editingOriginalText = '';
 let mediaLibraryTab = 'photos';
@@ -49,20 +48,15 @@ let addedMessagesQuery = null;
 let addedMessagesHandler = null;
 let currentPrivateStatusRef = null;
 let currentPrivateStatusHandler = null;
-let currentChatBgRef = null;
-let currentChatBgHandler = null;
 let messagesScrollElement = null;
 let messagesScrollRaf = 0;
 let scrollToBottomRaf = 0;
 let renderFriendsCycle = 0;
 const renderFriendsTimeoutIds = [];
-const CHAT_INITIAL_PAGE_SIZE = 80;
-const CHAT_HISTORY_PAGE_SIZE = 60;
+const CHAT_INITIAL_PAGE_SIZE = 48;
+const CHAT_HISTORY_PAGE_SIZE = 36;
 const SEND_RATE_WINDOW_MS = 3000;
 const SEND_RATE_MAX_MESSAGES = 8;
-const CHAT_BG_MAX_SIDE = 1400;
-const CHAT_BG_MAX_BYTES = 900 * 1024;
-const CHAT_BG_TARGET_BYTES = 600 * 1024;
 let sendRateTimestamps = [];
 
 function sleepMs(ms) {
@@ -1452,8 +1446,6 @@ function openPrivateChat(fn) {
   const st = userStatuses[fn];
   updateChatStatus(fn, st);
   subscribeCurrentChatStatus(fn);
-  if (typeof syncChatBackgroundListener === 'function') syncChatBackgroundListener(currentChatId, 'private');
-  if (typeof applyChatBackground === 'function') applyChatBackground(currentChatId, 'private');
   loadChat("privateChats/" + currentChatId);
   setupTypingIndicator();
   if (typeof updateCallButtonVisibility === 'function') updateCallButtonVisibility();
@@ -1488,8 +1480,6 @@ function openGroupChat(g, gid) {
   const mc = Object.keys(g.members || {}).length;
   document.getElementById("chatMembers").textContent = `${mc} участников`;
   document.getElementById("mobileChatStatus").textContent = `${mc} участников`;
-  if (typeof syncChatBackgroundListener === 'function') syncChatBackgroundListener(currentChatId, 'group');
-  if (typeof applyChatBackground === 'function') applyChatBackground(currentChatId, 'group');
   loadChat("groupChats/" + currentChatId);
   if (typeof updateCallButtonVisibility === 'function') updateCallButtonVisibility();
   updateGroupManageMenuVisibility();
@@ -1523,12 +1513,18 @@ function loadChat(path) {
   attachMessagesScrollListener(md);
   const expectedPath = path;
   let cachedMessages = readChatCache(path);
+  let cachedMessageIdSet = null;
   // Чтобы "свои" сообщения не пропадали при перезагрузке/переключении (если они ещё в очереди отправки)
   const pendingLocal = getPendingMessagesForPath(path);
   if (pendingLocal.length) cachedMessages = mergeUniqueMessages(cachedMessages, pendingLocal);
   if (cachedMessages.length) {
+    cachedMessageIdSet = new Set(
+      cachedMessages
+        .map(m => (m && m.id ? String(m.id) : ''))
+        .filter(Boolean)
+    );
     // Рендерим пачками, чтобы не лагал ввод на слабых телефонах
-    renderMessagesBatched(cachedMessages, { autoScroll: false, animate: false, notify: false }, isMobile ? 10 : 18)
+    renderMessagesBatched(cachedMessages, { autoScroll: false, animate: false, notify: false }, isMobile ? 12 : 24)
       .then(() => {
         if (currentChatPath === expectedPath) {
           md.scrollTop = md.scrollHeight;
@@ -1550,7 +1546,12 @@ function loadChat(path) {
       items.push(m);
     });
     (async () => {
-      await renderMessagesBatched(items, { autoScroll: false, animate: false, notify: false }, isMobile ? 10 : 18);
+      const itemsToRender = cachedMessageIdSet
+        ? items.filter(item => !cachedMessageIdSet.has(String(item.id || '')))
+        : items;
+      if (itemsToRender.length) {
+        await renderMessagesBatched(itemsToRender, { autoScroll: false, animate: false, notify: false }, isMobile ? 12 : 24);
+      }
       if (currentChatPath !== expectedPath) return;
       md.scrollTop = md.scrollHeight;
       updateScrollBottomButton(md);
@@ -1642,7 +1643,7 @@ function loadOlderMessages() {
       const older = items.slice(0, -1);
       // prepend вставляет в начало, поэтому рендерим в обратном порядке, чтобы не переворачивать историю
       const reversed = older.slice().reverse();
-      await renderMessagesBatched(reversed, { prepend: true, autoScroll: false, animate: false, notify: false }, isMobile ? 10 : 18);
+      await renderMessagesBatched(reversed, { prepend: true, autoScroll: false, animate: false, notify: false }, isMobile ? 12 : 22);
       oldestLoadedKey = older[0].id;
       hasMoreHistory = older.length === CHAT_HISTORY_PAGE_SIZE;
       md.scrollTop = (md.scrollHeight - prevHeight) + prevTop;
@@ -2391,203 +2392,6 @@ function clearEphemeralWatch() {
   }
 }
 
-function getCurrentChatBgScope() {
-  return isGroupChat ? 'group' : 'private';
-}
-
-function getScopedChatBgStorageKey(chatId, scope = 'private') {
-  const safeScope = scope === 'group' ? 'group' : 'private';
-  return `ruchat_chat_bg_${safeScope}_${chatId}`;
-}
-
-function getLegacyChatBgStorageKey(chatId) {
-  return `ruchat_chat_bg_${chatId}`;
-}
-
-function readChatBgLocalValue(chatId, scope = 'private') {
-  if (!chatId) return '';
-  try {
-    const scopedValue = localStorage.getItem(getScopedChatBgStorageKey(chatId, scope));
-    if (typeof scopedValue === 'string' && scopedValue.length) return scopedValue;
-    const legacyValue = localStorage.getItem(getLegacyChatBgStorageKey(chatId));
-    if (typeof legacyValue === 'string') return legacyValue;
-  } catch {
-    return '';
-  }
-  return '';
-}
-
-function writeChatBgLocalValue(chatId, scope = 'private', value = '') {
-  if (!chatId) return;
-  const safeValue = typeof value === 'string' ? value : '';
-  const scopedKey = getScopedChatBgStorageKey(chatId, scope);
-  const legacyKey = getLegacyChatBgStorageKey(chatId);
-  if (!safeValue) {
-    localStorage.removeItem(scopedKey);
-    localStorage.removeItem(legacyKey);
-    return;
-  }
-  localStorage.setItem(scopedKey, safeValue);
-  if (scope === 'private') localStorage.setItem(legacyKey, safeValue);
-}
-
-function getChatBgDbPath(chatId, scope = 'private') {
-  const safeScope = scope === 'group' ? 'group' : 'private';
-  return `chatBackgrounds/${safeScope}/${chatId}`;
-}
-
-function detachChatBackgroundListener() {
-  if (currentChatBgRef && currentChatBgHandler) {
-    currentChatBgRef.off('value', currentChatBgHandler);
-  }
-  currentChatBgRef = null;
-  currentChatBgHandler = null;
-}
-
-function syncChatBackgroundListener(chatId, scope = 'private') {
-  detachChatBackgroundListener();
-  if (!chatId) return;
-  const safeScope = scope === 'group' ? 'group' : 'private';
-  const ref = db.ref(getChatBgDbPath(chatId, safeScope));
-  currentChatBgRef = ref;
-  currentChatBgHandler = snap => {
-    const isSameChat = currentChatId === chatId && ((safeScope === 'group') === isGroupChat);
-    if (!snap.exists()) {
-      // Если на сервере для чата пока нет фона (или запись недоступна),
-      // сохраняем локальный fallback и не затираем его.
-      if (isSameChat) applyChatBackground(chatId, safeScope);
-      return;
-    }
-
-    const payload = snap.val() || {};
-    const nextValue = typeof payload.value === 'string' ? payload.value : '';
-    const nextBytes = estimateDataUrlBytes(nextValue);
-    if (/^data:image\//i.test(nextValue) && nextBytes && nextBytes > CHAT_BG_MAX_BYTES) {
-      compressChatBackgroundDataUrl(nextValue, CHAT_BG_MAX_SIDE, 0.78, CHAT_BG_TARGET_BYTES)
-        .then(async compactValue => {
-          const finalValue = compactValue || nextValue;
-          let localSavedCompact = true;
-          try {
-            writeChatBgLocalValue(chatId, safeScope, finalValue);
-          } catch {
-            localSavedCompact = false;
-          }
-          if (isSameChat) {
-            if (localSavedCompact) applyChatBackground(chatId, safeScope);
-            else applyChatBackgroundValue(finalValue);
-          }
-          if (finalValue !== nextValue) {
-            try {
-              await saveChatBackgroundToServer(chatId, safeScope, finalValue);
-            } catch {
-              // ignore background optimize sync errors
-            }
-          }
-        })
-        .catch(() => {
-          let localSavedFallback = true;
-          try {
-            writeChatBgLocalValue(chatId, safeScope, nextValue);
-          } catch {
-            localSavedFallback = false;
-          }
-          if (isSameChat) {
-            if (localSavedFallback) applyChatBackground(chatId, safeScope);
-            else applyChatBackgroundValue(nextValue);
-          }
-        });
-      return;
-    }
-
-    let localSaved = true;
-    try {
-      writeChatBgLocalValue(chatId, safeScope, nextValue);
-    } catch {
-      localSaved = false;
-    }
-    if (isSameChat) {
-      if (localSaved) applyChatBackground(chatId, safeScope);
-      else applyChatBackgroundValue(nextValue);
-    }
-  };
-  ref.on('value', currentChatBgHandler);
-}
-
-async function saveChatBackgroundToServer(chatId, scope = 'private', value = '') {
-  if (!chatId) return;
-  const safeScope = scope === 'group' ? 'group' : 'private';
-  const payload = {
-    value: typeof value === 'string' ? value : '',
-    updatedAt: Date.now(),
-    updatedBy: username || ''
-  };
-  await db.ref(getChatBgDbPath(chatId, safeScope)).set(payload);
-}
-
-function applyChatBackgroundValue(value) {
-  const md = document.getElementById('messages');
-  if (!md) return;
-  if (!value) {
-    md.style.background = '';
-    md.style.backgroundImage = '';
-    md.style.backgroundSize = '';
-    md.style.backgroundPosition = '';
-    md.style.backgroundRepeat = '';
-    return;
-  }
-  if (/^(https?:|data:|blob:|url\()/i.test(value)) {
-    md.style.background = 'transparent';
-    md.style.backgroundImage = value.startsWith('url(') ? value : `url('${value}')`;
-    md.style.backgroundSize = 'cover';
-    md.style.backgroundPosition = 'center';
-    md.style.backgroundRepeat = 'no-repeat';
-  } else {
-    md.style.backgroundImage = '';
-    md.style.backgroundSize = '';
-    md.style.backgroundPosition = '';
-    md.style.backgroundRepeat = '';
-    md.style.background = value;
-  }
-}
-
-function applyChatBackground(chatId, scope = getCurrentChatBgScope()) {
-  if (!chatId) return;
-  const value = readChatBgLocalValue(chatId, scope);
-  applyChatBackgroundValue(value);
-}
-
-function openChatBackground() {
-  if (!currentChatId) { showError('Сначала откройте чат'); return; }
-  if (typeof closeTransientMenus === 'function') closeTransientMenus();
-  const overlay = document.getElementById('chatBgOverlay');
-  if (!overlay) return;
-  const scope = getCurrentChatBgScope();
-  pendingChatBgValue = readChatBgLocalValue(currentChatId, scope);
-  const preview = document.getElementById('chatBgPreviewBox');
-  if (preview) {
-    preview.style.backgroundImage = '';
-    preview.style.background = pendingChatBgValue || 'rgba(255,255,255,0.04)';
-    if (/^(https?:|data:|blob:|url\()/i.test(pendingChatBgValue)) {
-      preview.style.background = 'transparent';
-      preview.style.backgroundImage = pendingChatBgValue.startsWith('url(') ? pendingChatBgValue : `url('${pendingChatBgValue}')`;
-      preview.style.backgroundSize = 'cover';
-      preview.style.backgroundPosition = 'center';
-    }
-  }
-  document.querySelectorAll('.chat-bg-item').forEach(b => b.classList.remove('active'));
-  if (pendingChatBgValue) {
-    document.querySelectorAll('.chat-bg-item').forEach(b => {
-      if (b.dataset.bg === pendingChatBgValue) b.classList.add('active');
-    });
-  }
-  overlay.classList.add('active');
-}
-
-function closeChatBackground() {
-  const overlay = document.getElementById('chatBgOverlay');
-  if (overlay) overlay.classList.remove('active');
-}
-
 // ===== Per-chat notifications UI (mute / silent send) =====
 function openChatNotifySettings() {
   if (!currentChatId) { showError('Сначала откройте чат'); return; }
@@ -2667,156 +2471,6 @@ function toggleSilentSendForChat() {
   setSilentSend(currentChatId, isGroupChat, enabled);
   updateChatNotifyUI();
   showNotification('Без звука', enabled ? 'Включено' : 'Выключено', 'info');
-}
-
-function selectChatBackground(btn) {
-  if (!btn) return;
-  const value = btn.dataset.bg || '';
-  pendingChatBgValue = value;
-  document.querySelectorAll('.chat-bg-item').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const preview = document.getElementById('chatBgPreviewBox');
-  if (preview) {
-    preview.style.backgroundImage = '';
-    preview.style.background = value || 'rgba(255,255,255,0.04)';
-    if (/^url\(/i.test(value) || /^(https?:|data:|blob:)/i.test(value)) {
-      preview.style.background = 'transparent';
-      preview.style.backgroundImage = value.startsWith('url(') ? value : `url('${value}')`;
-      preview.style.backgroundSize = 'cover';
-      preview.style.backgroundPosition = 'center';
-    }
-  }
-}
-
-function compressChatBackgroundDataUrl(dataUrl, maxSide = CHAT_BG_MAX_SIDE, quality = 0.82, maxBytes = CHAT_BG_MAX_BYTES) {
-  return new Promise((resolve, reject) => {
-    const src = String(dataUrl || '');
-    if (!src) { resolve(''); return; }
-
-    const img = new Image();
-    img.onerror = () => reject(new Error('bg_image_invalid'));
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve(src);
-        return;
-      }
-
-      let width = Math.max(1, Number(img.width) || 1);
-      let height = Math.max(1, Number(img.height) || 1);
-      const largestSide = Math.max(width, height);
-      if (largestSide > maxSide) {
-        const scale = maxSide / largestSide;
-        width = Math.max(1, Math.round(width * scale));
-        height = Math.max(1, Math.round(height * scale));
-      }
-
-      let out = src;
-      let q = Math.min(0.9, Math.max(0.5, Number(quality) || 0.82));
-      let w = width;
-      let h = height;
-
-      for (let attempt = 0; attempt < 10; attempt += 1) {
-        canvas.width = w;
-        canvas.height = h;
-        ctx.clearRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
-        out = canvas.toDataURL('image/jpeg', q);
-        const bytes = estimateDataUrlBytes(out);
-        if (!bytes || bytes <= maxBytes) {
-          resolve(out);
-          return;
-        }
-        q = Math.max(0.5, q - 0.08);
-        if (attempt % 2 === 1) {
-          w = Math.max(360, Math.round(w * 0.86));
-          h = Math.max(360, Math.round(h * 0.86));
-        }
-      }
-
-      resolve(out);
-    };
-    img.src = src;
-  });
-}
-
-function compressChatBackgroundImage(file, maxSide = CHAT_BG_MAX_SIDE, quality = 0.82) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('bg_read_failed'));
-    reader.onload = async () => {
-      const source = String(reader.result || '');
-      try {
-        const compressed = await compressChatBackgroundDataUrl(source, maxSide, quality, CHAT_BG_MAX_BYTES);
-        resolve(compressed);
-      } catch {
-        reject(new Error('bg_image_invalid'));
-      }
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-async function handleChatBgFileChange(e) {
-  const file = e.target.files && e.target.files[0];
-  if (!file) return;
-  if (!file.type.startsWith('image/')) { showError('Нужна картинка'); return; }
-  try {
-    showLoading();
-    pendingChatBgValue = await compressChatBackgroundImage(file, CHAT_BG_MAX_SIDE, 0.82);
-    const bytes = estimateDataUrlBytes(pendingChatBgValue);
-    if (bytes && bytes > CHAT_BG_MAX_BYTES) {
-      pendingChatBgValue = await compressChatBackgroundDataUrl(
-        pendingChatBgValue,
-        CHAT_BG_MAX_SIDE,
-        0.72,
-        CHAT_BG_TARGET_BYTES
-      );
-    }
-    const preview = document.getElementById('chatBgPreviewBox');
-    if (preview) {
-      preview.style.background = 'transparent';
-      preview.style.backgroundImage = `url('${pendingChatBgValue}')`;
-      preview.style.backgroundSize = 'cover';
-      preview.style.backgroundPosition = 'center';
-    }
-    document.querySelectorAll('.chat-bg-item').forEach(b => b.classList.remove('active'));
-  } catch {
-    showError('Не удалось загрузить фото для фона');
-  } finally {
-    if (e && e.target) e.target.value = '';
-    hideLoading();
-  }
-}
-
-async function saveChatBackground() {
-  if (!currentChatId) return;
-  const scope = getCurrentChatBgScope();
-  const nextValue = pendingChatBgValue || '';
-  let localSaved = true;
-  try {
-    writeChatBgLocalValue(currentChatId, scope, nextValue);
-  } catch {
-    localSaved = false;
-  }
-  if (localSaved) applyChatBackground(currentChatId, scope);
-  else applyChatBackgroundValue(nextValue);
-  closeChatBackground();
-  if (!localSaved) {
-    showNotification('Фон', 'Фон не сохранен в памяти устройства, но будет синхронизирован', 'warning');
-  }
-  try {
-    await saveChatBackgroundToServer(currentChatId, scope, nextValue);
-  } catch {
-    if (localSaved) showError('Фон применен локально, но не синхронизирован');
-    else showError('Не удалось синхронизировать фон');
-  }
-}
-
-function clearChatBackground() {
-  pendingChatBgValue = '';
-  saveChatBackground();
 }
 
 function getRoleLabel(role) {
@@ -3111,7 +2765,6 @@ async function removeGroupMember(memberName) {
 
 function resetCurrentChatAfterLeave() {
   clearCurrentChatStatusListener();
-  detachChatBackgroundListener();
   detachMessagesScrollListener();
   if (chatRef) {
     chatRef.off();
@@ -3122,15 +2775,9 @@ function resetCurrentChatAfterLeave() {
   isGroupChat = false;
   currentGroupRole = 'member';
   currentGroupName = '';
-  pendingChatBgValue = '';
   const messages = document.getElementById('messages');
   if (messages) {
     messages.innerHTML = '';
-    messages.style.background = '';
-    messages.style.backgroundImage = '';
-    messages.style.backgroundSize = '';
-    messages.style.backgroundPosition = '';
-    messages.style.backgroundRepeat = '';
   }
   const chatWith = document.getElementById('chatWith');
   if (chatWith) chatWith.textContent = 'Выберите чат';
@@ -3197,15 +2844,8 @@ async function clearCurrentChat() {
   }
 }
 
-window.applyChatBackground = applyChatBackground;
-window.openChatBackground = openChatBackground;
 window.scrollChatToBottom = scrollChatToBottom;
 window.clearCurrentChat = clearCurrentChat;
-window.closeChatBackground = closeChatBackground;
-window.selectChatBackground = selectChatBackground;
-window.handleChatBgFileChange = handleChatBgFileChange;
-window.saveChatBackground = saveChatBackground;
-window.clearChatBackground = clearChatBackground;
 window.openGroupAdminPanel = openGroupAdminPanel;
 window.closeGroupAdminPanel = closeGroupAdminPanel;
 window.addMembersToCurrentGroup = addMembersToCurrentGroup;
@@ -3376,7 +3016,7 @@ async function flushPendingQueue() {
 
 function markCurrentChatAsRead() {
   if (!chatRef || !username) return;
-  chatRef.limitToLast(120).once("value").then(snap => {
+  chatRef.limitToLast(60).once("value").then(snap => {
     const updates = {};
     snap.forEach(ch => {
       const m = ch.val() || {};

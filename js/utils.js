@@ -103,8 +103,7 @@ const MOJIBAKE_SKIP_KEYS = new Set([
     'photo',
     'video',
     'audio',
-    'document',
-    'chatBg'
+    'document'
 ]);
 
 async function runMojibakeMigration() {
