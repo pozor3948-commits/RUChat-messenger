@@ -310,12 +310,13 @@ function showSettingsMenu() {
 
         const themes = [
             { id: 'dark', label: 'Тёмная' },
-            { id: 'light', label: 'Светлая' },
+            { id: 'auto', label: 'Автоматическая' },
             { id: 'blue', label: 'Голубая' },
             { id: 'pink', label: 'Розовая' },
             { id: 'black', label: 'Чёрная' },
             { id: 'green', label: 'Зелёная' },
-            { id: 'purple', label: 'Фиолетовая' }
+            { id: 'purple', label: 'Фиолетовая' },
+            { id: 'snow', label: 'Снежная' }
         ];
 
         themeSection.innerHTML = `

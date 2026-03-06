@@ -272,25 +272,46 @@ function startVoiceCall() {
 }
 
 // Темы интерфейса
-const THEME_ORDER = ['dark', 'light', 'blue', 'pink', 'black', 'green', 'purple'];
+const THEME_ORDER = ['dark', 'auto', 'blue', 'pink', 'black', 'green', 'purple', 'snow'];
 const THEME_CLASS_MAP = {
     dark: '',
-    light: 'light',
+    auto: 'theme-auto',
     blue: 'theme-blue',
     pink: 'theme-pink',
     black: 'theme-black',
     green: 'theme-green',
-    purple: 'theme-purple'
+    purple: 'theme-purple',
+    snow: 'theme-snow'
 };
 const THEME_LABELS = {
     dark: 'тёмная',
-    light: 'светлая',
+    auto: 'автоматическая',
     blue: 'голубая',
     pink: 'розовая',
     black: 'чёрная',
     green: 'зелёная',
-    purple: 'фиолетовая'
+    purple: 'фиолетовая',
+    snow: 'снежная'
 };
+
+// Автоматическая тема в зависимости от времени суток
+function getAutoThemeClass() {
+    const hour = new Date().getHours();
+    // Утро (6-12) - солнечный жёлтый
+    if (hour >= 6 && hour < 12) {
+        return 'theme-auto-morning';
+    }
+    // День (12-17) - голубой
+    if (hour >= 12 && hour < 17) {
+        return 'theme-auto-day';
+    }
+    // Закат (17-21) - оранжевый
+    if (hour >= 17 && hour < 21) {
+        return 'theme-auto-sunset';
+    }
+    // Ночь (21-6) - тёмный
+    return 'theme-auto-night';
+}
 
 function normalizeThemeName(value) {
     const theme = String(value || '').trim().toLowerCase();
@@ -303,8 +324,24 @@ function applyThemeClasses(themeName) {
     Object.values(THEME_CLASS_MAP).forEach(cls => {
         if (cls) body.classList.remove(cls);
     });
+    // Удаляем классы авто-темы
+    body.classList.remove('theme-auto-morning', 'theme-auto-day', 'theme-auto-sunset', 'theme-auto-night');
+    
     const cls = THEME_CLASS_MAP[themeName];
     if (cls) body.classList.add(cls);
+    
+    // Если авто-тема, добавляем класс в зависимости от времени суток
+    if (themeName === 'auto') {
+        const autoClass = getAutoThemeClass();
+        body.classList.add(autoClass);
+    }
+    
+    // Если снежная тема, запускаем анимацию снежинок
+    if (themeName === 'snow') {
+        startSnowflakes();
+    } else {
+        stopSnowflakes();
+    }
 }
 
 function getCurrentTheme() {
@@ -387,4 +424,67 @@ function showChatInfo() {
 // Загружаем сохраненную тему при загрузке
 document.addEventListener('DOMContentLoaded', function() {
     setTheme(localStorage.getItem('ruchat_theme') || 'dark', { silent: true });
+    
+    // Обновляем автоматическую тему каждый час
+    setInterval(() => {
+        const currentTheme = getCurrentTheme();
+        if (currentTheme === 'auto') {
+            const body = document.body;
+            if (!body) return;
+            // Удаляем все классы авто-темы
+            body.classList.remove('theme-auto-morning', 'theme-auto-day', 'theme-auto-sunset', 'theme-auto-night');
+            // Добавляем новый класс в зависимости от времени
+            const autoClass = getAutoThemeClass();
+            body.classList.add(autoClass);
+        }
+    }, 60000); // Проверяем каждый час
 });
+
+// ==========================================================
+// СНЕЖИНКИ (тема "snow")
+// ==========================================================
+let snowflakesInterval = null;
+
+function createSnowflake() {
+    const snowflake = document.createElement('div');
+    snowflake.className = 'snowflake';
+    snowflake.style.left = Math.random() * 100 + 'vw';
+    snowflake.style.animationDuration = (Math.random() * 3 + 5) + 's';
+    snowflake.style.opacity = Math.random() * 0.7 + 0.3;
+    snowflake.style.fontSize = (Math.random() * 10 + 10) + 'px';
+    document.getElementById('snowflakes-container')?.appendChild(snowflake);
+    
+    // Удаляем снежинку после окончания анимации
+    setTimeout(() => {
+        snowflake.remove();
+    }, 8000);
+}
+
+function startSnowflakes() {
+    let container = document.getElementById('snowflakes-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'snowflakes-container';
+        document.body.appendChild(container);
+    }
+    
+    // Создаём снежинки
+    createSnowflake();
+    snowflakesInterval = setInterval(createSnowflake, 200);
+}
+
+function stopSnowflakes() {
+    if (snowflakesInterval) {
+        clearInterval(snowflakesInterval);
+        snowflakesInterval = null;
+    }
+    const container = document.getElementById('snowflakes-container');
+    if (container) {
+        container.innerHTML = '';
+    }
+}
+
+// Экспортируем функции глобально для использования в settings.js
+window.startSnowflakes = startSnowflakes;
+window.stopSnowflakes = stopSnowflakes;
+window.getAutoThemeClass = getAutoThemeClass;

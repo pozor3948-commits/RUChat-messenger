@@ -97,6 +97,77 @@ function formatDurationAsClock(totalSeconds) {
   return `${minutes}:${seconds}`;
 }
 
+// ===== Разделители дат между сообщениями =====
+let lastRenderedDate = null;
+
+function formatDateDivider(timestamp) {
+  const messageDate = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  const messageDay = messageDate.getDate();
+  const messageMonth = messageDate.getMonth();
+  const messageYear = messageDate.getFullYear();
+  
+  const todayDay = today.getDate();
+  const todayMonth = today.getMonth();
+  const todayYear = today.getFullYear();
+  
+  const yesterdayDay = yesterday.getDate();
+  const yesterdayMonth = yesterday.getMonth();
+  const yesterdayYear = yesterday.getFullYear();
+  
+  if (messageDay === todayDay && messageMonth === todayMonth && messageYear === todayYear) {
+    return 'Сегодня';
+  }
+  
+  if (messageDay === yesterdayDay && messageMonth === yesterdayMonth && messageYear === yesterdayYear) {
+    return 'Вчера';
+  }
+  
+  return messageDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function insertDateDivider(container, dateText) {
+  if (!container || !dateText) return;
+  
+  const divider = document.createElement('div');
+  divider.className = 'message-date';
+  divider.innerHTML = `<div class="date-label">${escapeHtml(dateText)}</div>`;
+  
+  container.appendChild(divider);
+  return divider;
+}
+
+function shouldInsertDateDivider(messageTimestamp) {
+  if (!messageTimestamp) return false;
+  
+  const messageDate = new Date(messageTimestamp);
+  const messageDay = messageDate.getDate();
+  const messageMonth = messageDate.getMonth();
+  const messageYear = messageDate.getFullYear();
+  
+  if (lastRenderedDate === null) {
+    lastRenderedDate = { day: messageDay, month: messageMonth, year: messageYear };
+    return false; // Для первого сообщения не вставляем разделитель
+  }
+  
+  const shouldInsert = lastRenderedDate.day !== messageDay || 
+                       lastRenderedDate.month !== messageMonth || 
+                       lastRenderedDate.year !== messageYear;
+  
+  if (shouldInsert) {
+    lastRenderedDate = { day: messageDay, month: messageMonth, year: messageYear };
+  }
+  
+  return shouldInsert;
+}
+
+function resetDateDivider() {
+  lastRenderedDate = null;
+}
+
 function normalizeMediaLabelText(value) {
   const text = String(value || '').trim().toLowerCase();
   if (!text) return '';
@@ -1517,6 +1588,7 @@ function loadChat(path) {
   const md = document.getElementById("messages");
   md.innerHTML = "";
   md.style.opacity = 1;
+  resetDateDivider(); // Сбрасываем разделитель дат при открытии нового чата
   attachMessagesScrollListener(md);
   const expectedPath = path;
   let cachedMessages = readChatCache(path);
@@ -1915,11 +1987,33 @@ function addMessageToChat(m, options = {}) {
   initVoiceMessagePlayer(msg, m);
   wrap.appendChild(msg);
   if (m.clientMessageId) renderedClientMessageIds.add(m.clientMessageId);
+  
   if (opts.prepend) {
+    // При загрузке старых сообщений: сначала вставляем сообщение, потом разделитель если нужно
     md.insertBefore(wrap, md.firstChild);
+    const messageTime = m.time || Date.now();
+    if (shouldInsertDateDivider(messageTime)) {
+      const dateText = formatDateDivider(messageTime);
+      const divider = document.createElement('div');
+      divider.className = 'message-date';
+      divider.innerHTML = `<div class="date-label">${escapeHtml(dateText)}</div>`;
+      md.insertBefore(divider, wrap);
+    }
   } else {
+    // При добавлении новых сообщений: сначала вставляем сообщение
     insertMessageNodeSorted(md, wrap, m);
+    // Затем проверяем, нужен ли разделитель даты
+    const messageTime = m.time || Date.now();
+    if (shouldInsertDateDivider(messageTime)) {
+      const dateText = formatDateDivider(messageTime);
+      const divider = document.createElement('div');
+      divider.className = 'message-date';
+      divider.innerHTML = `<div class="date-label">${escapeHtml(dateText)}</div>`;
+      // Вставляем разделитель перед этим сообщением
+      md.insertBefore(divider, wrap);
+    }
   }
+  
   if (opts.autoScroll && !opts.prepend) {
     const shouldStickToBottom = (m.from === username) || isNearBottom(md);
     if (shouldStickToBottom) requestScrollToBottom(md);
@@ -3196,7 +3290,7 @@ function createRequestItem(from, targetList) {
   item.innerHTML = `
     <img class="contact-avatar" id="req_avatar_${from}" alt="${name}" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0088cc&color=fff&size=48'">
     <div class="request-info">
-      <div class="request-label">Запрос в друзья</div>
+      <div class="request-label">Запро�� в друзья</div>
       <div class="request-name" id="req_name_${from}">${name}</div>
     </div>
     <div class="request-actions">
