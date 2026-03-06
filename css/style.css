@@ -378,7 +378,7 @@ body.light .deferred-sub { color: #64748b; }
 .error-retry { background:rgba(255,255,255,.2); border:none; color:white; padding:4px 12px; border-radius:12px; cursor:pointer; font-size:12px; transition:all .3s; }
 .error-retry:hover { background:rgba(255,255,255,.3); }
 
-.loading-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:radial-gradient(circle at 20% 20%, rgba(0,136,204,0.18), transparent 55%), rgba(15,23,42,.92); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:10000; backdrop-filter:blur(12px); }
+.loading-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:radial-gradient(circle at 20% 20%, rgba(0,136,204,0.15), transparent 50%), rgba(2,6,23,0.98); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; z-index:10000; backdrop-filter:blur(16px); }
 .loading-spinner {
     width:72px;
     height:72px;
@@ -2206,6 +2206,15 @@ body.light .attachment-btn {
     background: #ffffff;
     border: 1px solid rgba(15,23,42,0.12);
     color: #0f172a;
+}
+body.light .icon-btn:hover,
+body.light .attachment-btn:hover {
+    background: #f1f5f9;
+    border-color: rgba(37,99,235,0.4);
+    color: #1d4ed8;
+    transform: translateY(-3px) scale(1.1);
+    box-shadow: 0 15px 30px rgba(37,99,235,0.2);
+    animation: bounce .5s ease;
 }
 
 /* ==========================================================

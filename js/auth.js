@@ -193,6 +193,20 @@ function toggleAuthMode() {
 window.applyAuthMode = applyAuthMode;
 window.toggleAuthMode = toggleAuthMode;
 
+function showAuthScreen() {
+  const loginScreen = document.getElementById("login");
+  const mainScreen = document.getElementById("main");
+  if (mainScreen && !username) mainScreen.style.display = "none";
+  if (loginScreen) loginScreen.style.display = "flex";
+}
+
+function canAutoLoginFromDevice() {
+  if (localStorage.getItem('ruchat_autologin') === 'false') return false;
+  const u = localStorage.getItem('ruchat_device_user');
+  const token = localStorage.getItem('ruchat_device_token');
+  return !!(u && token);
+}
+
 // Запоминание имени для входа
 document.addEventListener('DOMContentLoaded', function() {
   const savedUser = localStorage.getItem('ruchat_last_user');
@@ -222,8 +236,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // Автовход на этом устройстве (если ранее входили)
-  setTimeout(autoLoginFromDevice, 300);
+  const shouldTryAutoLogin = canAutoLoginFromDevice();
+  if (shouldTryAutoLogin) {
+    showLoading();
+    autoLoginFromDevice()
+      .finally(() => {
+        hideLoading();
+        if (!username) showAuthScreen();
+      });
+    return;
+  }
+
+  showAuthScreen();
 });
 function recoverPassword() {
   const u = prompt("Введите имя пользователя:");
@@ -352,16 +376,20 @@ async function unregisterDeviceToken(u) {
 window.unregisterDeviceToken = unregisterDeviceToken;
 
 async function autoLoginFromDevice() {
-  if (username) return;
-  if (localStorage.getItem('ruchat_autologin') === 'false') return;
+  if (username) return true;
+  if (localStorage.getItem('ruchat_autologin') === 'false') return false;
   const u = localStorage.getItem('ruchat_device_user');
   const token = localStorage.getItem('ruchat_device_token');
-  if (!u || !token) return;
+  if (!u || !token) return false;
   try {
-    const snap = await db.ref(`accounts/${u}/devices/${token}`).get();
-    if (!snap.exists()) return;
+    const request = db.ref(`accounts/${u}/devices/${token}`).get();
+    const snap = await (typeof withTimeout === 'function'
+      ? withTimeout(request, 12000, 'autologin_timeout')
+      : request);
+    if (!snap.exists()) return false;
     await doLoginAfterAuth(u, "Автовход", "Вы вошли на этом устройстве");
+    return true;
   } catch (e) {
-    // ignore
+    return false;
   }
 }

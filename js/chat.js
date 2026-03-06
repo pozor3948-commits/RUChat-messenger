@@ -710,12 +710,19 @@ function updatePinnedBarUI(state) {
 
 async function syncPinnedFromDb() {
   if (!chatRef || !currentChatId) return;
+  // Сохраняем текущее состояние из localStorage — оно приоритетнее (пользователь мог открепить)
+  const localState = getPinnedState(currentChatId, isGroupChat);
   try {
     const last = await findLatestMetaEvent(chatRef);
     if (!last) return;
     if (String(last.type) === 'meta_pin' && last.pin && last.pin.id) {
+      // Если в localStorage уже есть закреплённое сообщение с тем же ID — не перезаписываем
+      if (localState && localState.id === last.pin.id) return;
+      // Если в localStorage пусто (было откреплено) — не перезаписываем БД
+      if (!localState) return;
       setPinnedState(currentChatId, isGroupChat, { id: last.pin.id, preview: last.pin.preview || 'Сообщение', at: last.time || Date.now(), from: last.pin.from || '' });
     } else if (String(last.type) === 'meta_unpin') {
+      // Если в БД meta_unpin — синхронизируем localStorage
       setPinnedState(currentChatId, isGroupChat, null);
     }
   } catch {
@@ -1803,7 +1810,7 @@ function addMessageToChat(m, options = {}) {
         content = `
           ${forwardedHtml}${replyHtml}${renderText ? `<div class="message-text">${escapeHtml(renderText)}</div>` : ''}
           <div class="message-video js-video-message">
-            <video src="${videoUrl}" preload="metadata"></video>
+            <video src="${videoUrl}" controls preload="metadata" onclick="openMedia('${videoUrl}')"></video>
           </div>
           ${m.duration ? `<div class="video-duration">${m.duration} сек</div>` : ''}
           <div class="message-media-actions">
@@ -1953,7 +1960,7 @@ function revealDeferredMedia(messageId) {
 
     if (kind === 'video_message') {
       const wrap = document.createElement('div');
-      wrap.className = 'message-video';
+      wrap.className = 'message-video js-video-message';
       wrap.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -1964,6 +1971,8 @@ function revealDeferredMedia(messageId) {
       const v = document.createElement('video');
       v.src = url;
       v.preload = 'metadata';
+      v.controls = true;
+      v.className = 'message-media';
       wrap.appendChild(v);
       host.appendChild(wrap);
       return;
