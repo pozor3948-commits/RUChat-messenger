@@ -530,7 +530,6 @@ async function sendVoiceMessage(audioData, isTest = false) {
             audio: audioData,
             time: Date.now(),
             sent: true,
-            delivered: false,
             read: false,
             status: 'sent',
             clientMessageId: (typeof createClientMessageId === 'function') ? createClientMessageId() : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
@@ -727,12 +726,11 @@ async function sendMediaMessage(type, data, filename, filesize) {
     }
     
     try {
-        const msg = { 
-            from: username, 
-            time: Date.now(), 
-            sent: true, 
-            delivered: false, 
-            read: false, 
+        const msg = {
+            from: username,
+            time: Date.now(),
+            sent: true,
+            read: false,
             status: 'sent',
             clientMessageId: (typeof createClientMessageId === 'function') ? createClientMessageId() : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
         };

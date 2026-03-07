@@ -66,8 +66,12 @@ function sleepMs(ms) {
 async function renderMessagesBatched(list, options, batchSize = 12) {
   const items = Array.isArray(list) ? list : [];
   if (!items.length) return;
-  for (let i = 0; i < items.length; i += batchSize) {
-    const slice = items.slice(i, i + batchSize);
+  
+  // Сортируем сообщения по времени перед рендерингом
+  const sortedItems = [...items].sort(compareMessagesChronologically);
+  
+  for (let i = 0; i < sortedItems.length; i += batchSize) {
+    const slice = sortedItems.slice(i, i + batchSize);
     for (const m of slice) addMessageToChat(m, options);
     // даем браузеру отрисовать ввод/скролл на слабых мобилках
     await new Promise(requestAnimationFrame);
@@ -211,7 +215,6 @@ function getOutgoingMessageStatus(message) {
   if (!message) return 'sent';
   if (message.error) return 'error';
   if (message.read) return 'read';
-  if (message.delivered) return 'delivered';
   if (message.sent) return 'sent';
   return 'sent';
 }
@@ -919,7 +922,6 @@ function writeChatCache(path, items) {
       text: m.text || '',
       time: m.time || 0,
       sent: !!m.sent,
-      delivered: !!m.delivered,
       read: !!m.read,
       edited: !!m.edited,
       editedAt: m.editedAt || 0,
@@ -1777,8 +1779,7 @@ function addMessageToChat(m, options = {}) {
   }
 
   if (opts.notify && m.from !== username && chatRef) {
-    const updates = { delivered: true };
-    if (!isGroupChat) updates.read = true;
+    const updates = { read: true };
     chatRef.child(m.id).update(updates).catch(() => {});
   }
   
@@ -2230,7 +2231,6 @@ async function forwardMessage(messageId, e) {
     from: username,
     time: Date.now(),
     sent: true,
-    delivered: false,
     read: false,
     status: 'sent',
     clientMessageId: createClientMessageId(),
@@ -2310,7 +2310,6 @@ async function togglePinMessage(messageId, e) {
     from: username,
     time: Date.now(),
     sent: true,
-    delivered: false,
     read: false,
     status: 'sent',
     meta: true,
@@ -2345,7 +2344,6 @@ async function unpinCurrentChatMessage() {
     from: username,
     time: Date.now(),
     sent: true,
-    delivered: false,
     read: false,
     status: 'sent',
     meta: true,
@@ -3124,7 +3122,6 @@ function markCurrentChatAsRead() {
     snap.forEach(ch => {
       const m = ch.val() || {};
       if (m.from === username) return;
-      if (!m.delivered) updates[`${ch.key}/delivered`] = true;
       if (!isGroupChat && !m.read) updates[`${ch.key}/read`] = true;
     });
     if (Object.keys(updates).length) chatRef.update(updates).catch(() => {});
@@ -3163,7 +3160,7 @@ async function sendMessage() {
       return;
     }
     const expiresAt = typeof getEphemeralExpiresAt === 'function' ? getEphemeralExpiresAt() : null;
-    const msg = { from: username, text: txt, time: Date.now(), sent: true, delivered: false, read: false, status: 'sent', clientMessageId: createClientMessageId() };
+    const msg = { from: username, text: txt, time: Date.now(), sent: true, read: false, status: 'sent', clientMessageId: createClientMessageId() };
     if (getSilentSend(currentChatId, isGroupChat)) msg.silent = true;
     if (expiresAt) msg.expiresAt = expiresAt;
     if (replyToMessage) {

@@ -131,7 +131,6 @@ async function sendSticker(stickerId) {
     from: username,
     time: Date.now(),
     sent: true,
-    delivered: false,
     read: false,
     status: 'sent',
     clientMessageId: (typeof createClientMessageId === 'function') ? createClientMessageId() : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,

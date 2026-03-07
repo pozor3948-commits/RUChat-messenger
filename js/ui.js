@@ -451,9 +451,11 @@ function createSnowflake() {
     snowflake.style.left = Math.random() * 100 + 'vw';
     snowflake.style.animationDuration = (Math.random() * 3 + 5) + 's';
     snowflake.style.opacity = Math.random() * 0.7 + 0.3;
-    snowflake.style.fontSize = (Math.random() * 10 + 10) + 'px';
+    const size = Math.random() * 4 + 2; // 2-6px
+    snowflake.style.width = size + 'px';
+    snowflake.style.height = size + 'px';
     document.getElementById('snowflakes-container')?.appendChild(snowflake);
-    
+
     // Удаляем снежинку после окончания анимации
     setTimeout(() => {
         snowflake.remove();
@@ -467,10 +469,10 @@ function startSnowflakes() {
         container.id = 'snowflakes-container';
         document.body.appendChild(container);
     }
-    
+
     // Создаём снежинки
     createSnowflake();
-    snowflakesInterval = setInterval(createSnowflake, 200);
+    snowflakesInterval = setInterval(createSnowflake, 100);
 }
 
 function stopSnowflakes() {
