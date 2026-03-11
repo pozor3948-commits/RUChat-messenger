@@ -20,6 +20,8 @@ let remoteAudioEl = null;
 let ringtoneAudio = null;
 let ringbackAudio = null;
 let ringtoneInterval = null;
+let iceCandidateQueue = [];
+let isCaller = false;
 
 function ensureRemoteAudioEl() {
     if (!remoteAudioEl) {
@@ -38,7 +40,8 @@ const rtcConfiguration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' }
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' }
     ]
 };
 
@@ -54,12 +57,18 @@ async function startAudioCall() {
     }
 
     try {
+        console.log('[WebRTC] Начинаем звонок с', currentChatPartner);
+        
+        // Сбрасываем очередь ICE кандидатов
+        iceCandidateQueue = [];
+        isCaller = true;
+        
         // Показываем UI звонка
         showCallUI(currentChatPartner, 'outgoing');
         ensureRemoteAudioEl();
-        
+
         // Получаем доступ к микрофону
-        localStream = await navigator.mediaDevices.getUserMedia({ 
+        localStream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 echoCancellation: true,
                 noiseSuppression: true,
@@ -67,45 +76,64 @@ async function startAudioCall() {
             },
             video: false
         });
+        console.log('[WebRTC] Микрофон получен');
 
         // Создаем PeerConnection
         peerConnection = new RTCPeerConnection(rtcConfiguration);
+        console.log('[WebRTC] PeerConnection создан');
 
         // Добавляем локальный поток
         localStream.getTracks().forEach(track => {
             peerConnection.addTrack(track, localStream);
+            console.log('[WebRTC] Трек добавлен:', track.kind);
         });
 
         // Обработка удаленного потока
         peerConnection.ontrack = (event) => {
+            console.log('[WebRTC] Получен удаленный трек:', event.streams[0]);
             ensureRemoteAudioEl();
             remoteAudioEl.srcObject = event.streams[0];
             remoteAudioEl.volume = 1.0;
             remoteAudioEl.muted = false;
-            remoteAudioEl.play().catch(() => {});
+            remoteAudioEl.play().catch(err => console.error('[WebRTC] Ошибка play:', err));
         };
-        
+
         peerConnection.onconnectionstatechange = () => {
-            if (peerConnection.connectionState === 'failed') {
+            console.log('[WebRTC] Состояние соединения:', peerConnection.connectionState);
+            if (peerConnection.connectionState === 'connected') {
+                document.getElementById('callStatus').textContent = 'Соединено';
+                stopCallSound();
+                startCallTimer();
+            } else if (peerConnection.connectionState === 'failed') {
                 showNotification('Звонок', 'Соединение не удалось', 'error');
                 endCall();
             }
         };
 
+        peerConnection.oniceconnectionstatechange = () => {
+            console.log('[WebRTC] ICE состояние:', peerConnection.iceConnectionState);
+        };
+
         // Обработка ICE candidates
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                // Отправляем candidate собеседнику через Firebase
+                console.log('[WebRTC] Отправляем ICE кандидат');
                 db.ref(`calls/${currentChatId}/candidates`).push({
                     candidate: event.candidate,
                     from: username
                 });
+            } else {
+                console.log('[WebRTC] Все ICE кандидаты отправлены');
             }
         };
 
         // Создаем offer
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
+        console.log('[WebRTC] Offer создан и установлен как local');
+
+        // Ждём немного для сбора ICE кандидатов
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Сохраняем информацию о звонке в Firebase
         const callData = {
@@ -113,29 +141,30 @@ async function startAudioCall() {
             to: currentChatPartner,
             offer: {
                 type: offer.type,
-                sdp: offer.sdp
+                sdp: peerConnection.localDescription.sdp
             },
             status: 'calling',
             timestamp: Date.now()
         };
 
         await db.ref(`calls/${currentChatId}`).set(callData);
-        
+        console.log('[WebRTC] Offer отправлен в Firebase');
+
         // Слушаем ответ
         listenForCallAnswer();
-        
+
         // Воспроизводим гудки
         playCallSound();
-        
+
     } catch (error) {
-        console.error('Ошибка при инициации звонка:', error);
-        
+        console.error('[WebRTC] Ошибка при инициации звонка:', error);
+
         if (error.name === 'NotAllowedError') {
             showNotification('Ошибка', 'Разрешите доступ к микрофону', 'error');
         } else {
             showNotification('Ошибка', 'Не удалось начать звонок', 'error');
         }
-        
+
         endCall();
     }
 }
@@ -193,29 +222,17 @@ function listenForCallAnswer() {
     callAnswerRef = db.ref(`calls/${currentChatId}`);
     callAnswerRef.on('value', async (snapshot) => {
         const callData = snapshot.val();
-        
+
         if (!callData) return;
-        
+
         if (callData.answer && callData.status === 'connected') {
             // Собеседник ответил
             if (peerConnection && peerConnection.signalingState === 'have-local-offer') {
-                const current = peerConnection.currentRemoteDescription;
-                if (!current || current.sdp !== callData.answer.sdp) {
-                    const answer = new RTCSessionDescription(callData.answer);
-                    await peerConnection.setRemoteDescription(answer);
-                }
+                console.log('[WebRTC] Получен answer, устанавливаем remote description');
+                const answer = new RTCSessionDescription(callData.answer);
+                await peerConnection.setRemoteDescription(answer);
+                console.log('[WebRTC] Answer установлен как remote');
             }
-            
-            // Запускаем таймер
-            startCallTimer();
-            
-            document.getElementById('callStatus').textContent = 'Соединено';
-            const callControls = document.querySelector('.call-controls');
-            if (callControls) callControls.style.display = 'flex';
-            
-            // Останавливаем гудки
-            stopCallSound();
-            stopRingtone();
         } else if (callData.status === 'rejected') {
             showNotification('Звонок', 'Собеседник отклонил звонок', 'warning');
             endCall();
@@ -223,20 +240,31 @@ function listenForCallAnswer() {
             endCall();
         }
     });
-    
+
     // Слушаем ICE candidates
     callCandidatesRef = db.ref(`calls/${currentChatId}/candidates`);
     callCandidatesRef.on('child_added', async (snapshot) => {
         const candidateData = snapshot.val();
         if (!candidateData || !candidateData.candidate) return;
         const c = candidateData.candidate;
-        if (c.sdpMid == null && c.sdpMLineIndex == null) return;
         
-        if (candidateData.from !== username && peerConnection) {
+        // Пропускаем своих кандидатов
+        if (candidateData.from === username) return;
+        
+        // Проверяем наличие sdpMid или sdpMLineIndex
+        if (c.sdpMid == null && c.sdpMLineIndex == null) {
+            console.log('[WebRTC] Пропущен ICE кандидат без sdpMid/sdpMLineIndex');
+            return;
+        }
+
+        console.log('[WebRTC] Получен ICE кандидат от', candidateData.from);
+        
+        if (peerConnection) {
             try {
                 await peerConnection.addIceCandidate(new RTCIceCandidate(c));
+                console.log('[WebRTC] ICE кандидат добавлен');
             } catch (error) {
-                console.error('ICE candidate error:', error);
+                console.error('[WebRTC] Ошибка добавления ICE кандидата:', error);
             }
         }
     });
@@ -245,59 +273,92 @@ function listenForCallAnswer() {
 // Принять входящий звонок
 async function acceptIncomingCall(callData) {
     try {
-        ensureRemoteAudioEl();
-        // Получаем доступ к микрофону
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('[WebRTC] Принимаем входящий звонок от', callData.from);
         
+        // Сбрасываем очередь ICE кандидатов
+        iceCandidateQueue = [];
+        isCaller = false;
+        
+        ensureRemoteAudioEl();
+        
+        // Получаем доступ к микрофону
+        localStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            },
+            video: false
+        });
+        console.log('[WebRTC] Микрофон получен');
+
         // Создаем PeerConnection
         peerConnection = new RTCPeerConnection(rtcConfiguration);
-        
+        console.log('[WebRTC] PeerConnection создан');
+
         localStream.getTracks().forEach(track => {
             peerConnection.addTrack(track, localStream);
+            console.log('[WebRTC] Трек добавлен:', track.kind);
         });
-        
+
         peerConnection.ontrack = (event) => {
+            console.log('[WebRTC] Получен удаленный трек:', event.streams[0]);
             ensureRemoteAudioEl();
             remoteAudioEl.srcObject = event.streams[0];
             remoteAudioEl.volume = 1.0;
             remoteAudioEl.muted = false;
-            remoteAudioEl.play().catch(() => {});
+            remoteAudioEl.play().catch(err => console.error('[WebRTC] Ошибка play:', err));
         };
 
         peerConnection.onconnectionstatechange = () => {
-            if (peerConnection.connectionState === 'failed') {
+            console.log('[WebRTC] Состояние соединения:', peerConnection.connectionState);
+            if (peerConnection.connectionState === 'connected') {
+                document.getElementById('callStatus').textContent = 'Соединено';
+                startCallTimer();
+            } else if (peerConnection.connectionState === 'failed') {
                 showNotification('Звонок', 'Соединение не удалось', 'error');
                 endCall();
             }
         };
-        
+
+        peerConnection.oniceconnectionstatechange = () => {
+            console.log('[WebRTC] ICE состояние:', peerConnection.iceConnectionState);
+        };
+
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
+                console.log('[WebRTC] Отправляем ICE кандидат');
                 db.ref(`calls/${currentChatId}/candidates`).push({
                     candidate: event.candidate,
                     from: username
                 });
+            } else {
+                console.log('[WebRTC] Все ICE кандидаты отправлены');
             }
         };
-        
+
         // Устанавливаем удаленное описание из offer
-        if (!peerConnection.currentRemoteDescription) {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
-        }
-        
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+        console.log('[WebRTC] Offer установлен как remote');
+
         // Создаем answer
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
-        
+        console.log('[WebRTC] Answer создан и установлен как local');
+
+        // Ждём немного для сбора ICE кандидатов
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         // Отправляем answer через Firebase
         await db.ref(`calls/${currentChatId}`).update({
             answer: {
                 type: answer.type,
-                sdp: answer.sdp
+                sdp: peerConnection.localDescription.sdp
             },
             status: 'connected'
         });
-        
+        console.log('[WebRTC] Answer отправлен в Firebase');
+
         stopRingtone();
         startCallTimer();
         document.getElementById('callStatus').textContent = 'Соединено';
@@ -349,31 +410,33 @@ function resetCallStateLocal() {
 // Завершить звонок
 async function endCall() {
     try {
+        console.log('[WebRTC] Завершаем звонок');
+        
         // Останавливаем таймер
         if (callTimer) {
             clearInterval(callTimer);
             callTimer = null;
             callDuration = 0;
         }
-        
+
         // Останавливаем локальный поток
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
             localStream = null;
         }
-        
+
         // Закрываем peer connection
         if (peerConnection) {
             peerConnection.close();
             peerConnection = null;
         }
-        
+
         if (remoteAudioEl) {
             remoteAudioEl.srcObject = null;
             remoteAudioEl.remove();
             remoteAudioEl = null;
         }
-        
+
         if (callAnswerRef) {
             callAnswerRef.off();
             callAnswerRef = null;
@@ -392,22 +455,25 @@ async function endCall() {
             db.ref(`calls/${currentChatId}/candidates`).remove();
             db.ref(`calls/${currentChatId}`).off();
         }
-        
+
+        // Сбрасываем очередь
+        iceCandidateQueue = [];
+
         // Скрываем UI
         hideCallUI();
-        
+
         // Останавливаем звук
         stopCallSound();
         stopRingtone();
-        
+
         // Сбрасываем состояние
         isMuted = false;
         isSpeakerOn = true;
-        
+
         showNotification('Звонок', 'Звонок завершен', 'info');
-        
+
     } catch (error) {
-        console.error('Ошибка при завершении звонка:', error);
+        console.error('[WebRTC] Ошибка при завершении звонка:', error);
         hideCallUI();
     }
 }
@@ -595,14 +661,8 @@ function acceptIncomingCallFromUI() {
     if (!pendingIncomingCall || !pendingIncomingCallId) return;
     currentChatId = pendingIncomingCallId;
     currentChatPartner = pendingIncomingCall.from;
-    showCallUI(pendingIncomingCall.from, 'connected');
-    const incomingControls = document.getElementById('callIncomingControls');
-    if (incomingControls) {
-        incomingControls.classList.remove('active');
-        incomingControls.style.display = 'none';
-    }
-    stopCallSound();
     stopRingtone();
+    stopCallSound();
     acceptIncomingCall(pendingIncomingCall);
     pendingIncomingCall = null;
     pendingIncomingCallId = null;
