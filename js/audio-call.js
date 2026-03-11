@@ -38,10 +38,17 @@ function ensureRemoteAudioEl() {
 // Конфигурация STUN/TURN серверов
 const rtcConfiguration = {
     iceServers: [
+        // STUN серверы Google (бесплатно)
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' }
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        
+        // Публичные TURN серверы (бесплатно для тестов)
+        { urls: 'turn:openrelay.metered.ca:80' },
+        { urls: 'turn:openrelay.metered.ca:443' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp' }
     ]
 };
 
@@ -117,14 +124,19 @@ async function startAudioCall() {
         // Обработка ICE candidates
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                console.log('[WebRTC] Отправляем ICE кандидат');
+                console.log('[WebRTC] Отправляем ICE кандидат:', event.candidate.type, event.candidate.address);
                 db.ref(`calls/${currentChatId}/candidates`).push({
                     candidate: event.candidate,
                     from: username
                 });
             } else {
-                console.log('[WebRTC] Все ICE кандидаты отправлены');
+                console.log('[WebRTC] Все ICE кандидаты отправлены (end of candidates)');
             }
+        };
+        
+        // Получаем ICE кандидатов от удалённой стороны
+        peerConnection.onicecandidateerror = (event) => {
+            console.error('[WebRTC] Ошибка ICE кандидата:', event);
         };
 
         // Создаем offer
@@ -249,7 +261,9 @@ function listenForCallAnswer() {
         const c = candidateData.candidate;
         
         // Пропускаем своих кандидатов
-        if (candidateData.from === username) return;
+        if (candidateData.from === username) {
+            return;
+        }
         
         // Проверяем наличие sdpMid или sdpMLineIndex
         if (c.sdpMid == null && c.sdpMLineIndex == null) {
@@ -257,14 +271,14 @@ function listenForCallAnswer() {
             return;
         }
 
-        console.log('[WebRTC] Получен ICE кандидат от', candidateData.from);
+        console.log('[WebRTC] Получен ICE кандидат от', candidateData.from, 'type:', c.type, 'address:', c.address);
         
         if (peerConnection) {
             try {
                 await peerConnection.addIceCandidate(new RTCIceCandidate(c));
-                console.log('[WebRTC] ICE кандидат добавлен');
+                console.log('[WebRTC] ICE кандидат добавлен успешно');
             } catch (error) {
-                console.error('[WebRTC] Ошибка добавления ICE кандидата:', error);
+                console.error('[WebRTC] Ошибка добавления ICE кандидата:', error.message, c);
             }
         }
     });
@@ -315,9 +329,25 @@ async function acceptIncomingCall(callData) {
             if (peerConnection.connectionState === 'connected') {
                 document.getElementById('callStatus').textContent = 'Соединено';
                 startCallTimer();
+                
+                // Вывод статистики для отладки
+                peerConnection.getStats().then(stats => {
+                    stats.forEach(report => {
+                        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                            console.log('[WebRTC] Статистика:', {
+                                localCandidate: report.localCandidateId,
+                                remoteCandidate: report.remoteCandidateId,
+                                bytesSent: report.bytesSent,
+                                bytesReceived: report.bytesReceived
+                            });
+                        }
+                    });
+                });
             } else if (peerConnection.connectionState === 'failed') {
                 showNotification('Звонок', 'Соединение не удалось', 'error');
                 endCall();
+            } else if (peerConnection.connectionState === 'disconnected') {
+                console.log('[WebRTC] Соединение разорвано');
             }
         };
 
@@ -327,14 +357,18 @@ async function acceptIncomingCall(callData) {
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                console.log('[WebRTC] Отправляем ICE кандидат');
+                console.log('[WebRTC] Отправляем ICE кандидат:', event.candidate.type, event.candidate.address);
                 db.ref(`calls/${currentChatId}/candidates`).push({
                     candidate: event.candidate,
                     from: username
                 });
             } else {
-                console.log('[WebRTC] Все ICE кандидаты отправлены');
+                console.log('[WebRTC] Все ICE кандидаты отправлены (end of candidates)');
             }
+        };
+        
+        peerConnection.onicecandidateerror = (event) => {
+            console.error('[WebRTC] Ошибка ICE кандидата:', event);
         };
 
         // Устанавливаем удаленное описание из offer
