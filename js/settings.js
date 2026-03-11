@@ -316,7 +316,10 @@ function showSettingsMenu() {
             { id: 'black', label: 'Чёрная' },
             { id: 'green', label: 'Зелёная' },
             { id: 'purple', label: 'Фиолетовая' },
-            { id: 'snow', label: 'Снежная' }
+            { id: 'snow', label: 'Снежная' },
+            { id: 'rain', label: 'Дождливая' },
+            { id: 'leaves', label: 'Осенняя' },
+            { id: 'birds', label: 'Небесная' }
         ];
 
         themeSection.innerHTML = `
@@ -331,7 +334,99 @@ function showSettingsMenu() {
                     `).join('')}
                 </div>
             </div>
+            
+            <div class="settings-card" id="themeColorCard" style="display:none;">
+                <div class="settings-card-title">Цвет темы</div>
+                <div class="settings-theme-color-grid" id="themeColorOptions"></div>
+                <div class="settings-note">Выберите цвет для эффектов текущей темы</div>
+            </div>
         `;
+
+        // Цветовые варианты для каждой темы
+        const colorOptions = {
+            snow: [
+                { id: 'white', label: 'Белый', color: '#ffffff' },
+                { id: 'blue', label: 'Голубой', color: '#7dd3fc' },
+                { id: 'pink', label: 'Розовый', color: '#f9a8d4' }
+            ],
+            rain: [
+                { id: 'default', label: 'Серый', color: '#94a3b8' },
+                { id: 'blue', label: 'Синий', color: '#38bdf8' },
+                { id: 'green', label: 'Зелёный', color: '#34d399' },
+                { id: 'purple', label: 'Фиолетовый', color: '#c084fc' }
+            ],
+            leaves: [
+                { id: 'default', label: 'Жёлтый', color: '#fbbf24' },
+                { id: 'autumn', label: 'Красный', color: '#ef4444' },
+                { id: 'gold', label: 'Золотой', color: '#eab308' },
+                { id: 'orange', label: 'Оранжевый', color: '#f97316' }
+            ],
+            birds: [
+                { id: 'default', label: 'Обычный', color: '#ffffff' },
+                { id: 'sunset', label: 'Закат', color: '#fdba74' },
+                { id: 'dawn', label: 'Рассвет', color: '#fb92eb' },
+                { id: 'white', label: 'Белый', color: '#f1f5f9' },
+                { id: 'blue', label: 'Синий', color: '#38bdf8' }
+            ]
+        };
+
+        const showColorOptions = (themeId) => {
+            const colorCard = document.getElementById('themeColorCard');
+            const colorOptionsContainer = document.getElementById('themeColorOptions');
+            
+            if (!colorOptions[themeId]) {
+                colorCard.style.display = 'none';
+                return;
+            }
+            
+            colorCard.style.display = 'block';
+            colorOptionsContainer.innerHTML = colorOptions[themeId].map(color => `
+                <button class="settings-theme-color-option" type="button" data-color="${color.id}" data-theme="${themeId}">
+                    <span class="settings-theme-color-swatch" style="background: ${color.color}"></span>
+                    <span class="settings-theme-color-label">${color.label}</span>
+                </button>
+            `).join('');
+            
+            // Добавляем обработчики для цветов
+            colorOptionsContainer.querySelectorAll('.settings-theme-color-option').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const color = btn.dataset.color;
+                    const theme = btn.dataset.theme;
+
+                    if (theme === 'rain') {
+                        localStorage.setItem('ruchat_rain_color', color);
+                        applyRainBackground(color);
+                    } else if (theme === 'leaves') {
+                        localStorage.setItem('ruchat_leaves_color', color);
+                        applyLeavesBackground(color);
+                    } else if (theme === 'birds') {
+                        localStorage.setItem('ruchat_birds_color', color);
+                        applyBirdsBackground(color);
+                    } else if (theme === 'snow') {
+                        localStorage.setItem('ruchat_snow_color', color);
+                        applySnowBackground(color);
+                    }
+
+                    // Обновляем выделение
+                    colorOptionsContainer.querySelectorAll('.settings-theme-color-option').forEach(b => {
+                        b.classList.toggle('active', b === btn);
+                    });
+
+                    showNotification('Цвет темы', `Установлен цвет: ${btn.querySelector('.settings-theme-color-label').textContent}`, 'info');
+                });
+            });
+            
+            // Обновляем выделение текущего цвета
+            const currentColorKey = themeId === 'rain' ? 'ruchat_rain_color' :
+                                    themeId === 'leaves' ? 'ruchat_leaves_color' :
+                                    themeId === 'birds' ? 'ruchat_birds_color' :
+                                    themeId === 'snow' ? 'ruchat_snow_color' : null;
+            
+            const currentColor = currentColorKey ? localStorage.getItem(currentColorKey) || 'default' : 'default';
+            colorOptionsContainer.querySelectorAll('.settings-theme-color-option').forEach(b => {
+                b.classList.toggle('active', b.dataset.color === currentColor);
+            });
+        };
 
         updateThemeButtons = () => {
             const currentTheme = (typeof window.getCurrentTheme === 'function')
@@ -340,6 +435,9 @@ function showSettingsMenu() {
             themeSection.querySelectorAll('.settings-theme-option').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.theme === currentTheme);
             });
+            
+            // Показываем опции цвета для текущей темы
+            showColorOptions(currentTheme);
         };
 
         themeSection.querySelectorAll('.settings-theme-option').forEach(btn => {

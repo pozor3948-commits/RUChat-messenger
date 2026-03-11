@@ -6445,22 +6445,24 @@ body.theme-auto-night .pinned-preview {
 
 /* ===== Снежная тема ===== */
 body.theme-snow {
-    background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+    background: linear-gradient(135deg, rgba(30, 58, 95, 0.85), rgba(45, 90, 135, 0.85)),
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3CradialGradient id='snowGlow' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%237dd3fc' stop-opacity='0.3'/%3E%3Cstop offset='100%25' stop-color='%237dd3fc' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect fill='%231e3a5f' width='1920' height='1080'/%3E%3Ccircle fill='url(%23snowGlow)' cx='300' cy='200' r='400'/%3E%3Ccircle fill='url(%23snowGlow)' cx='1600' cy='800' r='500'/%3E%3Ccircle fill='%23ffffff' opacity='0.4' cx='100' cy='100' r='2'/%3E%3Ccircle fill='%23ffffff' opacity='0.3' cx='500' cy='300' r='1.5'/%3E%3Ccircle fill='%23ffffff' opacity='0.5' cx='900' cy='150' r='1'/%3E%3Ccircle fill='%23ffffff' opacity='0.35' cx='1400' cy='400' r='2'/%3E%3Ccircle fill='%23ffffff' opacity='0.4' cx='1800' cy='250' r='1.5'/%3E%3Ccircle fill='%23ffffff' opacity='0.3' cx='300' cy='700' r='1'/%3E%3Ccircle fill='%23ffffff' opacity='0.45' cx='700' cy='900' r='2'/%3E%3Ccircle fill='%23ffffff' opacity='0.3' cx='1200' cy='600' r='1.5'/%3E%3Ccircle fill='%23ffffff' opacity='0.4' cx='1700' cy='950' r='1'/%3E%3C/svg%3E");
+    background-size: cover;
+    background-position: center;
     color: #e0f2fe;
 }
 
 body.theme-snow .sidebar {
-    background: linear-gradient(180deg, #2d5a87, #1e3a5f);
+    background: linear-gradient(180deg, rgba(45, 90, 135, 0.9), rgba(30, 58, 95, 0.95));
     border-right-color: rgba(125, 211, 252, 0.2);
 }
 
 body.theme-snow .chat-container {
-    background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+    background: transparent;
 }
 
 body.theme-snow .chat-container::before {
-    background: radial-gradient(circle at 20% 80%, rgba(125, 211, 252, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(56, 189, 248, 0.1) 0%, transparent 50%);
+    content: none;
 }
 
 body.theme-snow .chat-header,
@@ -6594,4 +6596,750 @@ body.theme-snow .pinned-preview {
 
 .settings-theme-option[data-theme="snow"] .settings-theme-swatch {
     background: linear-gradient(135deg, #1e3a5f 0%, #7dd3fc 100%);
+}
+
+/* ===== Тема: Дождь ===== */
+body.theme-rain {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.85)),
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='rainStreak' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2394a3b8' stop-opacity='0.3'/%3E%3Cstop offset='100%25' stop-color='%2394a3b8' stop-opacity='0'/%3E%3C/linearGradient%3E%3ClinearGradient id='rainGlow' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%231e293b' stop-opacity='0.8'/%3E%3Cstop offset='100%25' stop-color='%230f172a' stop-opacity='0.9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23rainGlow)' width='1920' height='1080'/%3E%3Crect fill='url(%23rainStreak)' x='200' y='0' width='1' height='150'/%3E%3Crect fill='url(%23rainStreak)' x='400' y='100' width='1' height='180'/%3E%3Crect fill='url(%23rainStreak)' x='600' y='50' width='1' height='160'/%3E%3Crect fill='url(%23rainStreak)' x='800' y='80' width='1' height='170'/%3E%3Crect fill='url(%23rainStreak)' x='1000' y='30' width='1' height='150'/%3E%3Crect fill='url(%23rainStreak)' x='1200' y='120' width='1' height='180'/%3E%3Crect fill='url(%23rainStreak)' x='1400' y='60' width='1' height='160'/%3E%3Crect fill='url(%23rainStreak)' x='1600' y='90' width='1' height='170'/%3E%3Crect fill='url(%23rainStreak)' x='300' y='200' width='1' height='140'/%3E%3Crect fill='url(%23rainStreak)' x='700' y='250' width='1' height='150'/%3E%3Crect fill='url(%23rainStreak)' x='1100' y='220' width='1' height='160'/%3E%3Crect fill='url(%23rainStreak)' x='1500' y='280' width='1' height='140'/%3E%3Ccircle fill='%2364748b' opacity='0.15' cx='400' cy='400' r='200'/%3E%3Ccircle fill='%2364748b' opacity='0.1' cx='1400' cy='600' r='250'/%3E%3C/svg%3E");
+    background-size: cover;
+    background-position: center;
+    color: #e2e8f0;
+}
+
+body.theme-rain .sidebar {
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+    border-right-color: rgba(148, 163, 184, 0.2);
+}
+
+body.theme-rain .chat-container {
+    background: transparent;
+}
+
+body.theme-rain .chat-container::before {
+    content: none;
+}
+
+body.theme-rain .chat-header,
+body.theme-rain .stories-container,
+body.theme-rain .message-input-container,
+body.theme-rain .mobile-header {
+    background: rgba(15, 23, 42, 0.85);
+    border-color: rgba(148, 163, 184, 0.2);
+}
+
+body.theme-rain .message.other {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(51, 65, 85, 0.8));
+}
+
+body.theme-rain .message.me {
+    background: linear-gradient(135deg, rgba(148, 163, 184, 0.7), rgba(100, 116, 139, 0.8));
+}
+
+body.theme-rain .icon-btn,
+body.theme-rain .attachment-btn {
+    background: linear-gradient(45deg, rgba(148, 163, 184, 0.25), rgba(100, 116, 139, 0.2));
+    border-color: rgba(148, 163, 184, 0.25);
+    color: #cbd5e1;
+}
+
+body.theme-rain .send-btn.active {
+    background: linear-gradient(45deg, #94a3b8, #64748b);
+}
+
+body.theme-rain .message-input,
+body.theme-rain .search-input {
+    background: rgba(15, 23, 42, 0.5);
+    border-color: rgba(148, 163, 184, 0.25);
+    color: #e2e8f0;
+}
+
+body.theme-rain .message-input::placeholder {
+    color: rgba(203, 213, 225, 0.5);
+}
+
+body.theme-rain .chat-title,
+body.theme-rain .user-name,
+body.theme-rain .contact-name {
+    background: linear-gradient(45deg, #94a3b8, #64748b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.theme-rain .chat-members {
+    color: #2dd4bf;
+}
+
+body.theme-rain .last-message,
+body.theme-rain .menu-title,
+body.theme-rain .last-seen {
+    color: #94a3b8;
+}
+
+body.theme-rain .contact-item:hover,
+body.theme-rain .group-item:hover {
+    background: linear-gradient(90deg, rgba(148, 163, 184, 0.2), rgba(100, 116, 139, 0.15));
+}
+
+body.theme-rain .user-avatar {
+    border-color: #64748b;
+}
+
+body.theme-rain .story-avatar {
+    border-color: #94a3b8;
+}
+
+body.theme-rain .pinned-bar {
+    background: rgba(15, 23, 42, 0.9);
+    border-bottom-color: rgba(148, 163, 184, 0.25);
+}
+
+body.theme-rain .pinned-title {
+    color: #94a3b8;
+}
+
+body.theme-rain .pinned-preview {
+    color: #e2e8f0;
+}
+
+/* Цветовые варианты для темы дождя */
+body.theme-rain-blue {
+    background: linear-gradient(135deg, #0c1420 0%, #1a2744 50%, #2d3f5f 100%);
+}
+
+body.theme-rain-blue .chat-container {
+    background: linear-gradient(135deg, #0c1420 0%, #1a2744 100%);
+}
+
+body.theme-rain-blue .message.me {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.7), rgba(14, 165, 233, 0.8));
+}
+
+body.theme-rain-blue .send-btn.active {
+    background: linear-gradient(45deg, #38bdf8, #0ea5e9);
+}
+
+body.theme-rain-blue .chat-title,
+body.theme-rain-blue .user-name,
+body.theme-rain-blue .contact-name {
+    background: linear-gradient(45deg, #38bdf8, #0ea5e9);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.theme-rain-blue .chat-members {
+    color: #7dd3fc;
+}
+
+body.theme-rain-green {
+    background: linear-gradient(135deg, #0a1f14 0%, #143d2a 50%, #1f5c42 100%);
+}
+
+body.theme-rain-green .chat-container {
+    background: linear-gradient(135deg, #0a1f14 0%, #143d2a 100%);
+}
+
+body.theme-rain-green .message.me {
+    background: linear-gradient(135deg, rgba(52, 211, 153, 0.7), rgba(16, 185, 129, 0.8));
+}
+
+body.theme-rain-green .send-btn.active {
+    background: linear-gradient(45deg, #34d399, #10b981);
+}
+
+body.theme-rain-green .chat-title,
+body.theme-rain-green .user-name,
+body.theme-rain-green .contact-name {
+    background: linear-gradient(45deg, #34d399, #10b981);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.theme-rain-green .chat-members {
+    color: #6ee7b7;
+}
+
+body.theme-rain-purple {
+    background: linear-gradient(135deg, #1a0f2e 0%, #2d1f4e 50%, #4a2f7a 100%);
+}
+
+body.theme-rain-purple .chat-container {
+    background: linear-gradient(135deg, #1a0f2e 0%, #2d1f4e 100%);
+}
+
+body.theme-rain-purple .message.me {
+    background: linear-gradient(135deg, rgba(192, 132, 252, 0.7), rgba(168, 85, 247, 0.8));
+}
+
+body.theme-rain-purple .send-btn.active {
+    background: linear-gradient(45deg, #c084fc, #a855f7);
+}
+
+body.theme-rain-purple .chat-title,
+body.theme-rain-purple .user-name,
+body.theme-rain-purple .contact-name {
+    background: linear-gradient(45deg, #c084fc, #a855f7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.theme-rain-purple .chat-members {
+    color: #e9d5ff;
+}
+
+/* ===== Тема: Падающие листья ===== */
+body.theme-leaves {
+    background: linear-gradient(135deg, #3d2817 0%, #5c3a21 50%, #7a4f29 100%);
+    color: #fef3c7;
+}
+
+body.theme-leaves .sidebar {
+    background: linear-gradient(180deg, #5c3a21, #3d2817);
+    border-right-color: rgba(251, 191, 36, 0.2);
+}
+
+body.theme-leaves .chat-container {
+    background: linear-gradient(135deg, #3d2817 0%, #5c3a21 100%);
+}
+
+body.theme-leaves .chat-container::before {
+    background: radial-gradient(circle at 20% 80%, rgba(251, 191, 36, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(245, 158, 11, 0.1) 0%, transparent 50%);
+}
+
+body.theme-leaves .chat-header,
+body.theme-leaves .stories-container,
+body.theme-leaves .message-input-container,
+body.theme-leaves .mobile-header {
+    background: rgba(61, 40, 23, 0.85);
+    border-color: rgba(251, 191, 36, 0.2);
+}
+
+body.theme-leaves .message.other {
+    background: linear-gradient(135deg, rgba(92, 58, 33, 0.7), rgba(122, 79, 41, 0.8));
+}
+
+body.theme-leaves .message.me {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.7), rgba(245, 158, 11, 0.8));
+}
+
+body.theme-leaves .icon-btn,
+body.theme-leaves .attachment-btn {
+    background: linear-gradient(45deg, rgba(251, 191, 36, 0.25), rgba(245, 158, 11, 0.2));
+    border-color: rgba(251, 191, 36, 0.25);
+    color: #fde68a;
+}
+
+body.theme-leaves .send-btn.active {
+    background: linear-gradient(45deg, #fbbf24, #f59e0b);
+}
+
+body.theme-leaves .message-input,
+body.theme-leaves .search-input {
+    background: rgba(61, 40, 23, 0.5);
+    border-color: rgba(251, 191, 36, 0.25);
+    color: #fef3c7;
+}
+
+body.theme-leaves .message-input::placeholder {
+    color: rgba(253, 230, 138, 0.5);
+}
+
+body.theme-leaves .chat-title,
+body.theme-leaves .user-name,
+body.theme-leaves .contact-name {
+    background: linear-gradient(45deg, #fbbf24, #f59e0b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.theme-leaves .chat-members {
+    color: #86efac;
+}
+
+body.theme-leaves .last-message,
+body.theme-leaves .menu-title,
+body.theme-leaves .last-seen {
+    color: #fbbf24;
+}
+
+body.theme-leaves .contact-item:hover,
+body.theme-leaves .group-item:hover {
+    background: linear-gradient(90deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.15));
+}
+
+body.theme-leaves .user-avatar {
+    border-color: #f59e0b;
+}
+
+body.theme-leaves .story-avatar {
+    border-color: #fbbf24;
+}
+
+body.theme-leaves .pinned-bar {
+    background: rgba(61, 40, 23, 0.9);
+    border-bottom-color: rgba(251, 191, 36, 0.25);
+}
+
+body.theme-leaves .pinned-title {
+    color: #fbbf24;
+}
+
+body.theme-leaves .pinned-preview {
+    color: #fef3c7;
+}
+
+/* Цветовые варианты для темы листьев */
+body.theme-leaves-autumn {
+    background: linear-gradient(135deg, #4a1a0f 0%, #7a2a14 50%, #a63a1a 100%);
+}
+
+body.theme-leaves-autumn .chat-container {
+    background: linear-gradient(135deg, #4a1a0f 0%, #7a2a14 100%);
+}
+
+body.theme-leaves-autumn .message.me {
+    background: linear-gradient(135deg, rgba(248, 113, 113, 0.7), rgba(239, 68, 68, 0.8));
+}
+
+body.theme-leaves-autumn .send-btn.active {
+    background: linear-gradient(45deg, #f87171, #ef4444);
+}
+
+body.theme-leaves-autumn .chat-title,
+body.theme-leaves-autumn .user-name,
+body.theme-leaves-autumn .contact-name {
+    background: linear-gradient(45deg, #f87171, #ef4444);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.theme-leaves-autumn .chat-members {
+    color: #fca5a5;
+}
+
+body.theme-leaves-gold {
+    background: linear-gradient(135deg, #2d240f 0%, #4a3a14 50%, #6b5219 100%);
+}
+
+body.theme-leaves-gold .chat-container {
+    background: linear-gradient(135deg, #2d240f 0%, #4a3a14 100%);
+}
+
+body.theme-leaves-gold .message.me {
+    background: linear-gradient(135deg, rgba(253, 224, 71, 0.7), rgba(234, 179, 8, 0.8));
+}
+
+body.theme-leaves-gold .send-btn.active {
+    background: linear-gradient(45deg, #fde047, #eab308);
+}
+
+body.theme-leaves-gold .chat-title,
+body.theme-leaves-gold .user-name,
+body.theme-leaves-gold .contact-name {
+    background: linear-gradient(45deg, #fde047, #eab308);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.theme-leaves-gold .chat-members {
+    color: #fef08a;
+}
+
+/* ===== Тема: Летающие птички ===== */
+body.theme-birds {
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.75), rgba(56, 189, 248, 0.7)),
+                url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='skyGradient' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%230ea5e9'/%3E%3Cstop offset='50%25' stop-color='%2338bdf8'/%3E%3Cstop offset='100%25' stop-color='%237dd3fc'/%3E%3C/linearGradient%3E%3ClinearGradient id='cloudGrad' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23ffffff' stop-opacity='0.5'/%3E%3Cstop offset='100%25' stop-color='%23ffffff' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23skyGradient)' width='1920' height='1080'/%3E%3Cellipse fill='url(%23cloudGrad)' cx='300' cy='200' rx='200' ry='80'/%3E%3Cellipse fill='url(%23cloudGrad)' cx='600' cy='150' rx='250' ry='100'/%3E%3Cellipse fill='url(%23cloudGrad)' cx='1200' cy='250' rx='300' ry='120'/%3E%3Cellipse fill='url(%23cloudGrad)' cx='1600' cy='180' rx='220' ry='90'/%3E%3Cellipse fill='url(%23cloudGrad)' cx='900' cy='300' rx='180' ry='70'/%3E%3Cellipse fill='url(%23cloudGrad)' cx='1400' cy='350' rx='200' ry='80'/%3E%3C/svg%3E");
+    background-size: cover;
+    background-position: center;
+    color: #0c4a6e;
+}
+
+body.theme-birds .sidebar {
+    background: linear-gradient(180deg, rgba(56, 189, 248, 0.9), rgba(14, 165, 233, 0.9));
+    border-right-color: rgba(255, 255, 255, 0.3);
+}
+
+body.theme-birds .chat-container {
+    background: transparent;
+}
+
+body.theme-birds .chat-container::before {
+    content: none;
+}
+
+body.theme-birds .chat-header,
+body.theme-birds .stories-container,
+body.theme-birds .message-input-container,
+body.theme-birds .mobile-header {
+    background: rgba(14, 165, 233, 0.85);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+body.theme-birds .message.other {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.7), rgba(125, 211, 252, 0.8));
+}
+
+body.theme-birds .message.me {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.9));
+}
+
+body.theme-birds .icon-btn,
+body.theme-birds .attachment-btn {
+    background: linear-gradient(45deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2));
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #0369a1;
+}
+
+body.theme-birds .send-btn.active {
+    background: linear-gradient(45deg, #ffffff, #f0f9ff);
+}
+
+body.theme-birds .message-input,
+body.theme-birds .search-input {
+    background: rgba(14, 165, 233, 0.5);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #0c4a6e;
+}
+
+body.theme-birds .message-input::placeholder {
+    color: rgba(12, 74, 110, 0.6);
+}
+
+body.theme-birds .chat-title,
+body.theme-birds .user-name,
+body.theme-birds .contact-name {
+    background: linear-gradient(45deg, #ffffff, #f0f9ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.theme-birds .chat-members {
+    color: #164e63;
+}
+
+body.theme-birds .last-message,
+body.theme-birds .menu-title,
+body.theme-birds .last-seen {
+    color: #0369a1;
+}
+
+body.theme-birds .contact-item:hover,
+body.theme-birds .group-item:hover {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2));
+}
+
+body.theme-birds .user-avatar {
+    border-color: #ffffff;
+}
+
+body.theme-birds .story-avatar {
+    border-color: #f0f9ff;
+}
+
+body.theme-birds .pinned-bar {
+    background: rgba(14, 165, 233, 0.9);
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
+body.theme-birds .pinned-title {
+    color: #ffffff;
+}
+
+body.theme-birds .pinned-preview {
+    color: #f0f9ff;
+}
+
+/* Цветовые варианты для темы птичек */
+body.theme-birds-sunset {
+    background: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #fdba74 100%);
+}
+
+body.theme-birds-sunset .chat-container {
+    background: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
+}
+
+body.theme-birds-sunset .message.me {
+    background: linear-gradient(135deg, rgba(254, 215, 170, 0.8), rgba(253, 186, 116, 0.9));
+}
+
+body.theme-birds-sunset .send-btn.active {
+    background: linear-gradient(45deg, #fed7aa, #fdba74);
+}
+
+body.theme-birds-sunset .chat-title,
+body.theme-birds-sunset .user-name,
+body.theme-birds-sunset .contact-name {
+    background: linear-gradient(45deg, #ffffff, #fff7ed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.theme-birds-sunset .chat-members {
+    color: #431407;
+}
+
+body.theme-birds-sunset .last-message,
+body.theme-birds-sunset .menu-title,
+body.theme-birds-sunset .last-seen {
+    color: #7c2d12;
+}
+
+body.theme-birds-dawn {
+    background: linear-gradient(135deg, #c084fc 0%, #e879f9 50%, #f0abfc 100%);
+}
+
+body.theme-birds-dawn .chat-container {
+    background: linear-gradient(135deg, #c084fc 0%, #e879f9 100%);
+}
+
+body.theme-birds-dawn .message.me {
+    background: linear-gradient(135deg, rgba(250, 204, 215, 0.8), rgba(251, 146, 235, 0.9));
+}
+
+body.theme-birds-dawn .send-btn.active {
+    background: linear-gradient(45deg, #facccd, #fb92eb);
+}
+
+body.theme-birds-dawn .chat-title,
+body.theme-birds-dawn .user-name,
+body.theme-birds-dawn .contact-name {
+    background: linear-gradient(45deg, #ffffff, #fdf4ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.theme-birds-dawn .chat-members {
+    color: #581c87;
+}
+
+body.theme-birds-dawn .last-message,
+body.theme-birds-dawn .menu-title,
+body.theme-birds-dawn .last-seen {
+    color: #6b21a8;
+}
+
+/* ===== Контейнер для дождя ===== */
+#raindrops-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+/* ===== Капля дождя ===== */
+.raindrop {
+    position: absolute;
+    top: -20px;
+    width: 2px;
+    height: 15px;
+    background: linear-gradient(to bottom, transparent, rgba(148, 163, 184, 0.8), rgba(148, 163, 184, 0.6));
+    border-radius: 2px;
+    animation: rainfall linear forwards;
+    user-select: none;
+    pointer-events: none;
+}
+
+@keyframes rainfall {
+    0% {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh);
+        opacity: 0;
+    }
+}
+
+/* ===== Контейнер для листьев ===== */
+#leaves-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+/* ===== Падающий лист ===== */
+.falling-leaf {
+    position: absolute;
+    top: -30px;
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    clip-path: polygon(50% 0%, 100% 35%, 85% 100%, 50% 85%, 15% 100%, 0% 35%);
+    animation: leaffall linear forwards;
+    user-select: none;
+    pointer-events: none;
+}
+
+@keyframes leaffall {
+    0% {
+        transform: translateY(-30px) translateX(0) rotate(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    25% {
+        transform: translateY(25vh) translateX(30px) rotate(90deg);
+    }
+    50% {
+        transform: translateY(50vh) translateX(-30px) rotate(180deg);
+    }
+    75% {
+        transform: translateY(75vh) translateX(30px) rotate(270deg);
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(0) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+/* ===== Контейнер для птичек ===== */
+#birds-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9998;
+    overflow: hidden;
+}
+
+/* ===== Летающая птичка ===== */
+.flying-bird {
+    position: absolute;
+    width: 60px;
+    height: 40px;
+    animation: birdfly linear forwards;
+    user-select: none;
+    pointer-events: none;
+}
+
+.flying-bird-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    animation: birdwing 0.3s ease-in-out infinite;
+}
+
+@keyframes birdfly {
+    0% {
+        transform: translateX(-100px) translateY(0);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(calc(100vw + 100px)) translateY(-30px);
+        opacity: 0;
+    }
+}
+
+@keyframes birdwing {
+    0%, 100% {
+        transform: scaleY(1);
+    }
+    50% {
+        transform: scaleY(0.5);
+    }
+}
+
+/* Обновление темы picker в настройках для новых тем */
+.settings-theme-option[data-theme="rain"] .settings-theme-swatch {
+    background: linear-gradient(135deg, #0f172a 0%, #64748b 100%);
+}
+
+.settings-theme-option[data-theme="leaves"] .settings-theme-swatch {
+    background: linear-gradient(135deg, #3d2817 0%, #fbbf24 100%);
+}
+
+.settings-theme-option[data-theme="birds"] .settings-theme-swatch {
+    background: linear-gradient(135deg, #0ea5e9 0%, #ffffff 100%);
+}
+
+/* ===== Цветовые опции для тем ===== */
+.settings-theme-color-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.settings-theme-color-option {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    color: rgba(248,250,252,0.96);
+    cursor: pointer;
+    transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+
+.settings-theme-color-option:hover {
+    transform: translateY(-1px);
+    background: rgba(255,255,255,0.1);
+}
+
+.settings-theme-color-option.active {
+    border-color: rgba(56, 189, 248, 0.8);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+    background: rgba(56, 189, 248, 0.14);
+}
+
+.settings-theme-color-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.6);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.settings-theme-color-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(248,250,252,0.8);
+}
+
+@media (max-width: 560px) {
+    .settings-theme-color-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }

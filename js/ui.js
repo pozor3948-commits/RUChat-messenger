@@ -272,7 +272,7 @@ function startVoiceCall() {
 }
 
 // Темы интерфейса
-const THEME_ORDER = ['dark', 'auto', 'blue', 'pink', 'black', 'green', 'purple', 'snow'];
+const THEME_ORDER = ['dark', 'auto', 'blue', 'pink', 'black', 'green', 'purple', 'snow', 'rain', 'leaves', 'birds'];
 const THEME_CLASS_MAP = {
     dark: '',
     auto: 'theme-auto',
@@ -281,7 +281,10 @@ const THEME_CLASS_MAP = {
     black: 'theme-black',
     green: 'theme-green',
     purple: 'theme-purple',
-    snow: 'theme-snow'
+    snow: 'theme-snow',
+    rain: 'theme-rain',
+    leaves: 'theme-leaves',
+    birds: 'theme-birds'
 };
 const THEME_LABELS = {
     dark: 'тёмная',
@@ -291,7 +294,10 @@ const THEME_LABELS = {
     black: 'чёрная',
     green: 'зелёная',
     purple: 'фиолетовая',
-    snow: 'снежная'
+    snow: 'снежная',
+    rain: 'дождливая',
+    leaves: 'осенняя',
+    birds: 'небесная'
 };
 
 // Автоматическая тема в зависимости от времени суток
@@ -341,6 +347,27 @@ function applyThemeClasses(themeName) {
         startSnowflakes();
     } else {
         stopSnowflakes();
+    }
+
+    // Если дождливая тема, запускаем анимацию дождя
+    if (themeName === 'rain') {
+        startRaindrops();
+    } else {
+        stopRaindrops();
+    }
+
+    // Если осенняя тема, запускаем анимацию листьев
+    if (themeName === 'leaves') {
+        startLeaves();
+    } else {
+        stopLeaves();
+    }
+
+    // Если небесная тема, запускаем анимацию птичек
+    if (themeName === 'birds') {
+        startBirds();
+    } else {
+        stopBirds();
     }
 }
 
@@ -454,6 +481,11 @@ function createSnowflake() {
     const size = Math.random() * 4 + 2; // 2-6px
     snowflake.style.width = size + 'px';
     snowflake.style.height = size + 'px';
+
+    // Снежинки всегда белые
+    snowflake.style.background = 'white';
+    snowflake.style.textShadow = '0 0 5px rgba(255, 255, 255, 0.8)';
+
     document.getElementById('snowflakes-container')?.appendChild(snowflake);
 
     // Удаляем снежинку после окончания анимации
@@ -490,3 +522,235 @@ function stopSnowflakes() {
 window.startSnowflakes = startSnowflakes;
 window.stopSnowflakes = stopSnowflakes;
 window.getAutoThemeClass = getAutoThemeClass;
+
+// ==========================================================
+// ДОЖДЬ (тема "rain")
+// ==========================================================
+let raindropsInterval = null;
+
+function createRaindrop() {
+    const raindrop = document.createElement('div');
+    raindrop.className = 'raindrop';
+    raindrop.style.left = Math.random() * 100 + 'vw';
+    raindrop.style.animationDuration = (Math.random() * 0.5 + 0.5) + 's';
+    raindrop.style.opacity = Math.random() * 0.5 + 0.3;
+
+    document.getElementById('raindrops-container')?.appendChild(raindrop);
+
+    // Удаляем каплю после окончания анимации
+    setTimeout(() => {
+        raindrop.remove();
+    }, 1500);
+}
+
+function startRaindrops() {
+    let container = document.getElementById('raindrops-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'raindrops-container';
+        document.body.appendChild(container);
+    }
+
+    // Создаём капли
+    for (let i = 0; i < 30; i++) {
+        createRaindrop();
+    }
+    raindropsInterval = setInterval(createRaindrop, 50);
+}
+
+function stopRaindrops() {
+    if (raindropsInterval) {
+        clearInterval(raindropsInterval);
+        raindropsInterval = null;
+    }
+    const container = document.getElementById('raindrops-container');
+    if (container) {
+        container.innerHTML = '';
+    }
+}
+
+// ==========================================================
+// ЛИСТЬЯ (тема "leaves")
+// ==========================================================
+let leavesInterval = null;
+
+function createLeaf() {
+    const leaf = document.createElement('div');
+    leaf.className = 'falling-leaf';
+    leaf.style.left = Math.random() * 100 + 'vw';
+    leaf.style.animationDuration = (Math.random() * 5 + 8) + 's';
+
+    document.getElementById('leaves-container')?.appendChild(leaf);
+
+    // Удаляем лист после окончания анимации
+    setTimeout(() => {
+        leaf.remove();
+    }, 13000);
+}
+
+function startLeaves() {
+    let container = document.getElementById('leaves-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'leaves-container';
+        document.body.appendChild(container);
+    }
+
+    // Создаём листья
+    createLeaf();
+    leavesInterval = setInterval(createLeaf, 800);
+}
+
+function stopLeaves() {
+    if (leavesInterval) {
+        clearInterval(leavesInterval);
+        leavesInterval = null;
+    }
+    const container = document.getElementById('leaves-container');
+    if (container) {
+        container.innerHTML = '';
+    }
+}
+
+// ==========================================================
+// ПТИЧКИ (тема "birds")
+// ==========================================================
+let birdsInterval = null;
+
+function createBird() {
+    const bird = document.createElement('div');
+    bird.className = 'flying-bird';
+    
+    // Птички летят слева направо или справа налево
+    const fromLeft = Math.random() > 0.5;
+    bird.style.left = fromLeft ? '-60px' : 'calc(100% + 60px)';
+    bird.style.top = (Math.random() * 40 + 10) + 'vh';
+    
+    // Создаём изображение птички
+    const birdImg = document.createElement('img');
+    birdImg.className = 'flying-bird-img';
+    birdImg.src = 'assets/bird.png';
+    birdImg.alt = 'bird';
+    birdImg.draggable = false;
+
+    // Если изображение не загрузится, используем запасной вариант
+    birdImg.onerror = function() {
+        // Запасной вариант - emoji птички
+        this.style.display = 'none';
+        bird.style.fontSize = '40px';
+        bird.textContent = '🕊️';
+    };
+    
+    bird.appendChild(birdImg);
+    
+    // Направление полёта - если справа налево, отражаем
+    if (!fromLeft) {
+        birdImg.style.transform = 'scaleX(-1)';
+    }
+    
+    bird.style.animationDuration = (Math.random() * 5 + 10) + 's';
+    
+    document.getElementById('birds-container')?.appendChild(bird);
+
+    // Удаляем птичку после окончания анимации
+    setTimeout(() => {
+        bird.remove();
+    }, 15000);
+}
+
+function startBirds() {
+    let container = document.getElementById('birds-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'birds-container';
+        document.body.appendChild(container);
+    }
+
+    // Создаём птичек
+    createBird();
+    birdsInterval = setInterval(createBird, 3000);
+}
+
+function stopBirds() {
+    if (birdsInterval) {
+        clearInterval(birdsInterval);
+        birdsInterval = null;
+    }
+    const container = document.getElementById('birds-container');
+    if (container) {
+        container.innerHTML = '';
+    }
+}
+
+// Экспортируем новые функции глобально
+window.startRaindrops = startRaindrops;
+window.stopRaindrops = stopRaindrops;
+window.startLeaves = startLeaves;
+window.stopLeaves = stopLeaves;
+window.startBirds = startBirds;
+window.stopBirds = stopBirds;
+
+// Функции для применения фона в зависимости от цвета
+function applyRainBackground(color) {
+    let bgImage = '';
+    if (color === 'blue') {
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='rainStreak' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2338bdf8' stop-opacity='0.4'/%3E%3Cstop offset='100%25' stop-color='%2338bdf8' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='%230f172a' width='1920' height='1080'/%3E%3Crect fill='url(%23rainStreak)' x='200' y='0' width='1' height='150'/%3E%3Crect fill='url(%23rainStreak)' x='400' y='100' width='1' height='180'/%3E%3Crect fill='url(%23rainStreak)' x='600' y='50' width='1' height='160'/%3E%3Crect fill='url(%23rainStreak)' x='800' y='80' width='1' height='170'/%3E%3Crect fill='url(%23rainStreak)' x='1000' y='30' width='1' height='150'/%3E%3Crect fill='url(%23rainStreak)' x='1200' y='120' width='1' height='180'/%3E%3Crect fill='url(%23rainStreak)' x='1400' y='60' width='1' height='160'/%3E%3Crect fill='url(%23rainStreak)' x='1600' y='90' width='1' height='170'/%3E%3C/svg%3E\")";
+    } else if (color === 'green') {
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='rainStreakGreen' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2334d399' stop-opacity='0.4'/%3E%3Cstop offset='100%25' stop-color='%2334d399' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='%230f172a' width='1920' height='1080'/%3E%3Crect fill='url(%23rainStreakGreen)' x='200' y='0' width='1' height='150'/%3E%3Crect fill='url(%23rainStreakGreen)' x='400' y='100' width='1' height='180'/%3E%3Crect fill='url(%23rainStreakGreen)' x='600' y='50' width='1' height='160'/%3E%3Crect fill='url(%23rainStreakGreen)' x='800' y='80' width='1' height='170'/%3E%3Crect fill='url(%23rainStreakGreen)' x='1000' y='30' width='1' height='150'/%3E%3Crect fill='url(%23rainStreakGreen)' x='1200' y='120' width='1' height='180'/%3E%3Crect fill='url(%23rainStreakGreen)' x='1400' y='60' width='1' height='160'/%3E%3Crect fill='url(%23rainStreakGreen)' x='1600' y='90' width='1' height='170'/%3E%3C/svg%3E\")";
+    } else if (color === 'purple') {
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='rainStreakPurple' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23c084fc' stop-opacity='0.4'/%3E%3Cstop offset='100%25' stop-color='%23c084fc' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='%230f172a' width='1920' height='1080'/%3E%3Crect fill='url(%23rainStreakPurple)' x='200' y='0' width='1' height='150'/%3E%3Crect fill='url(%23rainStreakPurple)' x='400' y='100' width='1' height='180'/%3E%3Crect fill='url(%23rainStreakPurple)' x='600' y='50' width='1' height='160'/%3E%3Crect fill='url(%23rainStreakPurple)' x='800' y='80' width='1' height='170'/%3E%3Crect fill='url(%23rainStreakPurple)' x='1000' y='30' width='1' height='150'/%3E%3Crect fill='url(%23rainStreakPurple)' x='1200' y='120' width='1' height='180'/%3E%3Crect fill='url(%23rainStreakPurple)' x='1400' y='60' width='1' height='160'/%3E%3Crect fill='url(%23rainStreakPurple)' x='1600' y='90' width='1' height='170'/%3E%3C/svg%3E\")";
+    } else {
+        // default
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='rainStreakDefault' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2394a3b8' stop-opacity='0.3'/%3E%3Cstop offset='100%25' stop-color='%2394a3b8' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='%230f172a' width='1920' height='1080'/%3E%3Crect fill='url(%23rainStreakDefault)' x='200' y='0' width='1' height='150'/%3E%3Crect fill='url(%23rainStreakDefault)' x='400' y='100' width='1' height='180'/%3E%3Crect fill='url(%23rainStreakDefault)' x='600' y='50' width='1' height='160'/%3E%3Crect fill='url(%23rainStreakDefault)' x='800' y='80' width='1' height='170'/%3E%3Crect fill='url(%23rainStreakDefault)' x='1000' y='30' width='1' height='150'/%3E%3Crect fill='url(%23rainStreakDefault)' x='1200' y='120' width='1' height='180'/%3E%3Crect fill='url(%23rainStreakDefault)' x='1400' y='60' width='1' height='160'/%3E%3Crect fill='url(%23rainStreakDefault)' x='1600' y='90' width='1' height='170'/%3E%3C/svg%3E\")";
+    }
+    document.body.style.backgroundImage = bgImage;
+}
+
+function applySnowBackground(color) {
+    let bgImage = '';
+    if (color === 'blue') {
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3CradialGradient id='snowGlowBlue' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%237dd3fc' stop-opacity='0.4'/%3E%3Cstop offset='100%25' stop-color='%237dd3fc' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect fill='%231e3a5f' width='1920' height='1080'/%3E%3Ccircle fill='url(%23snowGlowBlue)' cx='300' cy='200' r='400'/%3E%3Ccircle fill='url(%23snowGlowBlue)' cx='1600' cy='800' r='500'/%3E%3C/svg%3E\")";
+    } else if (color === 'pink') {
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3CradialGradient id='snowGlowPink' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%23f9a8d4' stop-opacity='0.4'/%3E%3Cstop offset='100%25' stop-color='%23f9a8d4' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect fill='%231e3a5f' width='1920' height='1080'/%3E%3Ccircle fill='url(%23snowGlowPink)' cx='300' cy='200' r='400'/%3E%3Ccircle fill='url(%23snowGlowPink)' cx='1600' cy='800' r='500'/%3E%3C/svg%3E\")";
+    } else {
+        // default
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3CradialGradient id='snowGlowDefault' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%237dd3fc' stop-opacity='0.3'/%3E%3Cstop offset='100%25' stop-color='%237dd3fc' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect fill='%231e3a5f' width='1920' height='1080'/%3E%3Ccircle fill='url(%23snowGlowDefault)' cx='300' cy='200' r='400'/%3E%3Ccircle fill='url(%23snowGlowDefault)' cx='1600' cy='800' r='500'/%3E%3C/svg%3E\")";
+    }
+    document.body.style.backgroundImage = bgImage;
+}
+
+function applyBirdsBackground(color) {
+    let bgImage = '';
+    if (color === 'sunset') {
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='skySunset' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23fdba74'/%3E%3Cstop offset='50%25' stop-color='%23fb923c'/%3E%3Cstop offset='100%25' stop-color='%23f97316'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23skySunset)' width='1920' height='1080'/%3E%3C/svg%3E\")";
+    } else if (color === 'dawn') {
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='skyDawn' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23fb92eb'/%3E%3Cstop offset='50%25' stop-color='%23f472b6'/%3E%3Cstop offset='100%25' stop-color='%23ec4899'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23skyDawn)' width='1920' height='1080'/%3E%3C/svg%3E\")";
+    } else if (color === 'blue') {
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='skyBlue' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%230ea5e9'/%3E%3Cstop offset='50%25' stop-color='%2338bdf8'/%3E%3Cstop offset='100%25' stop-color='%237dd3fc'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23skyBlue)' width='1920' height='1080'/%3E%3C/svg%3E\")";
+    } else {
+        // default
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='skyDefault' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%230ea5e9'/%3E%3Cstop offset='50%25' stop-color='%2338bdf8'/%3E%3Cstop offset='100%25' stop-color='%237dd3fc'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23skyDefault)' width='1920' height='1080'/%3E%3C/svg%3E\")";
+    }
+    document.body.style.backgroundImage = bgImage;
+}
+
+function applyLeavesBackground(color) {
+    let bgImage = '';
+    if (color === 'autumn') {
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='autumnBg' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%237c2d12'/%3E%3Cstop offset='50%25' stop-color='%239a3412'/%3E%3Cstop offset='100%25' stop-color='%23c2410c'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23autumnBg)' width='1920' height='1080'/%3E%3C/svg%3E\")";
+    } else if (color === 'gold') {
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='goldBg' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23713f12'/%3E%3Cstop offset='50%25' stop-color='%23854d0e'/%3E%3Cstop offset='100%25' stop-color='%23a16207'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23goldBg)' width='1920' height='1080'/%3E%3C/svg%3E\")";
+    } else if (color === 'orange') {
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='orangeBg' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%237c2d12'/%3E%3Cstop offset='50%25' stop-color='%239a3412'/%3E%3Cstop offset='100%25' stop-color='%23c2410c'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23orangeBg)' width='1920' height='1080'/%3E%3C/svg%3E\")";
+    } else {
+        // default
+        bgImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Cdefs%3E%3ClinearGradient id='defaultBg' x1='0%25' y1='0%25' x2='0%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23451a03'/%3E%3Cstop offset='50%25' stop-color='%2378350f'/%3E%3Cstop offset='100%25' stop-color='%2392400e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23defaultBg)' width='1920' height='1080'/%3E%3C/svg%3E\")";
+    }
+    document.body.style.backgroundImage = bgImage;
+}
+
+// Экспортируем функции для применения фона
+window.applyRainBackground = applyRainBackground;
+window.applySnowBackground = applySnowBackground;
+window.applyBirdsBackground = applyBirdsBackground;
+window.applyLeavesBackground = applyLeavesBackground;
