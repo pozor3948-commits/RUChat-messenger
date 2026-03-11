@@ -45,10 +45,22 @@ const rtcConfiguration = {
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
         
-        // Публичные TURN серверы (бесплатно для тестов)
-        { urls: 'turn:openrelay.metered.ca:80' },
-        { urls: 'turn:openrelay.metered.ca:443' },
-        { urls: 'turn:openrelay.metered.ca:443?transport=tcp' }
+        // Публичные TURN серверы (бесплатно)
+        { 
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'nevfh73zgaJq5uxf'
+        },
+        { 
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'nevfh73zgaJq5uxf'
+        },
+        { 
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'nevfh73zgaJq5uxf'
+        }
     ]
 };
 
@@ -124,7 +136,9 @@ async function startAudioCall() {
         // Обработка ICE candidates
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                console.log('[WebRTC] Отправляем ICE кандидат:', event.candidate.type, event.candidate.address);
+                const type = event.candidate.type || 'unknown';
+                const address = event.candidate.address || 'unknown';
+                console.log('[WebRTC] Отправляем ICE кандидат:', type, address);
                 db.ref(`calls/${currentChatId}/candidates`).push({
                     candidate: event.candidate,
                     from: username
@@ -271,7 +285,9 @@ function listenForCallAnswer() {
             return;
         }
 
-        console.log('[WebRTC] Получен ICE кандидат от', candidateData.from, 'type:', c.type, 'address:', c.address);
+        const type = c.type || 'unknown';
+        const address = c.address || 'unknown';
+        console.log('[WebRTC] Получен ICE кандидат от', candidateData.from, '| type:', type, '| address:', address);
         
         if (peerConnection) {
             try {
@@ -357,7 +373,9 @@ async function acceptIncomingCall(callData) {
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                console.log('[WebRTC] Отправляем ICE кандидат:', event.candidate.type, event.candidate.address);
+                const type = event.candidate.type || 'unknown';
+                const address = event.candidate.address || 'unknown';
+                console.log('[WebRTC] Отправляем ICE кандидат:', type, address);
                 db.ref(`calls/${currentChatId}/candidates`).push({
                     candidate: event.candidate,
                     from: username
