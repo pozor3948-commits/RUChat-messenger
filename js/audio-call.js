@@ -95,14 +95,11 @@ function ensureRemoteAudioEl() {
 // Конфигурация STUN/TURN серверов
 const rtcConfiguration = {
     iceServers: [
-        // STUN серверы Google (бесплатно)
+        // STUN серверы Google (бесплатно, проверенные)
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' },
-        
-        // Публичные TURN серверы (бесплатно)
+
+        // Публичные TURN серверы Metered (бесплатно)
         {
             urls: 'turn:openrelay.metered.ca:80',
             username: 'openrelayproject',
@@ -131,59 +128,11 @@ const rtcConfiguration = {
         },
         {
             urls: 'turns:webrtc.homeway.io:443?transport=tcp'
-        },
-
-        // TURN серверы Twilio (бесплатно, требуют регистрации)
-        // Примечание: нужны актуальные credentials из https://www.twilio.com/console/stun-turn
-        // {
-        //     urls: ['turn:global.turn.twilio.com:3478?transport=udp', 'turn:global.turn.twilio.com:443?transport=tcp'],
-        //     username: 'YOUR_USERNAME',
-        //     credential: 'YOUR_CREDENTIAL'
-        // },
-
-        // Другие публичные TURN серверы
-        {
-            urls: 'turn:turn.cloudflare.com:443?transport=tcp'
-        },
-        {
-            urls: 'turn:relay.metered.ca:80',
-            username: 'project',
-            credential: 'project'
-        },
-        {
-            urls: 'turn:relay.metered.ca:443?transport=tcp',
-            username: 'project',
-            credential: 'project'
-        },
-        {
-            urls: 'turn:relay.metered.ca:443?transport=udp',
-            username: 'project',
-            credential: 'project'
-        },
-        // STUN серверы от других провайдеров
-        { urls: 'stun:stun.services.mozilla.com:3478' },
-        { urls: 'stun:stun.voip.blackberry.com:3478' },
-        { urls: 'stun:stun.voip.blackberry.com:53' },
-        { urls: 'stun:stun.alcasd.k12.pa.us:3478' },
-        { urls: 'stun:stun.ideas.com:3478' },
-        { urls: 'stun:stun.intel.com:3478' },
-        { urls: 'stun:stun.antisip.com:3478' },
-        { urls: 'stun:stun.bethesda.net:3478' },
-        { urls: 'stun:stun.dlink.com:3478' },
-        { urls: 'stun:stun.fwdnet.net:3478' },
-        { urls: 'stun:stun.gmx.com:3478' },
-        { urls: 'stun:stun.hznet.com.cn:3478' },
-        { urls: 'stun:stun.kundenserver.de:3478' },
-        { urls: 'stun:stun.phone.com:3478' },
-        { urls: 'stun:stun.sip.us:3478' },
-        { urls: 'stun:stun.sonetel.com:3478' },
-        { urls: 'stun:stun.stunprotocol.org:3478' },
-        { urls: 'stun:stun.symantec.com:3478' },
-        { urls: 'stun:stun.vonage.com:3478' },
-        { urls: 'stun:stun.xten.com:3478' },
-        { urls: 'stun:stun.yandex.ru:3478' },
-        { urls: 'stun:stun.zadarma.com:3478' }
-    ]
+        }
+    ],
+    // Настройки ICE для лучшей совместимости
+    iceCandidatePoolSize: 10,
+    iceTransportPolicy: 'all' // Попробовать все, включая relay
 };
 
 // Инициировать аудиозвонок
@@ -291,8 +240,9 @@ async function startAudioCall() {
         };
         
         // Получаем ICE кандидатов от удалённой стороны
-        peerConnection.onicecandidateerror = (event) => {
-            console.error('[WebRTC] Ошибка ICE кандидата:', event);
+        // Игнорируем ошибки ICE (некоторые серверы недоступны, это нормально)
+        peerConnection.onicecandidateerror = () => {
+            // Тихо игнорируем ошибки ICE
         };
 
         // Создаем offer
@@ -536,9 +486,10 @@ async function acceptIncomingCall(callData) {
                 console.log('[WebRTC] Все ICE кандидаты отправлены (end of candidates)');
             }
         };
-        
-        peerConnection.onicecandidateerror = (event) => {
-            console.error('[WebRTC] Ошибка ICE кандидата:', event);
+
+        // Игнорируем ошибки ICE
+        peerConnection.onicecandidateerror = () => {
+            // Тихо игнорируем ошибки ICE
         };
 
         // Устанавливаем удаленное описание из offer
