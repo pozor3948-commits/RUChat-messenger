@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>RuChat - Быстрая проверка</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #0f172a;
+            color: #fff;
+            padding: 20px;
+        }
+        .ok { color: #4ade80; }
+        .error { color: #ef4444; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #0088cc;
+            border: none;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 RuChat - Проверка</h1>
+    <p>Откройте <b>index.html</b> и консоль (F12)</p>
+    
+    <h2>Инструкция:</h2>
+    <ol>
+        <li>Откройте <b>index.html</b></li>
+        <li>Нажмите F12 (консоль)</li>
+        <li>Вставьте этот код:</li>
+    </ol>
+    
+    <pre style="background: rgba(255,255,255,0.1); padding: 10px;">
+// Проверка функций:
+console.log('=== ФУНКЦИИ ===');
+['showCreateStoryModal','viewUserStories','loadStoriesForSidebar','sendLocation','showAlbumCreator','showCreatePollModal'].forEach(fn => {
+    console.log((typeof window[fn]==='function'?'✅':'❌') + ' ' + fn);
+});
+
+// Проверка элементов:
+console.log('=== DOM ===');
+['storiesContainer','storiesList','chatFoldersContainer','friendList','mobileChatActionsBar'].forEach(id => {
+    console.log((document.getElementById(id)?'✅':'❌') + ' #' + id);
+});
+
+// Загрузить истории:
+if (typeof loadStoriesForSidebar==='function') loadStoriesForSidebar();
+    </pre>
+    
+    <h2>Если функции не найдены:</h2>
+    <p>1. Обновите страницу (Ctrl+F5)</p>
+    <p>2. Проверьте что все скрипты загружены в index.html</p>
+    <p>3. Посмотрите ошибки в консоли</p>
+    
+    <button onclick="window.location.href='index.html'">Открыть index.html</button>
+</body>
+</html>

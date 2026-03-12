@@ -1820,7 +1820,8 @@ function addMessageToChat(m, options = {}) {
   let content = "";
   let videoMessageOpenUrl = null;
   const replyFrom = m.replyTo && m.replyTo.from ? resolveUserLabel(m.replyTo.from) : '';
-  const replyHtml = m.replyTo ? `<div class="message-reply">↩ ${escapeHtml(replyFrom)}: ${escapeHtml(sanitizeUiText(m.replyTo.text || '', ''))}</div>` : "";
+  const replyText = m.replyTo && m.replyTo.text ? sanitizeUiText(String(m.replyTo.text), '') : '';
+  const replyHtml = m.replyTo ? `<div class="message-reply">↩ ${escapeHtml(replyFrom)}: ${escapeHtml(replyText)}</div>` : "";
   const fwdName = m.forwardedFrom ? resolveUserLabel(m.forwardedFrom) : '';
   const forwardedHtml = m.forwardedFrom ? `<div class="message-forwarded">↪ Переслано от ${escapeHtml(fwdName)}</div>` : "";
   const t = new Date(m.time || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

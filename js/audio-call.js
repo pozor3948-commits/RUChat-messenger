@@ -114,20 +114,6 @@ const rtcConfiguration = {
             urls: 'turn:openrelay.metered.ca:443?transport=tcp',
             username: 'openrelayproject',
             credential: 'nevfh73zgaJq5uxf'
-        },
-
-        // TURN серверы webrtc.homeway.io (бесплатно)
-        {
-            urls: 'turn:webrtc.homeway.io:3478?transport=udp'
-        },
-        {
-            urls: 'turn:webrtc.homeway.io:53?transport=udp'
-        },
-        {
-            urls: 'turn:webrtc.homeway.io:3478?transport=tcp'
-        },
-        {
-            urls: 'turns:webrtc.homeway.io:443?transport=tcp'
         }
     ],
     // Настройки ICE для лучшей совместимости
@@ -233,16 +219,19 @@ async function startAudioCall() {
                 db.ref(`calls/${currentChatId}/candidates`).push({
                     candidate: event.candidate,
                     from: username
+                }).catch(err => {
+                    console.error('[WebRTC] Ошибка отправки ICE кандидата в Firebase:', err);
                 });
             } else {
                 console.log('[WebRTC] Все ICE кандидаты отправлены (end of candidates)');
             }
         };
-        
+
         // Получаем ICE кандидатов от удалённой стороны
         // Игнорируем ошибки ICE (некоторые серверы недоступны, это нормально)
-        peerConnection.onicecandidateerror = () => {
-            // Тихо игнорируем ошибки ICE
+        peerConnection.onicecandidateerror = (event) => {
+            console.warn('[WebRTC] ICE кандидат ошибка (игнорируем):', event.errorText || event);
+            // Тихо игнорируем ошибки ICE - это нормально для публичных TURN серверов
         };
 
         // Создаем offer
@@ -481,6 +470,8 @@ async function acceptIncomingCall(callData) {
                 db.ref(`calls/${currentChatId}/candidates`).push({
                     candidate: event.candidate,
                     from: username
+                }).catch(err => {
+                    console.error('[WebRTC] Ошибка отправки ICE кандидата в Firebase:', err);
                 });
             } else {
                 console.log('[WebRTC] Все ICE кандидаты отправлены (end of candidates)');
@@ -488,8 +479,9 @@ async function acceptIncomingCall(callData) {
         };
 
         // Игнорируем ошибки ICE
-        peerConnection.onicecandidateerror = () => {
-            // Тихо игнорируем ошибки ICE
+        peerConnection.onicecandidateerror = (event) => {
+            console.warn('[WebRTC] ICE кандидат ошибка (игнорируем):', event.errorText || event);
+            // Тихо игнорируем ошибки ICE - это нормально для публичных TURN серверов
         };
 
         // Устанавливаем удаленное описание из offer

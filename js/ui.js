@@ -332,16 +332,16 @@ function applyThemeClasses(themeName) {
     });
     // Удаляем классы авто-темы
     body.classList.remove('theme-auto-morning', 'theme-auto-day', 'theme-auto-sunset', 'theme-auto-night');
-    
+
     const cls = THEME_CLASS_MAP[themeName];
     if (cls) body.classList.add(cls);
-    
+
     // Если авто-тема, добавляем класс в зависимости от времени суток
     if (themeName === 'auto') {
         const autoClass = getAutoThemeClass();
         body.classList.add(autoClass);
     }
-    
+
     // Если снежная тема, запускаем анимацию снежинок
     if (themeName === 'snow') {
         startSnowflakes();
@@ -369,6 +369,14 @@ function applyThemeClasses(themeName) {
     } else {
         stopBirds();
     }
+    
+    // Дополнительная очистка - удаляем все контейнеры анимаций если они пустые
+    ['snowflakes', 'raindrops', 'leaves', 'birds'].forEach(name => {
+        const container = document.getElementById(`${name}-container`);
+        if (container && !container.hasChildNodes()) {
+            container.remove();
+        }
+    });
 }
 
 function getCurrentTheme() {

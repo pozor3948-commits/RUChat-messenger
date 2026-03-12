@@ -6,10 +6,10 @@
       "$user": {
         ".write": true,
         "password": {
-          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 128"
+          ".validate": "newData.isString() && newData.val().length >= 6 && newData.val().length <= 128"
         },
         "displayName": {
-          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64)"
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length >= 1 && newData.val().length <= 64)"
         },
         "about": {
           ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)"
@@ -64,13 +64,22 @@
           "$storyId": {
             ".validate": "newData.hasChildren(['author', 'createdAt']) && newData.child('author').isString() && newData.child('createdAt').isNumber() && (!newData.child('text').exists() || (newData.child('text').isString() && newData.child('text').val().length <= 500)) && (!newData.child('photo').exists() || (newData.child('photo').isString() && newData.child('photo').val().length <= 15000000)) && (!newData.child('video').exists() || (newData.child('video').isString() && newData.child('video').val().length <= 15000000))"
           }
+        },
+        "chatThemes": {
+          ".validate": "newData.isObject()"
+        },
+        "$other": {
+          ".validate": false
         }
       }
     },
     "userStatus": {
       "$user": {
         ".write": true,
-        ".validate": "newData.hasChildren(['online', 'idle', 'lastSeen', 'username']) && newData.child('online').isBoolean() && newData.child('idle').isBoolean() && newData.child('lastSeen').isNumber() && newData.child('username').isString()"
+        ".validate": "newData.hasChildren(['online', 'lastSeen', 'username']) && newData.child('online').isBoolean() && newData.child('lastSeen').isNumber() && newData.child('username').isString()",
+        "$other": {
+          ".validate": false
+        }
       }
     },
     "privateChats": {
@@ -183,6 +192,30 @@
     "rateLimits": {
       ".read": false,
       ".write": false
+    },
+    "storiesIndex": {
+      "$userId": {
+        ".validate": "newData.hasChildren(['hasStories']) && newData.child('hasStories').isBoolean()"
+      }
+    },
+    "secretChats": {
+      "$userId": {
+        "$chatId": {
+          ".validate": "newData.hasChildren(['partner', 'createdAt', 'encrypted'])"
+        }
+      }
+    },
+    "secretMessages": {
+      "$chatId": {
+        "$messageId": {
+          ".validate": "newData.hasChildren(['from', 'time', 'encryptedData', 'chatId'])"
+        }
+      }
+    },
+    "qr_logins": {
+      "$token": {
+        ".validate": "newData.hasChildren(['username', 'exp'])"
+      }
     }
   }
 }
