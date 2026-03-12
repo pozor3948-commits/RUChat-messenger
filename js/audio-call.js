@@ -46,21 +46,86 @@ const rtcConfiguration = {
         { urls: 'stun:stun4.l.google.com:19302' },
         
         // Публичные TURN серверы (бесплатно)
-        { 
+        {
             urls: 'turn:openrelay.metered.ca:80',
             username: 'openrelayproject',
             credential: 'nevfh73zgaJq5uxf'
         },
-        { 
+        {
             urls: 'turn:openrelay.metered.ca:443',
             username: 'openrelayproject',
             credential: 'nevfh73zgaJq5uxf'
         },
-        { 
+        {
             urls: 'turn:openrelay.metered.ca:443?transport=tcp',
             username: 'openrelayproject',
             credential: 'nevfh73zgaJq5uxf'
-        }
+        },
+
+        // TURN серверы webrtc.homeway.io (бесплатно)
+        {
+            urls: 'turn:webrtc.homeway.io:3478?transport=udp'
+        },
+        {
+            urls: 'turn:webrtc.homeway.io:53?transport=udp'
+        },
+        {
+            urls: 'turn:webrtc.homeway.io:3478?transport=tcp'
+        },
+        {
+            urls: 'turns:webrtc.homeway.io:443?transport=tcp'
+        },
+
+        // TURN серверы Twilio (бесплатно, требуют регистрации)
+        // Примечание: нужны актуальные credentials из https://www.twilio.com/console/stun-turn
+        // {
+        //     urls: ['turn:global.turn.twilio.com:3478?transport=udp', 'turn:global.turn.twilio.com:443?transport=tcp'],
+        //     username: 'YOUR_USERNAME',
+        //     credential: 'YOUR_CREDENTIAL'
+        // },
+
+        // Другие публичные TURN серверы
+        {
+            urls: 'turn:turn.cloudflare.com:443?transport=tcp'
+        },
+        {
+            urls: 'turn:relay.metered.ca:80',
+            username: 'project',
+            credential: 'project'
+        },
+        {
+            urls: 'turn:relay.metered.ca:443?transport=tcp',
+            username: 'project',
+            credential: 'project'
+        },
+        {
+            urls: 'turn:relay.metered.ca:443?transport=udp',
+            username: 'project',
+            credential: 'project'
+        },
+        // STUN серверы от других провайдеров
+        { urls: 'stun:stun.services.mozilla.com:3478' },
+        { urls: 'stun:stun.voip.blackberry.com:3478' },
+        { urls: 'stun:stun.voip.blackberry.com:53' },
+        { urls: 'stun:stun.alcasd.k12.pa.us:3478' },
+        { urls: 'stun:stun.ideas.com:3478' },
+        { urls: 'stun:stun.intel.com:3478' },
+        { urls: 'stun:stun.antisip.com:3478' },
+        { urls: 'stun:stun.bethesda.net:3478' },
+        { urls: 'stun:stun.dlink.com:3478' },
+        { urls: 'stun:stun.fwdnet.net:3478' },
+        { urls: 'stun:stun.gmx.com:3478' },
+        { urls: 'stun:stun.hznet.com.cn:3478' },
+        { urls: 'stun:stun.kundenserver.de:3478' },
+        { urls: 'stun:stun.phone.com:3478' },
+        { urls: 'stun:stun.sip.us:3478' },
+        { urls: 'stun:stun.sonetel.com:3478' },
+        { urls: 'stun:stun.stunprotocol.org:3478' },
+        { urls: 'stun:stun.symantec.com:3478' },
+        { urls: 'stun:stun.vonage.com:3478' },
+        { urls: 'stun:stun.xten.com:3478' },
+        { urls: 'stun:stun.yandex.ru:3478' },
+        { urls: 'stun:stun.zadarma.com:3478' }
     ]
 };
 
