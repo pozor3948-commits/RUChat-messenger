@@ -20,8 +20,65 @@ let remoteAudioEl = null;
 let ringtoneAudio = null;
 let ringbackAudio = null;
 let ringtoneInterval = null;
+let noAnswerTimer = null; // Таймер без ответа
 let iceCandidateQueue = [];
 let isCaller = false;
+
+// Звук "абонент временно недоступен" (гудки + голос)
+function playNoAnswerTone() {
+    stopCallSound();
+    stopRingtone();
+    
+    // Проигрываем прерывистые гудки (4 серии)
+    let beepCount = 0;
+    const maxBeeps = 4;
+    const beepPattern = () => {
+        if (beepCount >= maxBeeps) {
+            clearInterval(beepInterval);
+            return;
+        }
+        // Серия из 3 коротких гудков
+        let seriesCount = 0;
+        const seriesInterval = setInterval(() => {
+            if (seriesCount >= 3) {
+                clearInterval(seriesInterval);
+                beepCount++;
+                setTimeout(beepPattern, 500);
+                return;
+            }
+            fallbackBeep(null, 0.3);
+            seriesCount++;
+        }, 200);
+    };
+    const beepInterval = setInterval(beepPattern, 1500);
+    
+    // Через 2 секунды голосовое сообщение
+    setTimeout(() => {
+        const utterance = new SpeechSynthesisUtterance('Абонент временно недоступен. Пожалуйста, позвоните позже.');
+        utterance.lang = 'ru-RU';
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        speechSynthesis.speak(utterance);
+    }, 2000);
+}
+
+// Звук "абонент занят" (короткие гудки)
+function playBusyTone() {
+    stopCallSound();
+    stopRingtone();
+    
+    // Проигрываем короткие гудки (каждые 0.5 сек)
+    let busyCount = 0;
+    const maxBusy = 6;
+    const busyInterval = setInterval(() => {
+        if (busyCount >= maxBusy) {
+            clearInterval(busyInterval);
+            return;
+        }
+        fallbackBeep(null, 0.4);
+        busyCount++;
+    }, 500);
+}
 
 function ensureRemoteAudioEl() {
     if (!remoteAudioEl) {
@@ -151,6 +208,21 @@ async function startAudioCall() {
         showCallUI(currentChatPartner, 'outgoing');
         ensureRemoteAudioEl();
 
+        // Запускаем таймер без ответа (60 секунд)
+        if (noAnswerTimer) clearTimeout(noAnswerTimer);
+        noAnswerTimer = setTimeout(() => {
+            console.log('[WebRTC] Таймер без ответа истек (60 сек)');
+            document.getElementById('callStatus').textContent = 'Абонент не ответил';
+            playNoAnswerTone();
+            // Завершаем звонок через 5 секунд после сообщения
+            setTimeout(() => {
+                endCall();
+            }, 5000);
+        }, 60000);
+
+        // Воспроизводим гудки вызова
+        playCallSound();
+
         // Получаем доступ к микрофону
         localStream = await navigator.mediaDevices.getUserMedia({
             audio: {
@@ -186,6 +258,11 @@ async function startAudioCall() {
             console.log('[WebRTC] Состояние соединения:', peerConnection.connectionState);
             if (peerConnection.connectionState === 'connected') {
                 document.getElementById('callStatus').textContent = 'Соединено';
+                // Останавливаем таймер без ответа
+                if (noAnswerTimer) {
+                    clearTimeout(noAnswerTimer);
+                    noAnswerTimer = null;
+                }
                 stopCallSound();
                 startCallTimer();
             } else if (peerConnection.connectionState === 'failed') {
@@ -325,8 +402,18 @@ function listenForCallAnswer() {
                 console.log('[WebRTC] Answer установлен как remote');
             }
         } else if (callData.status === 'rejected') {
-            showNotification('Звонок', 'Собеседник отклонил звонок', 'warning');
-            endCall();
+            // Абонент сбросил - показываем "Абонент занят"
+            if (noAnswerTimer) {
+                clearTimeout(noAnswerTimer);
+                noAnswerTimer = null;
+            }
+            document.getElementById('callStatus').textContent = 'Абонент занят';
+            playBusyTone();
+            showNotification('Звонок', 'Абонент занят', 'warning');
+            // Завершаем звонок через 3 секунды
+            setTimeout(() => {
+                endCall();
+            }, 3000);
         } else if (callData.status === 'ended') {
             endCall();
         }
@@ -504,6 +591,11 @@ function resetCallStateLocal() {
         callTimer = null;
         callDuration = 0;
     }
+    // Останавливаем таймер без ответа
+    if (noAnswerTimer) {
+        clearTimeout(noAnswerTimer);
+        noAnswerTimer = null;
+    }
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
@@ -528,12 +620,18 @@ function resetCallStateLocal() {
 async function endCall() {
     try {
         console.log('[WebRTC] Завершаем звонок');
-        
+
         // Останавливаем таймер
         if (callTimer) {
             clearInterval(callTimer);
             callTimer = null;
             callDuration = 0;
+        }
+
+        // Останавливаем таймер без ответа
+        if (noAnswerTimer) {
+            clearTimeout(noAnswerTimer);
+            noAnswerTimer = null;
         }
 
         // Останавливаем локальный поток
