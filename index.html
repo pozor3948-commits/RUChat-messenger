@@ -561,8 +561,8 @@
                 }
             });
         }
-        // Версия приложения
-        window.APP_VERSION = '1.6.2';
+        // Версия приложения с timestamp для сброса кэша
+        window.APP_VERSION = '1.6.3d-' + Date.now();
         console.log('[RuChat] Версия:', window.APP_VERSION);
         
         // Проверяем что все функции загружены

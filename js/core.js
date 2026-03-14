@@ -1,7 +1,7 @@
 /**
  * RuChat - Core Functions
  * Объединённый файл для быстрой загрузки
- * Версия: 1.6.2
+ * Версия: 1.6.3d - 14 марта 2026
  */
 
 // Быстрая инициализация критических функций
@@ -16,8 +16,15 @@
     
     // Глобальные переменные
     window.ruchat = window.ruchat || {};
-    window.ruchat.version = '1.6.3';
+    window.ruchat.version = '1.6.3d';
+    window.ruchat.buildDate = '2026-03-14';
     window.ruchat.loaded = false;
+    
+    console.log('═══════════════════════════════════════');
+    console.log('   RuChat Мессенджер');
+    console.log('   Версия: ' + window.ruchat.version);
+    console.log('   Сборка: ' + window.ruchat.buildDate);
+    console.log('═══════════════════════════════════════');
     
     // Критические функции
     window.ruchat.showError = function(msg, retry) {

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Очистка кэша RuChat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        h1 { margin-top: 0; }
+        .status { 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 5px; 
+            background: rgba(255,255,255,0.2);
+        }
+        .success { background: rgba(76, 175, 80, 0.5); }
+        .error { background: rgba(244, 67, 54, 0.5); }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover { background: #5568d3; }
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Очистка кэша RuChat</h1>
+        <p>Эта страница автоматически очистит весь кэш браузера для RuChat.</p>
+        
+        <div id="status"></div>
+        
+        <h3>Автоматическая очистка:</h3>
+        <button onclick="clearCache()">🔄 Очистить кэш</button>
+        <button onclick="location.href='index.html'">🏠 Перейти в RuChat</button>
+        
+        <h3>Ручная очистка (если автоматическая не помогла):</h3>
+        <ol>
+            <li>Нажми <strong>Ctrl+Shift+Delete</strong></li>
+            <li>Выбери "Всё время"</li>
+            <li>Отметь "Изображения и другие файлы, сохранённые в кэше"</li>
+            <li>Нажми "Удалить"</li>
+            <li>Перезагрузи страницу: <strong>Ctrl+F5</strong></li>
+        </ol>
+        
+        <h3>Проверка версии:</h3>
+        <pre id="version">Загрузка...</pre>
+    </div>
+
+    <script>
+        async function clearCache() {
+            const statusDiv = document.getElementById('status');
+            
+            try {
+                // Очистка Service Worker кэша
+                if ('caches' in window) {
+                    const names = await caches.keys();
+                    for (let name of names) {
+                        await caches.delete(name);
+                        console.log('[Cache] Удалён:', name);
+                    }
+                    statusDiv.innerHTML = '<div class="status success">✅ Кэш успешно очищен!</div>';
+                } else {
+                    statusDiv.innerHTML = '<div class="status">ℹ️ Кэширование не поддерживается</div>';
+                }
+                
+                // Очистка localStorage (опционально)
+                // localStorage.clear();
+                
+                // Проверка версии
+                checkVersion();
+                
+            } catch (e) {
+                statusDiv.innerHTML = '<div class="status error">❌ Ошибка: ' + e.message + '</div>';
+            }
+        }
+        
+        function checkVersion() {
+            const versionDiv = document.getElementById('version');
+            versionDiv.textContent = 'Откройте index.html и нажмите F12 для проверки версии в консоли';
+        }
+        
+        // Автоматическая очистка при загрузке
+        window.addEventListener('load', () => {
+            setTimeout(clearCache, 500);
+        });
+    </script>
+</body>
+</html>
