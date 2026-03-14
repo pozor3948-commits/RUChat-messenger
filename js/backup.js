@@ -61,12 +61,18 @@ async function createBackup() {
         };
 
         // Сохраняем в Firebase (для синхронизации между устройствами)
-        const backupId = `backup_${Date.now()}`;
-        await db.ref(`backups/${username}/${backupId}`).set({
-            createdAt: Date.now(),
-            size: JSON.stringify(backup).length,
-            version: backup.version
-        });
+        // Только если есть права доступа
+        try {
+            const backupId = `backup_${Date.now()}`;
+            await db.ref(`backups/${username}/${backupId}`).set({
+                createdAt: Date.now(),
+                size: JSON.stringify(backup).length,
+                version: backup.version
+            });
+            console.log('[Backup] Сохранено в Firebase');
+        } catch (fbError) {
+            console.warn('[Backup] Нет прав на запись в Firebase. Сохраняем только локально.');
+        }
 
         // Сохраняем локально в localStorage (ограничение ~5-10MB)
         try {
@@ -224,8 +230,13 @@ function checkLocalBackup() {
     }
 }
 
-// Автоматическое резервное копирование (раз в 7 дней)
+// Автоматическое резервное копирование (отключено по умолчанию)
 function autoBackup() {
+    // Отключено чтобы не спамить ошибками
+    // Включите вручную если нужно: createBackup()
+    console.log('[Backup] Auto-backup disabled');
+    return;
+    
     if (!username) return;
     
     const lastBackup = localStorage.getItem('ruchat_last_backup');

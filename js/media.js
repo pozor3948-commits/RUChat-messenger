@@ -892,6 +892,7 @@ function openMedia(url) {
 
 window.closeMediaViewer = closeMediaViewer;
 window.openMediaViewer = openMediaViewer;
+window.openMedia = openMedia;
 window.startVoiceRecord = startVoiceRecord;
 window.stopVoiceRecord = stopVoiceRecord;
 window.cancelVoiceRecord = cancelVoiceRecord;

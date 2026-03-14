@@ -109,9 +109,9 @@ function getIceServers() {
         }
     }
 
-    // Публичные TURN серверы Metered (бесплатно)
-    // Примечание: credentials могут меняться, следите за актуальностью
+    // Публичные TURN серверы (несколько вариантов)
     const publicTurnServers = [
+        // Metered (бесплатно)
         {
             urls: 'turn:openrelay.metered.ca:80',
             username: 'openrelayproject',
@@ -126,13 +126,23 @@ function getIceServers() {
             urls: 'turn:openrelay.metered.ca:443?transport=tcp',
             username: 'openrelayproject',
             credential: 'nevfh73zgaJq5uxf'
+        },
+        // Twilio (тестовые, могут не работать)
+        {
+            urls: 'turn:global.turn.twilio.com:3478?transport=udp',
+            username: 'test',
+            credential: 'test'
         }
     ];
 
-    // STUN серверы Google (бесплатно, проверенные)
+    // STUN серверы (несколько вариантов)
     const stunServers = [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'stun:stun.services.mozilla.com:3478' }
     ];
 
     // Возвращаем комбинацию STUN + TURN
@@ -143,7 +153,8 @@ const rtcConfiguration = {
     iceServers: getIceServers(),
     // Настройки ICE для лучшей совместимости
     iceCandidatePoolSize: 10,
-    iceTransportPolicy: 'all' // Попробовать все, включая relay
+    iceTransportPolicy: 'all', // Попробовать все, включая relay
+    sdpSemantics: 'unified-plan'
 };
 
 // Инициировать аудиозвонок
@@ -246,16 +257,26 @@ async function startAudioCall() {
             if (event.candidate) {
                 const type = event.candidate.type || 'unknown';
                 const address = event.candidate.address || 'unknown';
-                console.log('[WebRTC] Отправляем ICE кандидат:', type, address);
-                db.ref(`calls/${currentChatId}/candidates`).push({
-                    candidate: event.candidate,
-                    from: username
-                }).catch(err => {
-                    console.error('[WebRTC] Ошибка отправки ICE кандидата в Firebase:', err);
-                });
+                console.log('[WebRTC] ICE кандидат:', type, address);
+                
+                // Отправляем только если есть соединение
+                if (currentChatId) {
+                    db.ref(`calls/${currentChatId}/candidates`).push({
+                        candidate: event.candidate,
+                        from: username
+                    }).catch(err => {
+                        console.warn('[WebRTC] Ошибка отправки ICE кандидата:', err.message);
+                    });
+                }
             } else {
-                console.log('[WebRTC] Все ICE кандидаты отправлены (end of candidates)');
+                console.log('[WebRTC] ICE кандидаты отправлены (end of candidates)');
             }
+        };
+
+        // Игнорируем ошибки ICE candidate (это нормально для некоторых серверов)
+        peerConnection.onicecandidateerror = (event) => {
+            // Не спамим ошибками, только лог для отладки
+            console.debug('[WebRTC] ICE ошибка (игнорируем):', event.errorText);
         };
 
         // Получаем ICE кандидатов от удалённой стороны

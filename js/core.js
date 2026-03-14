@@ -61,12 +61,20 @@
         }
     });
     
-    // Обработка ошибок
+    // Обработка ошибок (не спамим)
+    let errorCount = 0;
     window.addEventListener('error', function(e) {
-        console.error('[RuChat Error]', e.error);
+        errorCount++;
+        if (errorCount <= 5) {  // Показываем только первые 5 ошибок
+            console.error('[RuChat Error]', e.filename + ':' + e.lineno, e.message);
+        }
     });
     
     window.addEventListener('unhandledrejection', function(e) {
+        // Игнорируем ошибки Firebase (permission denied)
+        if (e.reason && e.reason.code === 'PERMISSION_DENIED') {
+            return;
+        }
         console.error('[RuChat Promise Error]', e.reason);
     });
     
