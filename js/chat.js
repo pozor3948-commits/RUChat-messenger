@@ -1820,8 +1820,7 @@ function addMessageToChat(m, options = {}) {
   let content = "";
   let videoMessageOpenUrl = null;
   const replyFrom = m.replyTo && m.replyTo.from ? resolveUserLabel(m.replyTo.from) : '';
-  const replyText = m.replyTo && m.replyTo.text ? sanitizeUiText(String(m.replyTo.text), '') : '';
-  const replyHtml = m.replyTo ? `<div class="message-reply">↩ ${escapeHtml(replyFrom)}: ${escapeHtml(replyText)}</div>` : "";
+  const replyHtml = m.replyTo ? `<div class="message-reply">↩ ${escapeHtml(replyFrom)}: ${escapeHtml(sanitizeUiText(m.replyTo.text || '', ''))}</div>` : "";
   const fwdName = m.forwardedFrom ? resolveUserLabel(m.forwardedFrom) : '';
   const forwardedHtml = m.forwardedFrom ? `<div class="message-forwarded">↪ Переслано от ${escapeHtml(fwdName)}</div>` : "";
   const t = new Date(m.time || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -2955,14 +2954,6 @@ window.setGroupRole = setGroupRole;
 window.removeGroupMember = removeGroupMember;
 window.leaveCurrentGroup = leaveCurrentGroup;
 window.updateGroupManageMenuVisibility = updateGroupManageMenuVisibility;
-window.openChatNotifySettings = openChatNotifySettings;
-window.setChatMuteMinutes = setChatMuteMinutes;
-window.setChatMuteForever = setChatMuteForever;
-window.toggleSilentSendForChat = toggleSilentSendForChat;
-window.setMediaTab = setMediaTab;
-window.closeChatNotifySettings = closeChatNotifySettings;
-window.clearEdit = clearEdit;
-window.clearReply = clearReply;
 
 document.addEventListener('click', (e) => {
   const videoBubble = e.target.closest('.message-video');

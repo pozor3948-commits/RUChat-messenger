@@ -67,8 +67,3 @@ async function createGroup() {
   } catch (e) { showError("Ошибка создания группы"); }
 }
 
-// Экспорт функций
-window.showCreateGroupModal = showCreateGroupModal;
-window.closeGroupModal = closeGroupModal;
-window.createGroup = createGroup;
-

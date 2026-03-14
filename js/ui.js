@@ -51,23 +51,13 @@ function handleKeyPress(e) {
     updateSendButton();
 }
 
-// Debounce функции для поиска (оптимизация производительности)
-let searchChatsTimer = null;
-let searchMessagesTimer = null;
-
 function searchChats(q) {
-    // Очищаем предыдущий таймер
-    if (searchChatsTimer) clearTimeout(searchChatsTimer);
-    
-    // Запускаем поиск с задержкой 300мс
-    searchChatsTimer = setTimeout(() => {
-        const needle = (q || '').toLowerCase();
-        document.querySelectorAll(".contact-item, .group-item, .request-item.chat-request-item").forEach(it => {
-            const titleEl = it.querySelector(".contact-name, .request-name");
-            const title = titleEl ? titleEl.textContent.toLowerCase() : '';
-            it.style.display = title.includes(needle) ? "flex" : "none";
-        });
-    }, 300);
+    const needle = (q || '').toLowerCase();
+    document.querySelectorAll(".contact-item, .group-item, .request-item.chat-request-item").forEach(it => {
+        const titleEl = it.querySelector(".contact-name, .request-name");
+        const title = titleEl ? titleEl.textContent.toLowerCase() : '';
+        it.style.display = title.includes(needle) ? "flex" : "none";
+    });
 }
 
 function toggleMessageSearch() {
@@ -107,34 +97,28 @@ function clearMessageSearch() {
 }
 
 function searchMessages(query) {
-    // Очищаем предыдущий таймер
-    if (searchMessagesTimer) clearTimeout(searchMessagesTimer);
-    
-    // Запускаем поиск с задержкой 300мс
-    searchMessagesTimer = setTimeout(() => {
-        const q = (query || '').trim().toLowerCase();
-        let found = 0;
-        document.querySelectorAll('.message-text').forEach(el => {
-            const raw = el.dataset.rawText || el.textContent;
-            if (!el.dataset.rawText) el.dataset.rawText = raw;
-            if (!q) {
-                el.textContent = raw;
-                return;
-            }
-            const idx = raw.toLowerCase().indexOf(q);
-            if (idx === -1) {
-                el.textContent = raw;
-                return;
-            }
-            found++;
-            const before = escapeHtml(raw.slice(0, idx));
-            const match = escapeHtml(raw.slice(idx, idx + q.length));
-            const after = escapeHtml(raw.slice(idx + q.length));
-            el.innerHTML = `${before}<mark class="message-highlight">${match}</mark>${after}`;
-        });
-        const count = document.getElementById('chatSearchCount');
-        if (count) count.textContent = found ? String(found) : '';
-    }, 300);
+    const q = (query || '').trim().toLowerCase();
+    let found = 0;
+    document.querySelectorAll('.message-text').forEach(el => {
+        const raw = el.dataset.rawText || el.textContent;
+        if (!el.dataset.rawText) el.dataset.rawText = raw;
+        if (!q) {
+            el.textContent = raw;
+            return;
+        }
+        const idx = raw.toLowerCase().indexOf(q);
+        if (idx === -1) {
+            el.textContent = raw;
+            return;
+        }
+        found++;
+        const before = escapeHtml(raw.slice(0, idx));
+        const match = escapeHtml(raw.slice(idx, idx + q.length));
+        const after = escapeHtml(raw.slice(idx + q.length));
+        el.innerHTML = `${before}<mark class="message-highlight">${match}</mark>${after}`;
+    });
+    const count = document.getElementById('chatSearchCount');
+    if (count) count.textContent = found ? String(found) : '';
 }
 
 // Функция показа/скрытия эмодзи-пикера
@@ -348,16 +332,16 @@ function applyThemeClasses(themeName) {
     });
     // Удаляем классы авто-темы
     body.classList.remove('theme-auto-morning', 'theme-auto-day', 'theme-auto-sunset', 'theme-auto-night');
-
+    
     const cls = THEME_CLASS_MAP[themeName];
     if (cls) body.classList.add(cls);
-
+    
     // Если авто-тема, добавляем класс в зависимости от времени суток
     if (themeName === 'auto') {
         const autoClass = getAutoThemeClass();
         body.classList.add(autoClass);
     }
-
+    
     // Если снежная тема, запускаем анимацию снежинок
     if (themeName === 'snow') {
         startSnowflakes();
@@ -385,14 +369,6 @@ function applyThemeClasses(themeName) {
     } else {
         stopBirds();
     }
-    
-    // Дополнительная очистка - удаляем все контейнеры анимаций если они пустые
-    ['snowflakes', 'raindrops', 'leaves', 'birds'].forEach(name => {
-        const container = document.getElementById(`${name}-container`);
-        if (container && !container.hasChildNodes()) {
-            container.remove();
-        }
-    });
 }
 
 function getCurrentTheme() {
@@ -778,16 +754,3 @@ window.applyRainBackground = applyRainBackground;
 window.applySnowBackground = applySnowBackground;
 window.applyBirdsBackground = applyBirdsBackground;
 window.applyLeavesBackground = applyLeavesBackground;
-
-// Экспортируем все функции для кнопок
-window.showRecordTypeMenu = showRecordTypeMenu;
-window.toggleSidebar = toggleSidebar;
-window.closeChat = closeChat;
-window.searchChats = searchChats;
-window.searchMessages = searchMessages;
-window.toggleMessageSearch = toggleMessageSearch;
-window.clearMessageSearch = clearMessageSearch;
-window.toggleEmojiPicker = toggleEmojiPicker;
-window.toggleChatSettingsMenu = toggleChatSettingsMenu;
-window.showChatInfo = showChatInfo;
-window.toggleAttachmentMenu = toggleAttachmentMenu;

@@ -765,6 +765,3 @@ function showSettingsMenu() {
     if (typeof window.loadMediaSettings === 'function') window.loadMediaSettings();
     renderDynamic();
 }
-
-// Экспорт функций
-window.showSettingsMenu = showSettingsMenu;

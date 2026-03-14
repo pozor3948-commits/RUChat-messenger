@@ -1,77 +1,9 @@
 ﻿/* ==========================================================
    5. АВТОРИЗАЦИЯ
    ========================================================== */
-
-// Криптографическое хеширование паролей с использованием Web Crypto API
-// PBKDF2 с солью и 100000 итерациями для защиты от brute-force атак
-async function hashPassword(password, salt = null) {
-  if (!salt) {
-    salt = crypto.getRandomValues(new Uint8Array(16));
-  }
-  
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(password),
-    'PBKDF2',
-    false,
-    ['deriveBits']
-  );
-  
-  const keyBits = await crypto.subtle.deriveBits(
-    {
-      name: 'PBKDF2',
-      hash: 'SHA-256',
-      salt: salt,
-      iterations: 100000
-    },
-    keyMaterial,
-    256
-  );
-  
-  const hashArray = Array.from(new Uint8Array(keyBits));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
-  
-  return {
-    hash: hashHex,
-    salt: saltHex
-  };
-}
-
-// Верификация пароля (для совместимости со старыми хешами)
-function verifyPassword(password, storedData) {
-  // Старый формат (просто число)
-  if (typeof storedData === 'number') {
-    let h = 0;
-    for (let i = 0; i < password.length; i++) { 
-      h = ((h << 5) - h) + password.charCodeAt(i); 
-      h |= 0; 
-    }
-    return h === storedData;
-  }
-  
-  // Новый формат (объект с hash и salt)
-  if (storedData && typeof storedData === 'object' && storedData.hash && storedData.salt) {
-    const saltArray = new Uint8Array(storedData.salt.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-    return hashPassword(password, saltArray).then(result => {
-      return result.hash === storedData.hash;
-    });
-  }
-  
-  return false;
-}
-
-// Для обратной совместимости (синхронная версия для старого кода)
-// Будет заменена на асинхронную при следующем мажорном обновлении
-function hashPasswordSync(p) {
-  // Временно оставляем старую функцию для совместимости
-  // TODO: Полностью перейти на async hashPassword
+function hashPassword(p) {
   let h = 0;
-  for (let i = 0; i < p.length; i++) { 
-    h = ((h << 5) - h) + p.charCodeAt(i); 
-    h |= 0; 
-  }
+  for (let i = 0; i < p.length; i++) { h = ((h << 5) - h) + p.charCodeAt(i); h |= 0; }
   return h;
 }
 
@@ -108,37 +40,31 @@ async function register() {
       ? withTimeout(db.ref("accounts/" + u).get(), 12000, "Не удалось подключиться к серверу. Проверьте интернет.")
       : db.ref("accounts/" + u).get());
     if (snap.exists()) throw new Error("Пользователь уже существует!");
-    
-    // Хешируем пароль с использованием PBKDF2
-    const passwordHash = await hashPassword(p);
     const ts = Date.now();
-    
     await (typeof withTimeout === 'function'
-      ? withTimeout(db.ref("accounts/" + u).set({
-      password: passwordHash,
-      passwordVersion: 'pbkdf2-sha256', // Метка алгоритма для совместимости
-      friends: {},
-      avatar: "",
+      ? withTimeout(db.ref("accounts/" + u).set({ 
+      password: hashPassword(p), 
+      friends: {}, 
+      avatar: "", 
       displayName: u,
       about: "",
       friendRequests: { incoming: {}, outgoing: {} },
       blocked: {},
-      lastSeen: ts,
-      createdAt: ts,
-      chatThemes: {}
+      lastSeen: ts, 
+      createdAt: ts, 
+      chatThemes: {} 
     }), 12000, "Сервер не отвечает. Попробуйте ещё раз.")
-      : db.ref("accounts/" + u).set({
-      password: passwordHash,
-      passwordVersion: 'pbkdf2-sha256',
-      friends: {},
-      avatar: "",
+      : db.ref("accounts/" + u).set({ 
+      password: hashPassword(p), 
+      friends: {}, 
+      avatar: "", 
       displayName: u,
       about: "",
       friendRequests: { incoming: {}, outgoing: {} },
       blocked: {},
-      lastSeen: ts,
-      createdAt: ts,
-      chatThemes: {}
+      lastSeen: ts, 
+      createdAt: ts, 
+      chatThemes: {} 
     }));
     showNotification("Успешно", "Регистрация прошла успешно!");
     // Возвращаем в режим входа (чтобы сразу можно было зайти)
@@ -228,11 +154,7 @@ async function login() {
       ? withTimeout(db.ref("accounts/" + u).get(), 12000, "Не удалось подключиться к серверу. Проверьте интернет.")
       : db.ref("accounts/" + u).get());
     if (!snap.exists()) throw new Error("Пользователь не найден!");
-    
-    const userData = snap.val();
-    const passwordValid = await verifyPassword(p, userData.password);
-    
-    if (!passwordValid) throw new Error("Неверный пароль!");
+    if (snap.val().password !== hashPassword(p)) throw new Error("Неверный пароль!");
     await doLoginAfterAuth(u, "Добро пожаловать", `Привет, ${u}!`);
   } catch (e) {
     showError(e.message, () => login());
@@ -327,26 +249,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
   showAuthScreen();
 });
-async function recoverPassword() {
+function recoverPassword() {
   const u = prompt("Введите имя пользователя:");
   if (!u) return;
   showLoading();
-  try {
-    const snap = await db.ref("accounts/" + u).get();
+  db.ref("accounts/" + u).get().then(async snap => {
     hideLoading();
     if (!snap.exists()) { showError("Пользователь не найден!"); return; }
-    
     const adminCode = prompt("Введите код администратора:");
     if (adminCode !== "1234") { showError("Неверный код администратора!"); return; }
-    
     const choice = prompt("Введите '1' чтобы задать новый пароль или '2' чтобы войти без пароля:");
     if (choice === "1") {
       const np = prompt("Введите новый пароль:");
-      if (!np || np.length < 6) { showError("Пароль должен быть не менее 6 символов!"); return; }
+      if (!np) { showError("Пароль не изменен!"); return; }
       showLoading();
-      const passwordHash = await hashPassword(np);
-      await db.ref("accounts/" + u + "/password").set(passwordHash);
-      await db.ref("accounts/" + u + "/passwordVersion").set('pbkdf2-sha256');
+      await db.ref("accounts/" + u + "/password").set(hashPassword(np));
       hideLoading();
       showNotification("Успешно", "Пароль успешно изменен!");
     } else if (choice === "2") {
@@ -355,10 +272,7 @@ async function recoverPassword() {
       showLoading();
       await doLoginAfterAuth(u, "Вход выполнен", "Вы вошли без пароля!");
     }
-  } catch (e) {
-    hideLoading();
-    showError("Ошибка: " + e.message);
-  }
+  }).catch(e => { hideLoading(); showError("Ошибка загрузки данных пользователя"); });
 }
 
 function logout() {

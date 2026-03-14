@@ -59,20 +59,8 @@ function createFilePicker(accept, multiple = false) {
 function fileToDataUrl(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = (e) => {
-            if (e.target && typeof e.target.result === 'string') {
-                resolve(e.target.result);
-            } else {
-                reject(new Error('Не удалось прочитать файл: пустой результат'));
-            }
-        };
-        reader.onerror = () => {
-            console.error('FileReader ошибка:', reader.error);
-            reject(new Error('Не удалось прочитать файл: ' + (reader.error?.message || 'неизвестная ошибка')));
-        };
-        reader.onabort = () => {
-            reject(new Error('Чтение файла отменено'));
-        };
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
         reader.readAsDataURL(file);
     });
 }
@@ -655,10 +643,8 @@ function attachVideo() {
             inp.remove();
             return;
         }
-        // Проверка размера файла с запасом (8MB вместо 10MB для безопасности)
-        const MAX_SAFE_SIZE = MAX_RTDM_MEDIA_BYTES * 0.8;
-        if (file.size > MAX_SAFE_SIZE) {
-            showError(`Видео слишком большое (${formatFileSize(file.size)}). Максимальный размер: ${formatFileSize(MAX_SAFE_SIZE)}.`);
+        if (file.size > MAX_RTDM_MEDIA_BYTES) {
+            showError('Видео слишком большое для отправки в текущем формате.');
             inp.remove();
             return;
         }
@@ -890,16 +876,4 @@ function openMedia(url) {
     document.addEventListener('keydown', handleMediaViewerKeydown);
 }
 
-// Экспорт функций
 window.closeMediaViewer = closeMediaViewer;
-window.openMedia = openMedia;  // Основная функция
-window.startVoiceRecord = startVoiceRecord;
-window.stopVoiceRecord = stopVoiceRecord;
-window.cancelVoiceRecord = cancelVoiceRecord;
-window.sendVoiceMessage = sendVoiceMessage;
-window.showRecordTypeMenu = showRecordTypeMenu;
-window.attachPhoto = attachPhoto;
-window.attachVideo = attachVideo;
-window.attachDocument = attachDocument;
-window.attachAudio = attachAudio;
-window.startAudioRecording = startAudioRecording;

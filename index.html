@@ -13,25 +13,6 @@
     <meta name="description" content="RuChat - современный мессенджер">
     <meta name="keywords" content="мессенджер, чат, RuChat, сообщения, общение">
     
-    <!-- Запрет кэширования -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    
-    <!-- PWA Manifest (работает только через HTTP/HTTPS) -->
-    <!-- Если открыто через file:// - будет CORS предупреждение (это нормально) -->
-    <link rel="manifest" href="manifest.json" crossorigin="use-credentials" id="pwa-manifest">
-    <script>
-        // Отключаем manifest при открытии через file://
-        if (window.location.protocol === 'file:') {
-            document.getElementById('pwa-manifest').remove();
-        }
-    </script>
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="RuChat">
-
     <title>RuChat | Современный мессенджер</title>
     
     <!-- Иконки без файлов (встроенные SVG) -->
@@ -50,7 +31,6 @@
     
     <!-- Стили -->
     <link rel="stylesheet" href="css/style.css?v=20260311a">
-    <link rel="stylesheet" href="css/new-features.css?v=20260312b"> <!-- НОВЫЕ: Стили для новых функций -->
     
     <style>
         /* Дополнительные стили для мобильных устройств */
@@ -154,7 +134,7 @@
         <div class="sidebar-topbar">
             <button class="sidebar-menu-btn" onclick="showSettingsMenu()" title="Меню">☰</button>
             <div class="sidebar-search">
-                <span class="sidebar-search-icon" onclick="showGlobalSearch()" style="cursor:pointer">🔍</span>
+                <span class="sidebar-search-icon">🔍</span>
                 <input type="text" class="sidebar-search-input" placeholder="Поиск" id="searchInput" oninput="searchChats(this.value)">
             </div>
             <img src="" alt="Мой профиль" class="sidebar-self-avatar" id="userAvatarTop" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=Пользователь&background=0088cc&color=fff&size=36'">
@@ -170,19 +150,6 @@
         </div>
 
         <div class="sidebar-chats">
-            <!-- ИСТОРИИ - НОВЫЙ БЛОК -->
-            <div class="stories-container" id="storiesContainer">
-                <div class="stories-list" id="storiesList"></div>
-            </div>
-            
-            <!-- ПАПКИ ЧАТОВ -->
-            <div class="chat-folders-container" id="chatFoldersContainer">
-                <button class="chat-folder-tab active" data-folder="all" onclick="setChatFolder('all')">Все</button>
-                <button class="chat-folder-tab" data-folder="personal" onclick="setChatFolder('personal')">Личные</button>
-                <button class="chat-folder-tab" data-folder="groups" onclick="setChatFolder('groups')">Группы</button>
-                <button class="chat-folder-tab" data-folder="unread" onclick="setChatFolder('unread')">Непрочитанные</button>
-            </div>
-            
             <div class="contacts-list" id="friendList"></div>
             <div class="groups-list" id="groupList"></div>
         </div>
@@ -195,11 +162,6 @@
         <div class="menu-section sidebar-actions">
             <button class="sidebar-action-btn" onclick="showAddFriend()" title="Добавить друга">➕👤</button>
             <button class="sidebar-action-btn" onclick="showCreateGroupModal()" title="Создать группу">➕👥</button>
-            <button class="sidebar-action-btn" onclick="showArchivedChatsModal()" title="Архив">📦</button>
-            <button class="sidebar-action-btn" onclick="showSavedMessagesModal()" title="Избранное">⭐</button>
-            <button class="sidebar-action-btn" onclick="showDeviceSessionsModal()" title="Сессии">🔐</button>
-            <button class="sidebar-action-btn" onclick="showCreatePollModal()" title="Опрос">📊</button>
-            <button class="sidebar-action-btn" onclick="showSecretChatsModal()" title="Секретные чаты">🔒</button>
         </div>
     </div>
 
@@ -219,14 +181,6 @@
                 <button class="icon-btn" id="callButton" onclick="startVoiceCall()" title="Голосовой звонок" style="display:none;">📞</button>
                 <button class="icon-btn" onclick="showChatInfo()" title="Информация о чате">i</button>
             </div>
-        </div>
-        
-        <!-- МОБИЛЬНЫЕ КНОПКИ ДЕЙСТВИЙ -->
-        <div class="mobile-chat-actions-bar" id="mobileChatActionsBar">
-            <button class="mobile-action-btn" onclick="showAlbumCreator()" title="Альбом">🖼️</button>
-            <button class="mobile-action-btn" onclick="sendLocation()" title="Геолокация">📍</button>
-            <button class="mobile-action-btn" onclick="showVideoMessageRecorder()" title="Видео">🎬</button>
-            <button class="mobile-action-btn" onclick="showCreatePollModal()" title="Опрос">📊</button>
         </div>
         <div class="chat-search" id="chatSearch">
             <input type="text" id="chatSearchInput" placeholder="Поиск в чате..." oninput="searchMessages(this.value)">
@@ -262,13 +216,10 @@
             </div>
             <div class="input-wrapper">
                 <button class="attachment-btn" onclick="toggleAttachmentMenu()" title="Прикрепить файл">📎</button>
-                <input type="text" class="message-input" id="text" placeholder="Введите сообщение..."
+                <input type="text" class="message-input" id="text" placeholder="Введите сообщение..." 
                        onkeypress="handleKeyPress(event)" oninput="updateSendButton(); handleTyping()"
                        autocomplete="off" autocorrect="on" autocapitalize="sentences" lang="ru" dir="auto">
-                <button class="icon-btn" onclick="showAlbumCreator()" title="Альбом фото">🖼️</button>
-                <button class="icon-btn" onclick="sendLocation()" title="Геолокация">📍</button>
-                <button class="icon-btn" onclick="showVideoMessageRecorder()" title="Видеосообщение">🎬</button>
-                <button class="icon-btn" onclick="showEphemeralMenu()" id="ephemeralBtn" title="Исчезающие сообщения">⏱️</button>
+                <button class="icon-btn" onclick="showRecordTypeMenu()" title="Запись сообщения">🎤</button>
                 <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Отправить">✈️</button>
             </div>
         </div>
@@ -521,134 +472,29 @@
 </div>
 
 <!-- Скрипты -->
-<script src="js/core.js?v=1.6.3d"></script> <!-- НОВЫЙ: Быстрое ядро -->
-<script src="js/firebase-config.js?v=1.6.3d"></script>
-<script src="js/utils.js?v=1.6.3d"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
-<script src="js/all-functions-fix.js?v=1.6.3d"></script> <!-- ИСПРАВЛЕНИЕ: Все функции -->
-<script src="js/main.js?v=1.6.3d"></script>
-<script src="js/ui.js?v=1.6.3d"></script>
-<script src="js/sounds.js?v=1.6.3d"></script>
-<script src="js/auth.js?v=1.6.3d"></script>
-<script src="js/push.js?v=1.6.3d"></script>
-<script src="js/status.js?v=1.6.3d"></script>
-<script src="js/chat.js?v=1.6.3d"></script>
-<script src="js/media.js?v=1.6.3d"></script>
-<script src="js/video-messages.js?v=1.6.3d"></script>
-<script src="js/emoji.js?v=1.6.3d"></script>
-<script src="js/stickers.js?v=1.6.3d"></script>
-<script src="js/groups.js?v=1.6.3d"></script>
-<script src="js/mobile.js?v=1.6.3d"></script>
-<script src="js/audio-call.js?v=1.6.3d"></script>
-<script src="js/settings.js?v=1.6.3d"></script>
-<script src="js/extended-features.js?v=1.6.3d"></script>
-<script src="js/extended-integration.js?v=1.6.3d"></script>
-<script src="js/advanced-features.js?v=1.6.3d"></script>
-<script src="js/media-features.js?v=1.6.3d"></script>
-<script src="js/new-features-integration.js?v=1.6.3d"></script>
-<script src="js/secret-chats.js?v=1.6.3d"></script>
-<script src="js/stories.js?v=1.6.3d"></script>
-<script src="js/backup.js?v=1.6.3d"></script>
-
-<!-- Инициализация после загрузки всех скриптов -->
-<script>
-    // Принудительная очистка кэша при загрузке
-    (function() {
-        if ('caches' in window) {
-            caches.keys().then(function(names) {
-                for (let name of names) {
-                    caches.delete(name);
-                    console.log('[Cache] Удалён кэш:', name);
-                }
-            });
-        }
-        // Версия приложения с timestamp для сброса кэша
-        window.APP_VERSION = '1.6.3d-' + Date.now();
-        console.log('[RuChat] Версия:', window.APP_VERSION);
-        
-        // Проверяем что все функции загружены
-        console.log('[Init] Проверка функций...');
-        console.log('  - loadStoriesForSidebar:', typeof window.loadStoriesForSidebar === 'function' ? '✅' : '❌');
-        console.log('  - showCreatePollModal:', typeof window.showCreatePollModal === 'function' ? '✅' : '❌');
-        console.log('  - sendLocation:', typeof window.sendLocation === 'function' ? '✅' : '❌');
-    })();
-</script>
+<script src="js/firebase-config.js?v=20260219d"></script>
+<script src="js/utils.js?v=20260304f"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/main.js?v=20260303b"></script>
+<script src="js/ui.js?v=20260311b"></script>
+<script src="js/sounds.js?v=20260219d"></script>
+<script src="js/auth.js?v=20260304b"></script>
+<script src="js/push.js?v=20260303a"></script>
+<script src="js/status.js?v=20260219d"></script>
+<script src="js/chat.js?v=20260306b"></script>
+<script src="js/media.js?v=20260303a"></script>
+<script src="js/video-messages.js?v=20260305a"></script>
+<script src="js/emoji.js?v=20260219d"></script>
+<script src="js/stickers.js?v=20260219d"></script>
+<script src="js/groups.js?v=20260219d"></script>
+<script src="js/mobile.js?v=20260301b"></script>
+<script src="js/audio-call.js?v=20260311h"></script>
+<script src="js/settings.js?v=20260311b"></script>
 
 <script>
     // Функция для проверки локального запуска
     window.isLocalFile = function() {
         return window.location.protocol === 'file:';
     };
-
-    // Регистрация Service Worker для PWA (отключено - нет файла sw.js)
-    // if ('serviceWorker' in navigator && !window.isLocalFile()) {
-    //     window.addEventListener('load', () => {
-    //         navigator.serviceWorker.register('/sw.js')
-    //             .then((registration) => {
-    //                 console.log('[PWA] SW зарегистрирован:', registration.scope);
-    //             })
-    //             .catch((error) => {
-    //                 console.log('[PWA] Ошибка регистрации SW:', error);
-    //             });
-    //     });
-    // }
-    console.log('[PWA] Service Worker отключён (нет файла sw.js)');
-
-    // Установка PWA
-    let deferredPrompt;
-    if (!window.isLocalFile()) {
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            console.log('[PWA] Можно установить');
-        });
-    }
-
-    function installPWA() {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    console.log('[PWA] Пользователь установил приложение');
-                }
-                deferredPrompt = null;
-            });
-        }
-    }
-    window.installPWA = installPWA;
-    
-    // Оптимизация: отложенная загрузка тяжелых функций
-    window.addEventListener('load', () => {
-        console.log('[Init] Загрузка дополнительных функций...');
-        
-        // Загружаем истории после основной загрузки
-        setTimeout(() => {
-            if (typeof window.loadStoriesForSidebar === 'function') {
-                console.log('[Init] Загрузка историй...');
-                window.loadStoriesForSidebar();
-                console.log('[Init] Истории загружены');
-            } else {
-                console.error('[Init] Функция loadStoriesForSidebar не найдена!');
-            }
-        }, 500);
-
-        // Загружаем геолокацию
-        setTimeout(() => {
-            if (typeof window.sendLocation === 'function') {
-                console.log('[Init] Геолокация готова');
-            } else {
-                console.error('[Init] Функция sendLocation не найдена!');
-            }
-        }, 800);
-        
-        // Загружаем опросы
-        setTimeout(() => {
-            if (typeof window.showCreatePollModal === 'function') {
-                console.log('[Init] Опросы готовы');
-            } else {
-                console.error('[Init] Функция showCreatePollModal не найдена!');
-            }
-        }, 1000);
-    });
     
     // Улучшенные уведомления для локального запуска
     window.showNotification = function(title, text, type = 'info') {
@@ -688,7 +534,7 @@
         if (retry) window.retryAction = retry;
     };
     
-    console.log('Build 2026-03-14d v1.6.3 (FIXED FUNCTIONS)');
+    console.log('Build 2026-03-11g');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {

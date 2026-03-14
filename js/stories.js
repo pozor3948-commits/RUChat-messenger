@@ -1,527 +1,522 @@
-﻿/* ==========================================================
-   RUCHAT STORIES
-   Истории - 24-часовые истории как в Instagram/Telegram
-   Версия: 2026-03-12
-   ========================================================== */
-
-let currentStoryView = null;
-let storyViewInterval = null;
-
+﻿[file name]: stories.js
+[file content begin]
 /* ==========================================================
-   СОЗДАНИЕ ИСТОРИИ
+   ФУНКЦИИ ДЛЯ ИСТОРИЙ (Instagram-like)
    ========================================================== */
-function showCreateStoryModal() {
-    const modal = document.createElement('div');
-    modal.className = 'story-create-modal-overlay';
-    modal.innerHTML = `
-        <div class="story-create-modal">
-            <div class="story-create-header">
-                <h2>Новая история</h2>
-                <button class="close-btn" onclick="this.closest('.story-create-modal-overlay').remove()">✕</button>
-            </div>
-            <div class="story-create-body">
-                <div class="story-preview" id="storyPreview">
-                    <div class="story-preview-placeholder">
-                        📷
-                        <div>Добавьте фото или видео</div>
-                    </div>
-                </div>
-                <div class="story-create-actions">
-                    <button class="login-btn" onclick="selectStoryMedia()">
-                        📷 Выбрать фото/видео
-                    </button>
-                    <button class="login-btn secondary" onclick="takeStoryPhoto()">
-                        📸 Сделать фото
-                    </button>
-                    <input type="file" id="storyFileInput" accept="image/*,video/*" 
-                           style="display:none" onchange="handleStoryFile(this.files)">
-                </div>
-                <textarea class="story-caption-input" id="storyCaption" 
-                          placeholder="Добавить подпись..." maxlength="200" rows="3"></textarea>
-                <div class="story-options">
-                    <label class="story-checkbox">
-                        <input type="checkbox" id="storyPrivate">
-                        <span>Только для друзей</span>
-                    </label>
-                </div>
-            </div>
-            <div class="story-create-footer">
-                <button class="login-btn" onclick="publishStory()" id="publishStoryBtn" disabled>
-                    Опубликовать (24 часа)
-                </button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
+
+// Глобальные переменные для историй
+let currentStoryFile = null;
+let currentStoryType = null;
+let storyViewerInterval = null;
+let currentStoryIndex = 0;
+let currentUserStories = [];
+let storyProgressInterval = null;
+let viewedStories = {};
+
+// Функция для получения текущего пользователя
+function getCurrentUser() {
+    return window.username || username || '';
 }
 
-function selectStoryMedia() {
-    document.getElementById('storyFileInput').click();
-}
-
-function handleStoryFile(files) {
-    if (!files || files.length === 0) return;
+// ГЛОБАЛЬНАЯ ФУНКЦИЯ loadStories
+function loadStories() {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        console.warn("Не удалось загрузить истории: пользователь не авторизован");
+        return;
+    }
     
-    const file = files[0];
-    const reader = new FileReader();
+    const sl = document.getElementById("storiesList");
+    if (!sl) {
+        console.error("Элемент storiesList не найден");
+        return;
+    }
     
-    reader.onload = (e) => {
-        const mediaData = e.target.result;
-        const isVideo = file.type.startsWith('video/');
+    // Очищаем список
+    sl.innerHTML = '';
+    
+    // Загружаем истории друзей
+    db.ref("accounts/" + currentUser + "/friends").once("value").then(snap => {
+        if (!snap.exists()) {
+            return;
+        }
         
-        showStoryPreview(mediaData, isVideo);
-    };
+        let friendIndex = 0;
+        const friends = [];
+        snap.forEach(ch => {
+            friends.push(ch.key);
+        });
+        
+        // Загружаем истории каждого друга
+        friends.forEach(friendName => {
+            setTimeout(() => {
+                db.ref(`accounts/${friendName}/stories`)
+                    .orderByChild('timestamp')
+                    .startAt(Date.now() - 24 * 60 * 60 * 1000)
+                    .once("value", storiesSnap => {
+                        if (storiesSnap.exists() && storiesSnap.numChildren() > 0) {
+                            createFriendStoryItem(friendName, storiesSnap);
+                        }
+                    });
+            }, friendIndex * 100);
+            friendIndex++;
+        });
+    });
+}
+
+// Показать модальное окно создания истории
+function showCreateStoryModal() {
+    showNotification('Истории', 'Публикация историй отключена');
+}
+
+// Закрыть модальное окно создания истории
+function closeStoryModal() {
+    document.getElementById('storyModalOverlay').style.display = 'none';
+}
+
+// Создать фото-историю
+function createPhotoStory() {
+    showNotification('Истории', 'Публикация историй отключена');
+}
+
+// Создать видео-историю
+function createVideoStory() {
+    showNotification('Истории', 'Публикация историй отключена');
+}
+
+// Обработка выбранного файла для истории
+function handleStoryFileSelected(file, type) {
+    if (!file) return;
     
+    // Проверка размера файла
+    const maxSize = type === 'photo' ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
+    if (file.size > maxSize) {
+        showError(`Файл слишком большой. Максимальный размер: ${type === 'photo' ? '10MB' : '50MB'}`);
+        return;
+    }
+    
+    currentStoryFile = file;
+    currentStoryType = type;
+    
+    // Показать превью
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const previewContent = document.getElementById('storyPreviewContent');
+        previewContent.innerHTML = '';
+        
+        if (type === 'photo') {
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'contain';
+            previewContent.appendChild(img);
+        } else if (type === 'video') {
+            const video = document.createElement('video');
+            video.src = e.target.result;
+            video.controls = true;
+            video.autoplay = true;
+            video.muted = true;
+            video.style.width = '100%';
+            video.style.height = '100%';
+            video.style.objectFit = 'contain';
+            previewContent.appendChild(video);
+        }
+        
+        document.getElementById('storyPreviewOverlay').style.display = 'flex';
+    };
     reader.readAsDataURL(file);
 }
 
-async function takeStoryPhoto() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'user' },
-            audio: false 
-        });
-        
-        const modal = document.createElement('div');
-        modal.className = 'story-camera-modal-overlay';
-        modal.innerHTML = `
-            <div class="story-camera-modal">
-                <video id="storyCameraVideo" autoplay playsinline></video>
-                <div class="story-camera-controls">
-                    <button class="story-camera-btn" onclick="captureStoryPhoto()">
-                        <div class="story-camera-shutter"></div>
-                    </button>
-                    <button class="story-camera-btn cancel" onclick="this.closest('.story-camera-modal-overlay').remove()">
-                        ✕
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        const video = document.getElementById('storyCameraVideo');
-        video.srcObject = stream;
-        
-        window.storyCameraStream = stream;
-    } catch (e) {
-        console.error('Ошибка камеры:', e);
-        showError('Не удалось получить доступ к камере');
-    }
+// Закрыть превью истории
+function closeStoryPreview() {
+    document.getElementById('storyPreviewOverlay').style.display = 'none';
+    currentStoryFile = null;
+    currentStoryType = null;
 }
 
-window.captureStoryPhoto = function() {
-    const video = document.getElementById('storyCameraVideo');
-    if (!video) return;
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0);
-    
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    
-    // Останавливаем камеру
-    if (window.storyCameraStream) {
-        window.storyCameraStream.getTracks().forEach(track => track.stop());
-    }
-    
-    // Закрываем камеру
-    document.querySelector('.story-camera-modal-overlay')?.remove();
-    
-    // Показываем превью
-    showStoryPreview(dataUrl, false);
-};
-
-function showStoryPreview(mediaData, isVideo) {
-    const preview = document.getElementById('storyPreview');
-    if (!preview) return;
-    
-    window.currentStoryMedia = {
-        data: mediaData,
-        isVideo: isVideo
-    };
-    
-    if (isVideo) {
-        preview.innerHTML = `
-            <video src="${mediaData}" class="story-preview-media" autoplay muted loop></video>
-            <div class="story-duration-indicator">
-                <div class="story-progress-bar"></div>
-            </div>
-        `;
-    } else {
-        preview.innerHTML = `
-            <img src="${mediaData}" class="story-preview-media">
-        `;
-    }
-    
-    document.getElementById('publishStoryBtn').disabled = false;
-}
-
+// Опубликовать историю
 async function publishStory() {
-    if (!window.currentStoryMedia || !username) return;
+    showNotification('Истории', 'Публикация историй отключена');
+}
+
+// Получить длительность видео
+function getVideoDuration(file) {
+    return new Promise((resolve) => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.onloadedmetadata = function() {
+            window.URL.revokeObjectURL(video.src);
+            resolve(Math.round(video.duration));
+        };
+        video.src = URL.createObjectURL(file);
+    });
+}
+
+// Добавить кнопку своей истории
+function addMyStoryButton(container) {
+    return;
+}
+
+// Создать элемент истории друга
+function createFriendStoryItem(friendName, storiesSnap) {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
+    
+    const sl = document.getElementById("storiesList");
+    if (!sl) return;
+    
+    // Проверяем, есть ли непросмотренные истории
+    let hasUnviewed = false;
+    let latestStoryTime = 0;
+    
+    storiesSnap.forEach(storySnap => {
+        const story = storySnap.val();
+        if (story.timestamp > latestStoryTime) {
+            latestStoryTime = story.timestamp;
+        }
+        if (!story.views || !story.views[currentUser]) {
+            hasUnviewed = true;
+        }
+    });
+    
+    // Показываем только истории младше 24 часов
+    if (Date.now() - latestStoryTime > 24 * 60 * 60 * 1000) {
+        return;
+    }
+    
+    const storyItem = document.createElement("div");
+    storyItem.className = `story-item ${hasUnviewed ? 'unviewed' : 'viewed'}`;
+    storyItem.onclick = () => viewFriendStories(friendName);
+    
+    // Получаем аватар друга
+    const friendAvatar = document.getElementById(`avatar_${friendName}`);
+    const avatarUrl = friendAvatar && friendAvatar.src ? friendAvatar.src : `https://ui-avatars.com/api/?name=${encodeURIComponent(friendName)}&background=0088cc&color=fff&size=60`;
+    
+    storyItem.innerHTML = `
+        <img class="story-avatar" src="${avatarUrl}" alt="${friendName}">
+        <div class="story-name">${friendName}</div>
+    `;
+    
+    sl.appendChild(storyItem);
+}
+
+// Просмотр историй друга
+async function viewFriendStories(friendName) {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+        showError("Пользователь не авторизован");
+        return;
+    }
     
     showLoading();
     
-    const caption = document.getElementById('storyCaption').value.trim();
-    const isPrivate = document.getElementById('storyPrivate').checked;
-    const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 часа
-    
-    const storyData = {
-        author: username,
-        media: window.currentStoryMedia.data,
-        isVideo: window.currentStoryMedia.isVideo,
-        caption: caption,
-        createdAt: Date.now(),
-        expiresAt: expiresAt,
-        private: isPrivate,
-        views: []
-    };
-    
     try {
-        const storyId = await db.ref(`stories/${username}`).push(storyData);
+        const storiesSnap = await db.ref(`accounts/${friendName}/stories`)
+            .orderByChild('timestamp')
+            .startAt(Date.now() - 24 * 60 * 60 * 1000)
+            .once("value");
         
-        // Обновляем индекс историй
-        await db.ref(`storiesIndex/${username}`).update({
-            hasStories: true,
-            lastStoryAt: Date.now(),
-            storyCount: db.ref(`stories/${username}`).once('value').then(s => s.numChildren())
+        if (!storiesSnap.exists()) {
+            showNotification('Истории', 'У пользователя нет активных историй');
+            return;
+        }
+        
+        currentUserStories = [];
+        storiesSnap.forEach(storySnap => {
+            const story = storySnap.val();
+            story.key = storySnap.key;
+            story.author = friendName;
+            currentUserStories.push(story);
         });
         
-        showNotification('История', 'История опубликована!', 'success');
-        document.querySelector('.story-create-modal-overlay')?.remove();
+        // Сортируем по времени (от старых к новым)
+        currentUserStories.sort((a, b) => a.timestamp - b.timestamp);
         
-        // Обновляем UI историй
-        loadStories();
-        
-    } catch (e) {
-        console.error('Ошибка публикации:', e);
-        showError('Не удалось опубликовать историю');
+        if (currentUserStories.length > 0) {
+            currentStoryIndex = 0;
+            showStoryViewer();
+            
+            // Отмечаем как просмотренную
+            await markStoryAsViewed(friendName, currentUserStories[currentStoryIndex].key);
+        }
+    } catch (error) {
+        console.error('Ошибка при загрузке историй:', error);
+        showError('Не удалось загрузить истории');
     } finally {
         hideLoading();
     }
 }
 
-/* ==========================================================
-   ПРОСМОТР ИСТОРИЙ
-   ========================================================== */
-function viewUserStories(storyAuthor) {
-    db.ref(`stories/${storyAuthor}`).once('value', snap => {
-        if (!snap.exists()) {
-            showError('У пользователя нет историй');
-            return;
-        }
-        
-        const stories = [];
-        snap.forEach(child => {
-            const story = child.val();
-            story.id = child.key;
-            
-            // Проверяем не истекла ли история
-            if (story.expiresAt > Date.now()) {
-                stories.push(story);
-            }
-        });
-        
-        if (stories.length === 0) {
-            showNotification('Истории', 'Нет доступных историй', 'info');
-            return;
-        }
-        
-        showStoryViewer(stories, 0, storyAuthor);
-    });
-}
-
-function showStoryViewer(stories, startIndex, author) {
-    const modal = document.createElement('div');
-    modal.className = 'story-viewer-overlay';
-    modal.innerHTML = `
-        <div class="story-viewer">
-            <div class="story-progress-container" id="storyProgress">
-                ${stories.map((_, i) => `<div class="story-progress-segment ${i === 0 ? 'active' : ''}"><div class="story-progress-fill"></div></div>`).join('')}
-            </div>
-            <div class="story-viewer-header">
-                <div class="story-viewer-author">
-                    <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(author)}&background=0088cc&color=fff&size=32" 
-                         class="story-viewer-avatar">
-                    <span class="story-viewer-name">${author}</span>
-                    <span class="story-viewer-time" id="storyTime"></span>
-                </div>
-                <button class="close-btn" onclick="closeStoryViewer()">✕</button>
-            </div>
-            <div class="story-viewer-content" id="storyViewerContent"></div>
-            <div class="story-viewer-caption" id="storyViewerCaption"></div>
-            <div class="story-viewer-navigation">
-                <button class="story-nav-btn prev" onclick="prevStory()">◀</button>
-                <button class="story-nav-btn next" onclick="nextStory()">▶</button>
-            </div>
-        </div>
-    `;
+// Показать просмотрщик историй
+function showStoryViewer() {
+    if (currentUserStories.length === 0) return;
     
-    document.body.appendChild(modal);
+    const story = currentUserStories[currentStoryIndex];
+    const currentUser = getCurrentUser();
     
-    currentStoryView = {
-        stories: stories,
-        currentIndex: startIndex,
-        author: author,
-        startTime: Date.now()
+    // Устанавливаем информацию о авторе
+    document.getElementById('storyViewerName').textContent = story.author;
+    document.getElementById('storyViewerTime').textContent = formatStoryTime(story.timestamp);
+    
+    // Устанавливаем аватар
+    const friendAvatar = document.getElementById(`avatar_${story.author}`);
+    const avatarUrl = friendAvatar && friendAvatar.src ? friendAvatar.src : `https://ui-avatars.com/api/?name=${encodeURIComponent(story.author)}&background=0088cc&color=fff&size=40`;
+    const avatarImg = document.getElementById('storyViewerAvatar');
+    avatarImg.src = avatarUrl;
+    avatarImg.onerror = function() {
+        this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(story.author)}&background=0088cc&color=fff&size=40`;
     };
     
-    showCurrentStory();
+    // Отображаем контент
+    const contentDiv = document.getElementById('storyViewerContent');
+    contentDiv.innerHTML = '';
+    
+    if (story.type === 'photo') {
+        const img = document.createElement('img');
+        img.src = story.url;
+        img.alt = 'История';
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        contentDiv.appendChild(img);
+    } else if (story.type === 'video') {
+        const video = document.createElement('video');
+        video.src = story.url;
+        video.controls = true;
+        video.autoplay = true;
+        video.style.width = '100%';
+        video.style.height = '100%';
+        video.style.objectFit = 'contain';
+        video.onended = nextStory;
+        contentDiv.appendChild(video);
+    }
+    
+    // Показываем прогресс бар
+    showStoryProgress();
+    
+    // Показываем просмотрщик
+    document.getElementById('storyViewerOverlay').style.display = 'flex';
+    
+    // Автоматическое переключение через 5 секунд для фото
+    if (story.type === 'photo') {
+        startStoryTimer(5000);
+    }
+    
+    // Добавляем обработчики жестов
+    setupStoryGestures();
 }
 
-function showCurrentStory() {
-    if (!currentStoryView) return;
+// Показать прогресс бар
+function showStoryProgress() {
+    const progressBar = document.getElementById('storyProgressBar');
+    progressBar.innerHTML = '';
     
-    const { stories, currentIndex } = currentStoryView;
-    const story = stories[currentIndex];
-    
-    if (!story) return;
-    
-    const content = document.getElementById('storyViewerContent');
-    const caption = document.getElementById('storyViewerCaption');
-    const time = document.getElementById('storyTime');
-    
-    if (!content) return;
-    
-    // Обновляем прогресс бары
-    updateStoryProgress();
-    
-    // Показываем контент
-    if (story.isVideo) {
-        content.innerHTML = `
-            <video src="${story.media}" autoplay playsinline onloadstart="this.play()"></video>
-        `;
+    for (let i = 0; i < currentUserStories.length; i++) {
+        const segment = document.createElement('div');
+        segment.className = 'story-progress-segment';
+        segment.style.flex = '1';
+        segment.style.height = '4px';
+        segment.style.margin = '0 2px';
+        segment.style.backgroundColor = i < currentStoryIndex ? 'white' : 'rgba(255,255,255,.3)';
+        segment.style.borderRadius = '2px';
+        segment.style.overflow = 'hidden';
+        progressBar.appendChild(segment);
         
-        // Автопереключение после видео
-        const video = content.querySelector('video');
-        if (video) {
-            video.onended = () => nextStory();
-        }
-    } else {
-        content.innerHTML = `<img src="${story.media}" onload="startStoryTimer(${story.isVideo ? 'true' : 'false'})">`;
-    }
-    
-    // Подпись
-    if (caption) {
-        caption.textContent = story.caption || '';
-        caption.style.display = story.caption ? 'block' : 'none';
-    }
-    
-    // Время
-    if (time) {
-        const hoursAgo = Math.floor((Date.now() - story.createdAt) / (60 * 60 * 1000));
-        time.textContent = hoursAgo < 1 ? 'Только что' : `${hoursAgo}ч назад`;
-    }
-    
-    // Отмечаем просмотр
-    markStoryViewed(story.id);
-}
-
-function startStoryTimer(isVideo) {
-    if (storyViewInterval) clearInterval(storyViewInterval);
-    
-    if (!isVideo) {
-        storyViewInterval = setInterval(() => {
-            nextStory();
-        }, 5000); // 5 секунд на фото
-    }
-}
-
-function updateStoryProgress() {
-    if (!currentStoryView) return;
-    
-    const segments = document.querySelectorAll('.story-progress-segment');
-    segments.forEach((seg, i) => {
-        const fill = seg.querySelector('.story-progress-fill');
-        if (i < currentStoryView.currentIndex) {
-            fill.style.width = '100%';
-            seg.classList.remove('active');
-        } else if (i === currentStoryView.currentIndex) {
-            seg.classList.add('active');
+        if (i === currentStoryIndex) {
+            const fill = document.createElement('div');
             fill.style.width = '0%';
+            fill.style.height = '100%';
+            fill.style.backgroundColor = 'white';
+            fill.style.transition = `width ${currentUserStories[i].type === 'photo' ? 5 : currentUserStories[i].duration || 10}s linear`;
+            segment.appendChild(fill);
             
-            // Анимация прогресса
+            // Запускаем анимацию
             setTimeout(() => {
-                if (currentStoryView && currentStoryView.currentIndex === i) {
-                    fill.style.transition = 'width 5s linear';
-                    fill.style.width = '100%';
-                }
-            }, 50);
-        } else {
-            fill.style.width = '0%';
-            seg.classList.remove('active');
+                fill.style.width = '100%';
+            }, 10);
         }
-    });
+    }
 }
 
-function markStoryViewed(storyId) {
-    if (!currentStoryView || !username) return;
-    
-    db.ref(`stories/${currentStoryView.author}/${storyId}/views`).once('value', snap => {
-        const views = snap.val() || {};
-        if (!views[username]) {
-            views[username] = Date.now();
-            db.ref(`stories/${currentStoryView.author}/${storyId}/views`).update(views);
-        }
-    });
+// Запустить таймер для истории
+function startStoryTimer(duration) {
+    if (storyViewerInterval) clearInterval(storyViewerInterval);
+    storyViewerInterval = setTimeout(nextStory, duration);
 }
 
-window.nextStory = function() {
-    if (!currentStoryView) return;
-    
-    if (storyViewInterval) clearInterval(storyViewInterval);
-    
-    currentStoryView.currentIndex++;
-    
-    if (currentStoryView.currentIndex >= currentStoryView.stories.length) {
+// Следующая история
+function nextStory() {
+    if (currentStoryIndex < currentUserStories.length - 1) {
+        currentStoryIndex++;
+        showStoryViewer();
+        
+        // Отмечаем как просмотренную
+        markStoryAsViewed(currentUserStories[currentStoryIndex].author, currentUserStories[currentStoryIndex].key);
+    } else {
         closeStoryViewer();
+    }
+}
+
+// Предыдущая история
+function prevStory() {
+    if (currentStoryIndex > 0) {
+        currentStoryIndex--;
+        showStoryViewer();
+    }
+}
+
+// Закрыть просмотрщик историй
+function closeStoryViewer() {
+    document.getElementById('storyViewerOverlay').style.display = 'none';
+    if (storyViewerInterval) clearInterval(storyViewerInterval);
+    storyViewerInterval = null;
+    currentUserStories = [];
+    currentStoryIndex = 0;
+}
+
+// Отметить историю как просмотренную
+async function markStoryAsViewed(author, storyKey) {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
+    
+    try {
+        await db.ref(`accounts/${author}/stories/${storyKey}/views/${currentUser}`).set(true);
+        
+        // Обновляем отображение историй
+        const storyItems = document.querySelectorAll('.story-item');
+        storyItems.forEach(item => {
+            if (item.onclick && item.onclick.toString().includes(author)) {
+                item.classList.remove('unviewed');
+                item.classList.add('viewed');
+            }
+        });
+    } catch (error) {
+        console.error('Ошибка при отметке истории:', error);
+    }
+}
+
+// Форматирование времени истории
+function formatStoryTime(timestamp) {
+    const now = Date.now();
+    const diff = now - timestamp;
+    
+    if (diff < 60000) {
+        return 'только что';
+    } else if (diff < 3600000) {
+        const minutes = Math.floor(diff / 60000);
+        return `${minutes} ${getMinutesText(minutes)} назад`;
+    } else if (diff < 86400000) {
+        const hours = Math.floor(diff / 3600000);
+        return `${hours} ${getHoursText(hours)} назад`;
     } else {
-        showCurrentStory();
+        const date = new Date(timestamp);
+        return date.toLocaleDateString('ru-RU', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     }
-};
+}
 
-window.prevStory = function() {
-    if (!currentStoryView) return;
+function getMinutesText(minutes) {
+    if (minutes % 10 === 1 && minutes % 100 !== 11) return 'минуту';
+    if ([2, 3, 4].includes(minutes % 10) && ![12, 13, 14].includes(minutes % 100)) return 'минуты';
+    return 'минут';
+}
+
+function getHoursText(hours) {
+    if (hours % 10 === 1 && hours % 100 !== 11) return 'час';
+    if ([2, 3, 4].includes(hours % 10) && ![12, 13, 14].includes(hours % 100)) return 'часа';
+    return 'часов';
+}
+
+// Настройка жестов для просмотра историй
+function setupStoryGestures() {
+    const viewer = document.getElementById('storyViewerOverlay');
+    let startX = 0;
+    let startY = 0;
     
-    if (storyViewInterval) clearInterval(storyViewInterval);
+    viewer.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+    });
     
-    if (currentStoryView.currentIndex > 0) {
-        currentStoryView.currentIndex--;
-        showCurrentStory();
-    } else {
-        // Возврат к предыдущей истории
-        currentStoryView.currentIndex = 0;
-        showCurrentStory();
-    }
-};
-
-window.closeStoryViewer = function() {
-    if (storyViewInterval) clearInterval(storyViewInterval);
-    currentStoryView = null;
-    document.querySelector('.story-viewer-overlay')?.remove();
-};
-
-/* ==========================================================
-   ОТОБРАЖЕНИЕ ИСТОРИЙ В САЙДБАРЕ
-   ========================================================== */
-function loadStoriesForSidebar() {
-    // Проверяем что db доступен
-    const db = window.db || (typeof firebase !== 'undefined' ? firebase.database() : null);
-    if (!db) {
-        console.error('[Stories] Firebase database не доступен');
-        return;
-    }
-    
-    const container = document.getElementById('storiesContainer');
-    if (!container) {
-        console.log('[Stories] storiesContainer не найден');
-        return;
-    }
-
-    const list = document.getElementById('storiesList');
-    if (!list) {
-        console.log('[Stories] storiesList не найден');
-        return;
-    }
-
-    // Показываем контейнер
-    container.style.display = 'block';
-
-    // Загружаем истории из Firebase
-    db.ref('storiesIndex').once('value', snap => {
-        if (!snap.exists()) {
-            // Нет историй - показываем только кнопку создания
-            list.innerHTML = `
-                <div class="story-item story-item-add" onclick="showCreateStoryModal()">
-                    <div class="story-avatar-ring add">
-                        <div class="story-add-icon">+</div>
-                    </div>
-                    <div class="story-author">Моя история</div>
-                </div>
-            `;
-            return;
+    viewer.addEventListener('touchend', (e) => {
+        const endX = e.changedTouches[0].clientX;
+        const endY = e.changedTouches[0].clientY;
+        
+        const diffX = endX - startX;
+        const diffY = endY - startY;
+        
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+            if (diffX > 50) {
+                prevStory();
+            } else if (diffX < -50) {
+                nextStory();
+            }
+        } else if (diffY > 50) {
+            closeStoryViewer();
         }
+    });
+    
+    // Обработка кликов для десктопа
+    viewer.addEventListener('click', (e) => {
+        const rect = viewer.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const width = rect.width;
         
-        const storiesIndex = snap.val();
+        if (x < width / 3) {
+            prevStory();
+        } else if (x > width * 2 / 3) {
+            nextStory();
+        } else if (x > width / 3 && x < width * 2 / 3) {
+            nextStory();
+        }
+    });
+}
+
+// Очистка старых историй (старше 24 часов)
+async function cleanupOldStories() {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return;
+    
+    const cutoffTime = Date.now() - 24 * 60 * 60 * 1000;
+    
+    try {
+        const storiesSnap = await db.ref(`accounts/${currentUser}/stories`).once("value");
+        if (!storiesSnap.exists()) return;
         
-        let html = '';
-        
-        // Моя история (кнопка создания)
-        html += `
-            <div class="story-item story-item-add" onclick="showCreateStoryModal()">
-                <div class="story-avatar-ring add">
-                    <div class="story-add-icon">+</div>
-                </div>
-                <div class="story-author">Моя история</div>
-            </div>
-        `;
-        
-        // Истории других пользователей
-        Object.keys(storiesIndex).forEach(author => {
-            const data = storiesIndex[author];
-            if (data.hasStories && author !== username) {
-                html += `
-                    <div class="story-item" onclick="viewUserStories('${author}')">
-                        <div class="story-avatar-ring">
-                            <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(author)}&background=0088cc&color=fff&size=56" 
-                                 class="story-avatar">
-                        </div>
-                        <div class="story-author">${author}</div>
-                    </div>
-                `;
+        const updates = {};
+        storiesSnap.forEach(storySnap => {
+            const story = storySnap.val();
+            if (story.timestamp < cutoffTime) {
+                updates[`accounts/${currentUser}/stories/${storySnap.key}`] = null;
             }
         });
         
-        list.innerHTML = html;
-    }).catch(err => {
-        console.error('[Stories] Ошибка загрузки:', err);
-    });
+        if (Object.keys(updates).length > 0) {
+            await db.ref().update(updates);
+        }
+    } catch (error) {
+        console.error('Ошибка при очистке старых историй:', error);
+    }
 }
 
-window.loadStoriesForSidebar = loadStoriesForSidebar;
-
-/* ==========================================================
-   ЭКСПОРТ ФУНКЦИЙ
-   ========================================================== */
-window.showCreateStoryModal = showCreateStoryModal;
-window.viewUserStories = viewUserStories;
-window.closeStoryViewer = closeStoryViewer;
-window.nextStory = nextStory;
-window.prevStory = prevStory;
-window.loadStoriesForSidebar = loadStoriesForSidebar;
-window.selectStoryMedia = selectStoryMedia;
-window.takeStoryPhoto = takeStoryPhoto;
-window.publishStory = publishStory;
-
-console.log('[Stories] Все функции экспортированы');
-
-// Автоочистка историй
-setInterval(() => {
-    const now = Date.now();
-    db.ref('stories').once('value', snap => {
-        snap.forEach(userSnap => {
-            const author = userSnap.key;
-            userSnap.forEach(storySnap => {
-                const story = storySnap.val();
-                if (story.expiresAt && story.expiresAt < now) {
-                    db.ref(`stories/${author}/${storySnap.key}`).remove();
-                }
-            });
-        });
-    });
-}, 60000); // Проверяем каждую минуту
-
-// Загрузка при старте
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('[Stories] Модуль загружен, инициализация...');
-    // Не вызываем loadStoriesForSidebar здесь - это будет сделано из index.html
-    // Обновляем каждые 30 секунд
-    setInterval(() => {
-        if (typeof loadStoriesForSidebar === 'function') {
-            loadStoriesForSidebar();
-        }
-    }, 30000);
-});
+// Инициализация историй после входа
+function initStoriesAfterLogin() {
+    // Даем время на загрузку друзей
+    setTimeout(() => {
+        // Загружаем истории
+        loadStories();
+        
+        // Очищаем старые истории
+        cleanupOldStories();
+        
+        // Периодическая очистка старых историй (каждый час)
+        setInterval(cleanupOldStories, 60 * 60 * 1000);
+        
+        // Периодическое обновление историй (каждые 30 секунд)
+        setInterval(loadStories, 30000);
+    }, 2000);
+}
+[file content end]

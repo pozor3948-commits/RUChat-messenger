@@ -20,67 +20,8 @@ let remoteAudioEl = null;
 let ringtoneAudio = null;
 let ringbackAudio = null;
 let ringtoneInterval = null;
-let noAnswerTimer = null; // Таймер без ответа
 let iceCandidateQueue = [];
 let isCaller = false;
-let peerConnectionWasConnected = false; // Для отслеживания состояния подключения
-let callSoundInterval = null; // Явное объявление
-
-// Звук "абонент временно недоступен" (гудки + голос)
-function playNoAnswerTone() {
-    stopCallSound();
-    stopRingtone();
-    
-    // Проигрываем прерывистые гудки (4 серии)
-    let beepCount = 0;
-    const maxBeeps = 4;
-    const beepPattern = () => {
-        if (beepCount >= maxBeeps) {
-            clearInterval(beepInterval);
-            return;
-        }
-        // Серия из 3 коротких гудков
-        let seriesCount = 0;
-        const seriesInterval = setInterval(() => {
-            if (seriesCount >= 3) {
-                clearInterval(seriesInterval);
-                beepCount++;
-                setTimeout(beepPattern, 500);
-                return;
-            }
-            fallbackBeep(null, 0.3);
-            seriesCount++;
-        }, 200);
-    };
-    const beepInterval = setInterval(beepPattern, 1500);
-    
-    // Через 2 секунды голосовое сообщение
-    setTimeout(() => {
-        const utterance = new SpeechSynthesisUtterance('Абонент временно недоступен. Пожалуйста, позвоните позже.');
-        utterance.lang = 'ru-RU';
-        utterance.rate = 0.9;
-        utterance.pitch = 1;
-        speechSynthesis.speak(utterance);
-    }, 2000);
-}
-
-// Звук "абонент занят" (короткие гудки)
-function playBusyTone() {
-    stopCallSound();
-    stopRingtone();
-    
-    // Проигрываем короткие гудки (каждые 0.5 сек)
-    let busyCount = 0;
-    const maxBusy = 6;
-    const busyInterval = setInterval(() => {
-        if (busyCount >= maxBusy) {
-            clearInterval(busyInterval);
-            return;
-        }
-        fallbackBeep(null, 0.4);
-        busyCount++;
-    }, 500);
-}
 
 function ensureRemoteAudioEl() {
     if (!remoteAudioEl) {
@@ -95,66 +36,32 @@ function ensureRemoteAudioEl() {
 }
 
 // Конфигурация STUN/TURN серверов
-// Приоритет: 1) Custom из localStorage 2) Публичные 3) Только STUN
-function getIceServers() {
-    // Проверяем, есть ли кастомные TURN серверы в localStorage
-    const customTurn = localStorage.getItem('turnServers');
-    if (customTurn) {
-        try {
-            const parsed = JSON.parse(customTurn);
-            console.log('[WebRTC] Используем кастомные TURN серверы');
-            return parsed;
-        } catch (e) {
-            console.error('[WebRTC] Ошибка парсинга кастомных TURN серверов:', e);
-        }
-    }
-
-    // Публичные TURN серверы (несколько вариантов)
-    const publicTurnServers = [
-        // Metered (бесплатно)
-        {
-            urls: 'turn:openrelay.metered.ca:80',
-            username: 'openrelayproject',
-            credential: 'nevfh73zgaJq5uxf'
-        },
-        {
-            urls: 'turn:openrelay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'nevfh73zgaJq5uxf'
-        },
-        {
-            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-            username: 'openrelayproject',
-            credential: 'nevfh73zgaJq5uxf'
-        },
-        // Twilio (тестовые, могут не работать)
-        {
-            urls: 'turn:global.turn.twilio.com:3478?transport=udp',
-            username: 'test',
-            credential: 'test'
-        }
-    ];
-
-    // STUN серверы (несколько вариантов)
-    const stunServers = [
+const rtcConfiguration = {
+    iceServers: [
+        // STUN серверы Google (бесплатно)
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
-        { urls: 'stun:stun.services.mozilla.com:3478' }
-    ];
-
-    // Возвращаем комбинацию STUN + TURN
-    return [...stunServers, ...publicTurnServers];
-}
-
-const rtcConfiguration = {
-    iceServers: getIceServers(),
-    // Настройки ICE для лучшей совместимости
-    iceCandidatePoolSize: 10,
-    iceTransportPolicy: 'all', // Попробовать все, включая relay
-    sdpSemantics: 'unified-plan'
+        
+        // Публичные TURN серверы (бесплатно)
+        { 
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'nevfh73zgaJq5uxf'
+        },
+        { 
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'nevfh73zgaJq5uxf'
+        },
+        { 
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'nevfh73zgaJq5uxf'
+        }
+    ]
 };
 
 // Инициировать аудиозвонок
@@ -178,21 +85,6 @@ async function startAudioCall() {
         // Показываем UI звонка
         showCallUI(currentChatPartner, 'outgoing');
         ensureRemoteAudioEl();
-
-        // Запускаем таймер без ответа (60 секунд)
-        if (noAnswerTimer) clearTimeout(noAnswerTimer);
-        noAnswerTimer = setTimeout(() => {
-            console.log('[WebRTC] Таймер без ответа истек (60 сек)');
-            document.getElementById('callStatus').textContent = 'Абонент не ответил';
-            playNoAnswerTone();
-            // Завершаем звонок через 5 секунд после сообщения
-            setTimeout(() => {
-                endCall();
-            }, 5000);
-        }, 60000);
-
-        // Воспроизводим гудки вызова
-        playCallSound();
 
         // Получаем доступ к микрофону
         localStream = await navigator.mediaDevices.getUserMedia({
@@ -229,21 +121,10 @@ async function startAudioCall() {
             console.log('[WebRTC] Состояние соединения:', peerConnection.connectionState);
             if (peerConnection.connectionState === 'connected') {
                 document.getElementById('callStatus').textContent = 'Соединено';
-                // Устанавливаем флаг успешного подключения
-                peerConnectionWasConnected = true;
-                // Останавливаем таймер без ответа
-                if (noAnswerTimer) {
-                    clearTimeout(noAnswerTimer);
-                    noAnswerTimer = null;
-                }
                 stopCallSound();
                 startCallTimer();
             } else if (peerConnection.connectionState === 'failed') {
                 showNotification('Звонок', 'Соединение не удалось', 'error');
-                endCall();
-            } else if (peerConnection.connectionState === 'disconnected' || 
-                       peerConnection.connectionState === 'closed') {
-                // Завершаем звонок при разрыве соединения
                 endCall();
             }
         };
@@ -257,33 +138,19 @@ async function startAudioCall() {
             if (event.candidate) {
                 const type = event.candidate.type || 'unknown';
                 const address = event.candidate.address || 'unknown';
-                console.log('[WebRTC] ICE кандидат:', type, address);
-                
-                // Отправляем только если есть соединение
-                if (currentChatId) {
-                    db.ref(`calls/${currentChatId}/candidates`).push({
-                        candidate: event.candidate,
-                        from: username
-                    }).catch(err => {
-                        console.warn('[WebRTC] Ошибка отправки ICE кандидата:', err.message);
-                    });
-                }
+                console.log('[WebRTC] Отправляем ICE кандидат:', type, address);
+                db.ref(`calls/${currentChatId}/candidates`).push({
+                    candidate: event.candidate,
+                    from: username
+                });
             } else {
-                console.log('[WebRTC] ICE кандидаты отправлены (end of candidates)');
+                console.log('[WebRTC] Все ICE кандидаты отправлены (end of candidates)');
             }
         };
-
-        // Игнорируем ошибки ICE candidate (это нормально для некоторых серверов)
-        peerConnection.onicecandidateerror = (event) => {
-            // Не спамим ошибками, только лог для отладки
-            console.debug('[WebRTC] ICE ошибка (игнорируем):', event.errorText);
-        };
-
+        
         // Получаем ICE кандидатов от удалённой стороны
-        // Игнорируем ошибки ICE (некоторые серверы недоступны, это нормально)
         peerConnection.onicecandidateerror = (event) => {
-            console.warn('[WebRTC] ICE кандидат ошибка (игнорируем):', event.errorText || event);
-            // Тихо игнорируем ошибки ICE - это нормально для публичных TURN серверов
+            console.error('[WebRTC] Ошибка ICE кандидата:', event);
         };
 
         // Создаем offer
@@ -393,18 +260,8 @@ function listenForCallAnswer() {
                 console.log('[WebRTC] Answer установлен как remote');
             }
         } else if (callData.status === 'rejected') {
-            // Абонент сбросил - показываем "Абонент занят"
-            if (noAnswerTimer) {
-                clearTimeout(noAnswerTimer);
-                noAnswerTimer = null;
-            }
-            document.getElementById('callStatus').textContent = 'Абонент занят';
-            playBusyTone();
-            showNotification('Звонок', 'Абонент занят', 'warning');
-            // Завершаем звонок через 3 секунды
-            setTimeout(() => {
-                endCall();
-            }, 3000);
+            showNotification('Звонок', 'Собеседник отклонил звонок', 'warning');
+            endCall();
         } else if (callData.status === 'ended') {
             endCall();
         }
@@ -522,18 +379,14 @@ async function acceptIncomingCall(callData) {
                 db.ref(`calls/${currentChatId}/candidates`).push({
                     candidate: event.candidate,
                     from: username
-                }).catch(err => {
-                    console.error('[WebRTC] Ошибка отправки ICE кандидата в Firebase:', err);
                 });
             } else {
                 console.log('[WebRTC] Все ICE кандидаты отправлены (end of candidates)');
             }
         };
-
-        // Игнорируем ошибки ICE
+        
         peerConnection.onicecandidateerror = (event) => {
-            console.warn('[WebRTC] ICE кандидат ошибка (игнорируем):', event.errorText || event);
-            // Тихо игнорируем ошибки ICE - это нормально для публичных TURN серверов
+            console.error('[WebRTC] Ошибка ICE кандидата:', event);
         };
 
         // Устанавливаем удаленное описание из offer
@@ -586,11 +439,6 @@ function resetCallStateLocal() {
         callTimer = null;
         callDuration = 0;
     }
-    // Останавливаем таймер без ответа
-    if (noAnswerTimer) {
-        clearTimeout(noAnswerTimer);
-        noAnswerTimer = null;
-    }
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
@@ -615,23 +463,12 @@ function resetCallStateLocal() {
 async function endCall() {
     try {
         console.log('[WebRTC] Завершаем звонок');
-
-        // Останавливаем все таймеры
+        
+        // Останавливаем таймер
         if (callTimer) {
             clearInterval(callTimer);
             callTimer = null;
-        }
-        if (noAnswerTimer) {
-            clearTimeout(noAnswerTimer);
-            noAnswerTimer = null;
-        }
-        if (callSoundInterval) {
-            clearInterval(callSoundInterval);
-            callSoundInterval = null;
-        }
-        if (ringtoneInterval) {
-            clearInterval(ringtoneInterval);
-            ringtoneInterval = null;
+            callDuration = 0;
         }
 
         // Останавливаем локальный поток
@@ -640,29 +477,18 @@ async function endCall() {
             localStream = null;
         }
 
-        // Закрываем peer connection и удаляем все обработчики
+        // Закрываем peer connection
         if (peerConnection) {
-            peerConnection.onicecandidate = null;
-            peerConnection.ontrack = null;
-            peerConnection.onconnectionstatechange = null;
-            peerConnection.oniceconnectionstatechange = null;
-            peerConnection.onsignalingstatechange = null;
-            peerConnection.onicegatheringstatechange = null;
-            peerConnection.onnegotiationneeded = null;
             peerConnection.close();
             peerConnection = null;
         }
 
-        // Очищаем remote audio элемент
         if (remoteAudioEl) {
             remoteAudioEl.srcObject = null;
-            if (remoteAudioEl.parentNode) {
-                remoteAudioEl.remove();
-            }
+            remoteAudioEl.remove();
             remoteAudioEl = null;
         }
 
-        // Отключаем обработчики Firebase
         if (callAnswerRef) {
             callAnswerRef.off();
             callAnswerRef = null;
@@ -671,47 +497,35 @@ async function endCall() {
             callCandidatesRef.off();
             callCandidatesRef = null;
         }
-        if (currentChatId) {
-            db.ref(`calls/${currentChatId}`).off();
-        }
 
         // Обновляем статус в Firebase
         if (currentChatId) {
             await db.ref(`calls/${currentChatId}`).update({
                 status: 'ended',
                 endTime: Date.now()
-            }).catch(err => console.error('[WebRTC] Ошибка обновления статуса:', err));
-            
-            // Очищаем кандидаты только если звонок был установлен
-            if (peerConnectionWasConnected) {
-                db.ref(`calls/${currentChatId}/candidates`).remove().catch(err => console.error('[WebRTC] Ошибка очистки кандидатов:', err));
-            }
+            });
+            db.ref(`calls/${currentChatId}/candidates`).remove();
+            db.ref(`calls/${currentChatId}`).off();
         }
 
-        // Сбрасываем очередь ICE кандидатов
+        // Сбрасываем очередь
         iceCandidateQueue = [];
+
+        // Скрываем UI
+        hideCallUI();
+
+        // Останавливаем звук
+        stopCallSound();
+        stopRingtone();
 
         // Сбрасываем состояние
         isMuted = false;
         isSpeakerOn = true;
-        peerConnectionWasConnected = false;
-
-        // Останавливаем звуки
-        stopCallSound();
-        stopRingtone();
-
-        // Скрываем UI
-        hideCallUI();
 
         showNotification('Звонок', 'Звонок завершен', 'info');
 
     } catch (error) {
         console.error('[WebRTC] Ошибка при завершении звонка:', error);
-        // Принудительная очистка даже при ошибке
-        if (peerConnection) {
-            try { peerConnection.close(); } catch (e) {}
-            peerConnection = null;
-        }
         hideCallUI();
     }
 }
@@ -793,7 +607,7 @@ function toggleSpeaker() {
 }
 
 // Звук вызова
-// callSoundInterval объявлен в начале файла
+let callSoundInterval = null;
 
 function ensureLoopAudio(existing, src, volume) {
     if (existing) return existing;
@@ -919,18 +733,12 @@ function rejectIncomingCallFromUI() {
 
 // Инициализация при загрузке
 if (typeof window !== 'undefined') {
-    // Основные функции
     window.startAudioCall = startAudioCall;
-    window.startVoiceCall = startAudioCall; // Алиас для HTML
     window.endCall = endCall;
     window.toggleMute = toggleMute;
     window.toggleSpeaker = toggleSpeaker;
     window.acceptIncomingCallFromUI = acceptIncomingCallFromUI;
     window.rejectIncomingCallFromUI = rejectIncomingCallFromUI;
-    
-    // Дополнительные функции
-    window.listenForIncomingCalls = listenForIncomingCalls;
-    window.acceptIncomingCall = acceptIncomingCall;
 }
 
 console.log('Audio call module loaded');
