@@ -2955,6 +2955,14 @@ window.setGroupRole = setGroupRole;
 window.removeGroupMember = removeGroupMember;
 window.leaveCurrentGroup = leaveCurrentGroup;
 window.updateGroupManageMenuVisibility = updateGroupManageMenuVisibility;
+window.openChatNotifySettings = openChatNotifySettings;
+window.setChatMuteMinutes = setChatMuteMinutes;
+window.setChatMuteForever = setChatMuteForever;
+window.toggleSilentSendForChat = toggleSilentSendForChat;
+window.setMediaTab = setMediaTab;
+window.closeChatNotifySettings = closeChatNotifySettings;
+window.clearEdit = clearEdit;
+window.clearReply = clearReply;
 
 document.addEventListener('click', (e) => {
   const videoBubble = e.target.closest('.message-video');

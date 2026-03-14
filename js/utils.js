@@ -247,10 +247,40 @@ function withTimeout(promise, ms, errorMessage = 'Истекло время ож
 window.withTimeout = withTimeout;
 
 function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
     const div = document.createElement('div');
-    div.textContent = normalizeText(text);
+    div.textContent = normalizeText(String(text));
     return div.innerHTML;
 }
+
+// Безопасная вставка HTML с экранированием переменных
+// Использование: safeHtml`<div>${userName}</div>`
+function safeHtml(strings, ...values) {
+    return strings.reduce((result, string, i) => {
+        const value = values[i] !== null && values[i] !== undefined ? String(values[i]) : '';
+        const escaped = value.replace(/&/g, '&amp;')
+                             .replace(/</g, '&lt;')
+                             .replace(/>/g, '&gt;')
+                             .replace(/"/g, '&quot;')
+                             .replace(/'/g, '&#039;');
+        return result + string + escaped;
+    }, '');
+}
+
+// Экранирование для HTML атрибутов
+function escapeHtmlAttr(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+window.escapeHtml = escapeHtml;
+window.safeHtml = safeHtml;
+window.escapeHtmlAttr = escapeHtmlAttr;
 
 function formatFileSize(bytes) {
     if (!bytes) return '';

@@ -1,0 +1,73 @@
+/**
+ * RuChat - Core Functions
+ * Объединённый файл для быстрой загрузки
+ * Версия: 1.6.1
+ */
+
+// Быстрая инициализация критических функций
+(function() {
+    'use strict';
+    
+    // Проверка наличия Firebase
+    if (typeof firebase === 'undefined') {
+        console.error('[RuChat] Firebase SDK не загружен!');
+        return;
+    }
+    
+    // Глобальные переменные
+    window.ruchat = window.ruchat || {};
+    window.ruchat.version = '1.6.1';
+    window.ruchat.loaded = false;
+    
+    // Критические функции
+    window.ruchat.showError = function(msg, retry) {
+        if (typeof window.showNotification === 'function') {
+            window.showNotification(msg, 'Ошибка', 'error');
+        } else {
+            alert('Ошибка: ' + msg);
+        }
+        if (retry) window.retryAction = retry;
+    };
+    
+    window.ruchat.showLoading = function() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.style.display = 'flex';
+    };
+    
+    window.ruchat.hideLoading = function() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.style.display = 'none';
+    };
+    
+    // Проверка соединения
+    window.ruchat.checkConnection = function() {
+        if (!navigator.onLine) {
+            window.ruchat.showError('Нет подключения к интернету');
+            return false;
+        }
+        return true;
+    };
+    
+    // Инициализация после загрузки всех скриптов
+    window.addEventListener('load', function() {
+        window.ruchat.loaded = true;
+        console.log('[RuChat] Core loaded');
+        
+        // Автозапуск резервного копирования
+        if (typeof window.autoBackup === 'function') {
+            setTimeout(function() {
+                window.autoBackup();
+            }, 5000);
+        }
+    });
+    
+    // Обработка ошибок
+    window.addEventListener('error', function(e) {
+        console.error('[RuChat Error]', e.error);
+    });
+    
+    window.addEventListener('unhandledrejection', function(e) {
+        console.error('[RuChat Promise Error]', e.reason);
+    });
+    
+})();

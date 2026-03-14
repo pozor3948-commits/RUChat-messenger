@@ -14,8 +14,9 @@
     <meta name="keywords" content="мессенджер, чат, RuChat, сообщения, общение">
 
     <!-- PWA Manifest -->
-    <!-- manifest.json работает только на http/https, для file:// отключено -->
-    <!-- <link rel="manifest" href="manifest.json"> -->
+    <!-- manifest.json требует http/https (не работает через file://) -->
+    <!-- Для PWA используйте: firebase serve или localhost -->
+    <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -510,17 +511,18 @@
 </div>
 
 <!-- Скрипты -->
+<script src="js/core.js?v=20260314a"></script> <!-- НОВЫЙ: Быстрое ядро -->
 <script src="js/firebase-config.js?v=20260219d"></script>
-<script src="js/utils.js?v=20260304f"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/utils.js?v=20260314a"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
 <script src="js/all-functions-fix.js?v=20260312e"></script> <!-- ИСПРАВЛЕНИЕ: Все функции -->
 <script src="js/main.js?v=20260303b"></script>
-<script src="js/ui.js?v=20260311b"></script>
+<script src="js/ui.js?v=20260314a"></script>
 <script src="js/sounds.js?v=20260219d"></script>
-<script src="js/auth.js?v=20260304b"></script>
+<script src="js/auth.js?v=20260314a"></script>
 <script src="js/push.js?v=20260303a"></script>
 <script src="js/status.js?v=20260219d"></script>
-<script src="js/chat.js?v=20260306b"></script>
-<script src="js/media.js?v=20260303a"></script>
+<script src="js/chat.js?v=20260314a"></script>
+<script src="js/media.js?v=20260314a"></script>
 <script src="js/video-messages.js?v=20260305a"></script>
 <script src="js/emoji.js?v=20260219d"></script>
 <script src="js/stickers.js?v=20260219d"></script>
@@ -535,6 +537,7 @@
 <script src="js/new-features-integration.js?v=20260312b"></script> <!-- НОВЫЙ: Интеграция -->
 <script src="js/secret-chats.js?v=20260312c"></script> <!-- НОВЫЙ: E2EE шифрование -->
 <script src="js/stories.js?v=20260312d"></script> <!-- НОВЫЙ: Истории -->
+<script src="js/backup.js?v=20260314a"></script> <!-- НОВЫЙ: Резервное копирование -->
 
 <script>
     // Функция для проверки локального запуска
@@ -637,7 +640,7 @@
         if (retry) window.retryAction = retry;
     };
     
-    console.log('Build 2026-03-11g');
+    console.log('Build 2026-03-14a (Optimized)');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {

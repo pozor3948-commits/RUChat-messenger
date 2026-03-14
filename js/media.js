@@ -891,3 +891,14 @@ function openMedia(url) {
 }
 
 window.closeMediaViewer = closeMediaViewer;
+window.openMediaViewer = openMediaViewer;
+window.startVoiceRecord = startVoiceRecord;
+window.stopVoiceRecord = stopVoiceRecord;
+window.cancelVoiceRecord = cancelVoiceRecord;
+window.sendVoiceMessage = sendVoiceMessage;
+window.showRecordTypeMenu = showRecordTypeMenu;
+window.attachPhoto = attachPhoto;
+window.attachVideo = attachVideo;
+window.attachDocument = attachDocument;
+window.attachAudio = attachAudio;
+window.startAudioRecording = startAudioRecording;

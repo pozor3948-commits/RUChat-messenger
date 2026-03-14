@@ -114,8 +114,9 @@ async function sendPushToUser(toUser, notification, data) {
     const statusSnap = await db.ref(`userStatus/${toUser}`).get();
     const status = statusSnap.exists() ? (statusSnap.val() || {}) : {};
     if (status.online === true) return;
-  } catch (_) {
-    // If status cannot be read, continue best-effort.
+  } catch (error) {
+    logger.warn("Failed to check user status", { toUser, error: error.message });
+    // Continue best-effort
   }
 
   const devicesSnap = await db.ref(`accounts/${toUser}/devices`).get();
@@ -157,11 +158,16 @@ async function sendPushToUser(toUser, notification, data) {
         cleanup[`accounts/${toUser}/devices/${deviceKey}/fcmToken`] = null;
       }
     });
+    
     if (Object.keys(cleanup).length) {
       await db.ref().update(cleanup);
     }
-  } catch (e) {
-    logger.warn("Push send failed", { toUser, error: e && e.message ? e.message : String(e) });
+  } catch (error) {
+    logger.error("Push send failed", { 
+      toUser, 
+      error: error.message,
+      stack: error.stack 
+    });
   }
 }
 

@@ -619,6 +619,9 @@ function filterChatsByFolder(folder) {
 // Экспорт
 window.setChatFolder = setChatFolder;
 window.filterChatsByFolder = filterChatsByFolder;
+window.showGlobalSearch = showGlobalSearch;
+window.showSavedMessagesModal = showSavedMessagesModal;
+window.showArchivedChatsModal = showArchivedChatsModal;
 
 function unarchiveChat(chatId, isGroup) {
     toggleArchiveChat(chatId, isGroup);

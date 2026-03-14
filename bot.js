@@ -6,15 +6,40 @@ require('dotenv').config();
 // ==========================================================
 // КОНФИГУРАЦИЯ
 // ==========================================================
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8163102252:AAERNSrcwDY5-jJ2oyo9KGsnFjugJdhcEa4';
-const DEV_CODE = process.env.DEV_CODE || '20091326';
+const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const DEV_CODE = process.env.DEV_CODE;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'ruchat.official@mail.ru';
 
-// Firebase REST API URL
-const DB_URL = 'https://ruchat-e1b0a-default-rtdb.europe-west1.firebasedatabase.app';
+// Firebase REST API URL (унифицировано с основным приложением)
+const DB_URL = process.env.FIREBASE_DB_URL || 'https://web-messenger-1694a-default-rtdb.europe-west1.firebasedatabase.app';
 
-// Создаем бота
+// Проверка конфигурации перед запуском
+if (!TOKEN) {
+  console.error('❌ ОШИБКА: TELEGRAM_BOT_TOKEN не установлен!');
+  console.error('   Создайте файл .env и укажите токен бота.');
+  console.error('   Пример: TELEGRAM_BOT_TOKEN=your_token_here');
+  process.exit(1);
+}
+
+if (!DEV_CODE) {
+  console.error('❌ ОШИБКА: DEV_CODE не установлен!');
+  console.error('   Создайте файл .env и укажите код разработчика.');
+  console.error('   Пример: DEV_CODE=your_code_here');
+  process.exit(1);
+}
+
+// Создаем бота с проверкой токена
 const bot = new TelegramBot(TOKEN, { polling: true });
+
+// Валидация токена при запуске
+bot.getMe().then((me) => {
+  console.log(`✅ Бот авторизован: @${me.username} (${me.first_name})`);
+}).catch((error) => {
+  console.error('❌ ОШИБКА: Неверный токен бота!');
+  console.error('   Проверьте TELEGRAM_BOT_TOKEN в файле .env');
+  console.error(`   Детали: ${error.message}`);
+  process.exit(1);
+});
 
 // Хранилище сессий
 const sessions = new Map();
@@ -792,5 +817,5 @@ bot.on('callback_query', (query) => {
 
 console.log('✅ RuChat Admin Bot запущен!');
 console.log(`📧 Email для жалоб: ${ADMIN_EMAIL}`);
-console.log(`🔑 Код разработчика: ${DEV_CODE}`);
 console.log(`🔗 Firebase URL: ${DB_URL}`);
+console.log('🔐 Код разработчика: установлен из .env');
