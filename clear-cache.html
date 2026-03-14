@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <script>
+        // Принудительная очистка кэша
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                for (let name of names) caches.delete(name);
+            });
+        }
+        // Версия для сброса кэша
+        window.APP_VERSION = '1.6.2-' + Date.now();
+    </script>
+</head>
+<body>
+    <h1>Очистка кэша завершена!</h1>
+    <p>Перезагрузите страницу (Ctrl+F5)</p>
+    <script>
+        setTimeout(() => window.location.href = 'index.html?v=' + Date.now(), 2000);
+    </script>
+</body>
+</html>

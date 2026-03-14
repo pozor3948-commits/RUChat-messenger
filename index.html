@@ -12,11 +12,21 @@
     <meta name="application-name" content="RuChat Мессенджер">
     <meta name="description" content="RuChat - современный мессенджер">
     <meta name="keywords" content="мессенджер, чат, RuChat, сообщения, общение">
-
-    <!-- PWA Manifest -->
-    <!-- manifest.json требует http/https (не работает через file://) -->
-    <!-- Для PWA используйте: firebase serve или localhost -->
-    <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
+    
+    <!-- Запрет кэширования -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <!-- PWA Manifest (работает только через HTTP/HTTPS) -->
+    <!-- Если открыто через file:// - будет CORS предупреждение (это нормально) -->
+    <link rel="manifest" href="manifest.json" crossorigin="use-credentials" id="pwa-manifest">
+    <script>
+        // Отключаем manifest при открытии через file://
+        if (window.location.protocol === 'file:') {
+            document.getElementById('pwa-manifest').remove();
+        }
+    </script>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -511,33 +521,50 @@
 </div>
 
 <!-- Скрипты -->
-<script src="js/core.js?v=20260314b"></script> <!-- НОВЫЙ: Быстрое ядро -->
-<script src="js/firebase-config.js?v=20260219d"></script>
-<script src="js/utils.js?v=20260314b"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
-<script src="js/all-functions-fix.js?v=20260312e"></script> <!-- ИСПРАВЛЕНИЕ: Все функции -->
-<script src="js/main.js?v=20260303b"></script>
-<script src="js/ui.js?v=20260314b"></script>
-<script src="js/sounds.js?v=20260219d"></script>
-<script src="js/auth.js?v=20260314b"></script>
-<script src="js/push.js?v=20260303a"></script>
-<script src="js/status.js?v=20260219d"></script>
-<script src="js/chat.js?v=20260314b"></script>
-<script src="js/media.js?v=20260314b"></script>
-<script src="js/video-messages.js?v=20260305a"></script>
-<script src="js/emoji.js?v=20260219d"></script>
-<script src="js/stickers.js?v=20260219d"></script>
-<script src="js/groups.js?v=20260314b"></script>
-<script src="js/mobile.js?v=20260301b"></script>
-<script src="js/audio-call.js?v=20260314b"></script>
-<script src="js/settings.js?v=20260314b"></script>
-<script src="js/extended-features.js?v=20260314b"></script>
-<script src="js/extended-integration.js?v=20260314b"></script>
-<script src="js/advanced-features.js?v=20260312b"></script>
-<script src="js/media-features.js?v=20260312b"></script>
-<script src="js/new-features-integration.js?v=20260312b"></script>
-<script src="js/secret-chats.js?v=20260312c"></script>
-<script src="js/stories.js?v=20260312d"></script>
-<script src="js/backup.js?v=20260314b"></script> <!-- НОВЫЙ: Резервное копирование -->
+<script src="js/core.js?v=1.6.2c"></script> <!-- НОВЫЙ: Быстрое ядро -->
+<script src="js/firebase-config.js?v=1.6.2c"></script>
+<script src="js/utils.js?v=1.6.2c"></script> <!-- ПЕРВЫЙ! Содержит глобальные переменные -->
+<script src="js/all-functions-fix.js?v=1.6.2c"></script> <!-- ИСПРАВЛЕНИЕ: Все функции -->
+<script src="js/main.js?v=1.6.2c"></script>
+<script src="js/ui.js?v=1.6.2c"></script>
+<script src="js/sounds.js?v=1.6.2c"></script>
+<script src="js/auth.js?v=1.6.2c"></script>
+<script src="js/push.js?v=1.6.2c"></script>
+<script src="js/status.js?v=1.6.2c"></script>
+<script src="js/chat.js?v=1.6.2c"></script>
+<script src="js/media.js?v=1.6.2c"></script>
+<script src="js/video-messages.js?v=1.6.2c"></script>
+<script src="js/emoji.js?v=1.6.2c"></script>
+<script src="js/stickers.js?v=1.6.2c"></script>
+<script src="js/groups.js?v=1.6.2c"></script>
+<script src="js/mobile.js?v=1.6.2c"></script>
+<script src="js/audio-call.js?v=1.6.2c"></script>
+<script src="js/settings.js?v=1.6.2c"></script>
+<script src="js/extended-features.js?v=1.6.2c"></script>
+<script src="js/extended-integration.js?v=1.6.2c"></script>
+<script src="js/advanced-features.js?v=1.6.2c"></script>
+<script src="js/media-features.js?v=1.6.2c"></script>
+<script src="js/new-features-integration.js?v=1.6.2c"></script>
+<script src="js/secret-chats.js?v=1.6.2c"></script>
+<script src="js/stories.js?v=1.6.2c"></script>
+<script src="js/backup.js?v=1.6.2c"></script>
+
+<script>
+    // Принудительная очистка кэша при загрузке
+    (function() {
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                for (let name of names) {
+                    caches.delete(name);
+                    console.log('[Cache] Удалён кэш:', name);
+                }
+            });
+        }
+        // Версия приложения
+        window.APP_VERSION = '1.6.2';
+        console.log('[RuChat] Версия:', window.APP_VERSION);
+    })();
+</script>
 
 <script>
     // Функция для проверки локального запуска
@@ -545,18 +572,19 @@
         return window.location.protocol === 'file:';
     };
 
-    // Регистрация Service Worker для PWA (только для http/https)
-    if ('serviceWorker' in navigator && !window.isLocalFile()) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js')
-                .then((registration) => {
-                    console.log('[PWA] SW зарегистрирован:', registration.scope);
-                })
-                .catch((error) => {
-                    console.log('[PWA] Ошибка регистрации SW:', error);
-                });
-        });
-    }
+    // Регистрация Service Worker для PWA (отключено - нет файла sw.js)
+    // if ('serviceWorker' in navigator && !window.isLocalFile()) {
+    //     window.addEventListener('load', () => {
+    //         navigator.serviceWorker.register('/sw.js')
+    //             .then((registration) => {
+    //                 console.log('[PWA] SW зарегистрирован:', registration.scope);
+    //             })
+    //             .catch((error) => {
+    //                 console.log('[PWA] Ошибка регистрации SW:', error);
+    //             });
+    //     });
+    // }
+    console.log('[PWA] Service Worker отключён (нет файла sw.js)');
 
     // Установка PWA
     let deferredPrompt;
@@ -640,7 +668,7 @@
         if (retry) window.retryAction = retry;
     };
     
-    console.log('Build 2026-03-14b (Fixed)');
+    console.log('Build 2026-03-14c v1.6.2 (CONFETKA)');
     
     // Автоматическое скрытие меню при клике вне их
     document.addEventListener('click', function(e) {

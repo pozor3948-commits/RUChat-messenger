@@ -890,9 +890,9 @@ function openMedia(url) {
     document.addEventListener('keydown', handleMediaViewerKeydown);
 }
 
+// Экспорт функций
 window.closeMediaViewer = closeMediaViewer;
-window.openMediaViewer = openMediaViewer;
-window.openMedia = openMedia;
+window.openMedia = openMedia;  // Основная функция
 window.startVoiceRecord = startVoiceRecord;
 window.stopVoiceRecord = stopVoiceRecord;
 window.cancelVoiceRecord = cancelVoiceRecord;

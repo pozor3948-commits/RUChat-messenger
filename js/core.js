@@ -1,7 +1,7 @@
 /**
  * RuChat - Core Functions
  * Объединённый файл для быстрой загрузки
- * Версия: 1.6.1
+ * Версия: 1.6.2
  */
 
 // Быстрая инициализация критических функций
@@ -16,7 +16,7 @@
     
     // Глобальные переменные
     window.ruchat = window.ruchat || {};
-    window.ruchat.version = '1.6.1';
+    window.ruchat.version = '1.6.2';
     window.ruchat.loaded = false;
     
     // Критические функции
@@ -51,14 +51,14 @@
     // Инициализация после загрузки всех скриптов
     window.addEventListener('load', function() {
         window.ruchat.loaded = true;
-        console.log('[RuChat] Core loaded');
+        console.log('[RuChat] Core v' + window.ruchat.version + ' loaded');
         
-        // Автозапуск резервного копирования
-        if (typeof window.autoBackup === 'function') {
-            setTimeout(function() {
-                window.autoBackup();
-            }, 5000);
-        }
+        // Автобекап ОТКЛЮЧЕН для предотвращения ошибок
+        // if (typeof window.autoBackup === 'function') {
+        //     setTimeout(function() {
+        //         window.autoBackup();
+        //     }, 5000);
+        // }
     });
     
     // Обработка ошибок (не спамим)
@@ -73,6 +73,10 @@
     window.addEventListener('unhandledrejection', function(e) {
         // Игнорируем ошибки Firebase (permission denied)
         if (e.reason && e.reason.code === 'PERMISSION_DENIED') {
+            return;
+        }
+        // Игнорируем ошибки Service Worker
+        if (e.reason && e.reason.message && e.reason.message.includes('service worker')) {
             return;
         }
         console.error('[RuChat Promise Error]', e.reason);
