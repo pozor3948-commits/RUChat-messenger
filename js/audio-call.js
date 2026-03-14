@@ -133,24 +133,40 @@ async function startAudioCall() {
             console.log('[WebRTC] ICE состояние:', peerConnection.iceConnectionState);
         };
 
-        // Обработка ICE candidates
+        // Обработка ICE candidates - отправляем только рабочие кандидаты
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                const type = event.candidate.type || 'unknown';
-                const address = event.candidate.address || 'unknown';
-                console.log('[WebRTC] Отправляем ICE кандидат:', type, address);
+                const candidate = event.candidate;
+                const type = candidate.type || 'unknown';
+                const address = candidate.address || 'unknown';
+                const protocol = candidate.protocol || 'unknown';
+                
+                // Пропускаем IPv6 кандидаты если они вызывают ошибки
+                const isIPv6 = address.includes(':') && address.includes('[');
+                if (isIPv6) {
+                    console.log('[WebRTC] Пропускаем IPv6 кандидат:', address);
+                    return;
+                }
+                
+                console.log('[WebRTC] Отправляем ICE кандидат:', type, address, protocol);
                 db.ref(`calls/${currentChatId}/candidates`).push({
-                    candidate: event.candidate,
+                    candidate: candidate,
                     from: username
                 });
             } else {
                 console.log('[WebRTC] Все ICE кандидаты отправлены (end of candidates)');
             }
         };
-        
-        // Получаем ICE кандидатов от удалённой стороны
+
+        // Обработка ошибок ICE кандидатов - не спамим в консоль
         peerConnection.onicecandidateerror = (event) => {
-            console.error('[WebRTC] Ошибка ICE кандидата:', event);
+            // Логируем только критические ошибки, игнорируем временные сбои TURN/STUN
+            const isTurnError = event.url && event.url.includes('turn:');
+            const isIPv6Error = event.address && (event.address.includes('::') || event.address.includes('['));
+            
+            if (!isTurnError && !isIPv6Error) {
+                console.warn('[WebRTC] Ошибка ICE кандидата:', event.url, event.address);
+            }
         };
 
         // Создаем offer
@@ -373,20 +389,37 @@ async function acceptIncomingCall(callData) {
 
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-                const type = event.candidate.type || 'unknown';
-                const address = event.candidate.address || 'unknown';
-                console.log('[WebRTC] Отправляем ICE кандидат:', type, address);
+                const candidate = event.candidate;
+                const type = candidate.type || 'unknown';
+                const address = candidate.address || 'unknown';
+                const protocol = candidate.protocol || 'unknown';
+                
+                // Пропускаем IPv6 кандидаты если они вызывают ошибки
+                const isIPv6 = address.includes(':') && address.includes('[');
+                if (isIPv6) {
+                    console.log('[WebRTC] Пропускаем IPv6 кандидат:', address);
+                    return;
+                }
+                
+                console.log('[WebRTC] Отправляем ICE кандидат:', type, address, protocol);
                 db.ref(`calls/${currentChatId}/candidates`).push({
-                    candidate: event.candidate,
+                    candidate: candidate,
                     from: username
                 });
             } else {
                 console.log('[WebRTC] Все ICE кандидаты отправлены (end of candidates)');
             }
         };
-        
+
+        // Обработка ошибок ICE кандидатов - не спамим в консоль
         peerConnection.onicecandidateerror = (event) => {
-            console.error('[WebRTC] Ошибка ICE кандидата:', event);
+            // Логируем только критические ошибки, игнорируем временные сбои TURN/STUN
+            const isTurnError = event.url && event.url.includes('turn:');
+            const isIPv6Error = event.address && (event.address.includes('::') || event.address.includes('['));
+            
+            if (!isTurnError && !isIPv6Error) {
+                console.warn('[WebRTC] Ошибка ICE кандидата:', event.url, event.address);
+            }
         };
 
         // Устанавливаем удаленное описание из offer
