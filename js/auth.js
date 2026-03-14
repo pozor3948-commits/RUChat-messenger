@@ -345,12 +345,17 @@ async function registerDeviceToken(u) {
       updatedAt: Date.now(),
       userAgent: navigator.userAgent || ''
     });
+    // Push notifications: try to register only if VAPID key is configured
     if (typeof window.syncPushTokenForCurrentSession === 'function') {
-      await window.syncPushTokenForCurrentSession({
+      const result = await window.syncPushTokenForCurrentSession({
         user: u,
         deviceToken: token,
         askPermission: false
       });
+      // Если VAPID ключ не настроен или ошибка аутентификации - не показываем ошибку
+      if (!result.ok && result.reason !== 'missing_vapid_key') {
+        // Тихо игнорируем ошибки push
+      }
     }
   } catch (e) {
     // ignore

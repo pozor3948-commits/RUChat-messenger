@@ -168,7 +168,19 @@ async function syncPushTokenForCurrentSession(options = {}) {
     localStorage.setItem(PUSH_FCM_TOKEN_STORAGE_KEY, fcmToken);
     return { ok: true, token: fcmToken };
   } catch (error) {
-    console.warn('RuChat push: failed to sync token', error && error.message ? error.message : error);
+    // Логируем только если это не ошибка аутентификации VAPID (401)
+    const isAuthError = error && (
+      String(error.code).includes('token-subscribe-failed') ||
+      String(error.message).includes('401') ||
+      String(error.message).includes('authentication')
+    );
+    
+    if (!isAuthError) {
+      console.warn('RuChat push: failed to sync token', error && error.message ? error.message : error);
+    } else {
+      // Тихая ошибка аутентификации - возможно VAPID ключ не соответствует проекту
+      console.warn('RuChat push: VAPID authentication failed. Check if VAPID key matches your Firebase project.');
+    }
     return { ok: false, reason: 'sync_failed' };
   }
 }

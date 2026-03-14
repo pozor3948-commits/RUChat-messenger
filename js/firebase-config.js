@@ -3,10 +3,10 @@
    ========================================================== */
 const firebaseConfig = {
   apiKey: "AIzaSyArPlbiw8QTUBsx88Vx3JJYzPo0mMcyi6s",
-  authDomain: "web-messenger-1694a.firebaseapp.com",
-  databaseURL: "https://web-messenger-1694a-default-rtdb.firebaseio.com",
-  projectId: "web-messenger-1694a",
-  storageBucket: "web-messenger-1694a.appspot.com",
+  authDomain: "ruchat-e1b0a.firebaseapp.com",
+  databaseURL: "https://ruchat-e1b0a-default-rtdb.firebaseio.com",
+  projectId: "ruchat-e1b0a",
+  storageBucket: "ruchat-e1b0a.appspot.com",
   messagingSenderId: "868140400942",
   appId: "1:868140400942:web:7f09edac08c18766183abf"
 };
@@ -17,7 +17,7 @@ const firebaseConfig = {
 // IMPORTANT: Replace the empty string below with your actual VAPID key from Firebase Console.
 // Until then, push notifications will be disabled (no errors will be shown).
 if (typeof window.RUCHAT_WEB_PUSH_VAPID_KEY !== 'string') {
-  window.RUCHAT_WEB_PUSH_VAPID_KEY = 'BCkvTgr9F69czVnqhQ4xN-wxc4JkFFa2IxpWFQ2r8odm8OeiMV5v6ajSohHU74hrGtZYdfFFJpfPnKaFPXSgnZg';
+  window.RUCHAT_WEB_PUSH_VAPID_KEY = 'BOwBpDQUGXgTtFQYoXVq_8z6bkQlDxYGueTJDodv3HC0E0dhoeMKICphcaDAzNpOFW-v_U-s0q5T5aip3wt3Gu4';
 }
 
 // В Android WebView и некоторых сетях WebSocket к RTDB часто режется/глючит.
