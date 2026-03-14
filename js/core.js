@@ -16,7 +16,7 @@
     
     // Глобальные переменные
     window.ruchat = window.ruchat || {};
-    window.ruchat.version = '1.6.2';
+    window.ruchat.version = '1.6.3';
     window.ruchat.loaded = false;
     
     // Критические функции

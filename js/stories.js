@@ -408,21 +408,28 @@ window.closeStoryViewer = function() {
    ОТОБРАЖЕНИЕ ИСТОРИЙ В САЙДБАРЕ
    ========================================================== */
 function loadStoriesForSidebar() {
+    // Проверяем что db доступен
+    const db = window.db || (typeof firebase !== 'undefined' ? firebase.database() : null);
+    if (!db) {
+        console.error('[Stories] Firebase database не доступен');
+        return;
+    }
+    
     const container = document.getElementById('storiesContainer');
     if (!container) {
         console.log('[Stories] storiesContainer не найден');
         return;
     }
-    
+
     const list = document.getElementById('storiesList');
     if (!list) {
         console.log('[Stories] storiesList не найден');
         return;
     }
-    
+
     // Показываем контейнер
     container.style.display = 'block';
-    
+
     // Загружаем истории из Firebase
     db.ref('storiesIndex').once('value', snap => {
         if (!snap.exists()) {
@@ -510,16 +517,7 @@ setInterval(() => {
 // Загрузка при старте
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[Stories] Модуль загружен, инициализация...');
-    // Пробуем загрузить сразу
-    setTimeout(() => {
-        if (typeof loadStoriesForSidebar === 'function') {
-            console.log('[Stories] Вызываем loadStoriesForSidebar');
-            loadStoriesForSidebar();
-        } else {
-            console.log('[Stories] Функция еще не загружена');
-        }
-    }, 500);
-    
+    // Не вызываем loadStoriesForSidebar здесь - это будет сделано из index.html
     // Обновляем каждые 30 секунд
     setInterval(() => {
         if (typeof loadStoriesForSidebar === 'function') {
