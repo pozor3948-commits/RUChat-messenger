@@ -14,9 +14,10 @@ const firebaseConfig = {
 // Set this to your Firebase Web Push certificate key (VAPID public key).
 // Firebase Console -> Project Settings -> Cloud Messaging -> Web configuration.
 // To get your VAPID key: Firebase Console > Project Settings > Cloud Messaging > Web Push certificates
+// IMPORTANT: Replace the empty string below with your actual VAPID key from Firebase Console.
+// Until then, push notifications will be disabled (no errors will be shown).
 if (typeof window.RUCHAT_WEB_PUSH_VAPID_KEY !== 'string') {
-  // Получите VAPID ключ из Firebase Console и вставьте его ниже
-  window.RUCHAT_WEB_PUSH_VAPID_KEY = 'BKagKzZPFvZXZzJzYjY5YzY5YzY5YzY5YzY5YzY5YzY5YzY5YzY5YzY5YzY5YzY5YzY5YzY5YzY5YzY5YzY5YzY'; // ЗАМЕНИТЕ НА ВАШ КЛЮЧ
+  window.RUCHAT_WEB_PUSH_VAPID_KEY = 'BCkvTgr9F69czVnqhQ4xN-wxc4JkFFa2IxpWFQ2r8odm8OeiMV5v6ajSohHU74hrGtZYdfFFJpfPnKaFPXSgnZg';
 }
 
 // В Android WebView и некоторых сетях WebSocket к RTDB часто режется/глючит.

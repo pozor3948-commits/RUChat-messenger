@@ -136,8 +136,9 @@ async function syncPushTokenForCurrentSession(options = {}) {
   }
 
   const vapidKey = getPushVapidKey();
-  if (!vapidKey) {
-    console.warn('RuChat push: missing VAPID key. Set window.RUCHAT_WEB_PUSH_VAPID_KEY in js/firebase-config.js.');
+  if (!vapidKey || vapidKey.trim() === '' || vapidKey.includes('ЗАМЕНИТЕ') || vapidKey.includes('INSERT')) {
+    // VAPID ключ не настроен - тихо отключаем push, не показываем ошибку в консоли
+    await removeFcmTokenFromDatabase(user, deviceToken);
     return { ok: false, reason: 'missing_vapid_key' };
   }
 
